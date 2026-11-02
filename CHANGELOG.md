@@ -11,6 +11,13 @@
 - Testes novos de regressão para falha de SimVar, reconexão, retomada, idempotência, migração e rota.
 - Painel na toolbar do MSFS continua como próxima etapa documentada; não incluído neste patch.
 
+### Validação física no MSFS 2020 (02/11/2026)
+- Confirmado pelo piloto: missão SIPE → SIFC concluída e encerrada na v0.1.2, com decolagem 19:45:14, pouso 19:55:07 e −172 ft/min estimados.
+- Recompensa de $420 creditada uma vez no log visível; caixa mostrado $6.270; aplicativo exibiu "Nenhum contrato ativo".
+- SimConnect aparecia conectado na captura após o pouso. Não foi comprovada ainda a retomada automática depois de uma queda real durante o voo, nem a ausência de duplicidade após reabrir o aplicativo.
+- Evidência recebida no chat; não publicar captura de tela nem banco de carreira no repositório público.
+
+
 ## 0.1.1-alpha — 2026-11-02
 
 - Demo e comunicação SimConnect confirmadas em Windows real pelo piloto.
