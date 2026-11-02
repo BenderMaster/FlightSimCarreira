@@ -1,0 +1,180 @@
+"""Domínio independente de interface, simulador e banco de dados."""
+from __future__ import annotations
+from dataclasses import dataclass, asdict
+from datetime import datetime, timezone
+from enum import Enum
+from math import radians, cos, sin, asin, sqrt
+from typing import Optional
+
+
+@dataclass(frozen=True)
+class Airport:
+    icao: str
+    name: str
+    latitude: float
+    longitude: float
+
+
+# Referências ARP (latitude/longitude), não pontos de toque na pista.
+AIRPORTS = {
+    "SBRF": Airport("SBRF", "Recife / Guararapes", -8.126388889, -34.922777778),
+    "SIPE": Airport("SIPE", "Itapessoca", -7.656666667, -34.856944444),
+    "SBJP": Airport("SBJP", "João Pessoa / Castro Pinto", -7.148333333, -34.950277778),
+}
+
+
+def distance_nm(a_lat: float, a_lon: float, b_lat: float, b_lon: float) -> float:
+    """Grande círculo; 1 MN = 1852 m. Apenas distância geométrica."""
+    phi1, phi2 = radians(a_lat), radians(b_lat)
+    dphi = radians(b_lat-a_lat)
+    dlon = radians(b_lon-a_lon)
+    h = sin(dphi/2)**2 + cos(phi1)*cos(phi2)*sin(dlon/2)**2
+    return (6371008.8 * 2 * asin(min(1.0, sqrt(h)))) / 1852
+
+
+@dataclass(frozen=True)
+class Mission:
+    id: str
+    origin: str
+    destination: str
+    title: str
+    reward: int
+
+
+MISSIONS = (
+    Mission("REC-ITA", "SBRF", "SIPE", "Encomenda expressa", 850),
+    Mission("REC-JPA", "SBRF", "SBJP", "Documentos comerciais", 1450),
+    Mission("ITA-JPA", "SIPE", "SBJP", "Peças de manutenção", 1050),
+)
+
+
+@dataclass(frozen=True)
+class FlightSample:
+    timestamp: float  # segundos UTC; para testes, relógio monotônico sintético
+    latitude: float
+    longitude: float
+    altitude_ft: float
+    agl_ft: float
+    ias_kt: float
+    groundspeed_kt: float
+    vs_fpm: float
+    on_ground: bool
+    engine_running: Optional[bool] = None
+    fuel_gallons: Optional[float] = None
+    stall_warning: Optional[bool] = None
+
+
+class Phase(str, Enum):
+    WAITING = "aguardando"
+    GROUND = "solo"
+    AIRBORNE = "em voo"
+    LANDED = "pousado"
+
+
+class FlightTracker:
+    """Detecta um voo por mudanças no estado on_ground (não controla a aeronave).
+
+    Para evitar contar toques rápidos/bounces, confirma pouso somente depois de
+    2s contínuos no solo. A razão vertical do toque é a última amostra aérea
+    válida nos 2s antes do primeiro contato (não é dado de sensor perfeito).
+    """
+
+    def __init__(self, min_airborne_s: float = 5.0, ground_confirm_s: float = 2.0):
+        self.phase = Phase.WAITING
+        self.min_airborne_s = min_airborne_s
+        self.ground_confirm_s = ground_confirm_s
+        self.last: Optional[FlightSample] = None
+        self.takeoff_sample: Optional[FlightSample] = None
+        self.pending_landing: Optional[FlightSample] = None
+        self.pending_vs_fpm: Optional[float] = None
+        self.last_airborne_vs: Optional[float] = None
+        self.last_airborne_timestamp: Optional[float] = None
+        self.events: list[dict] = []
+        self.stalls = 0
+        self._stall_active = False
+        self._last_event_timestamp: Optional[float] = None
+
+    def update(self, s: FlightSample) -> list[dict]:
+        if self.last and s.timestamp <= self.last.timestamp:
+            return []
+        out: list[dict] = []
+        if self.phase == Phase.WAITING:
+            if s.on_ground:
+                self.phase = Phase.GROUND
+        elif self.phase == Phase.GROUND:
+            if not s.on_ground and s.agl_ft >= 3 and s.groundspeed_kt >= 25:
+                self.phase = Phase.AIRBORNE
+                self.takeoff_sample = s
+                out.append({"type": "takeoff", "timestamp": s.timestamp,
+                            "lat": s.latitude, "lon": s.longitude})
+        elif self.phase == Phase.AIRBORNE:
+            if not s.on_ground:
+                self.last_airborne_vs = s.vs_fpm
+                self.last_airborne_timestamp = s.timestamp
+                self.pending_landing = None
+                self.pending_vs_fpm = None
+            elif self.takeoff_sample and s.timestamp - self.takeoff_sample.timestamp >= self.min_airborne_s:
+                if self.pending_landing is None:
+                    self.pending_landing = s
+                    self.pending_vs_fpm = (self.last_airborne_vs
+                                           if self.last_airborne_timestamp is not None
+                                           and s.timestamp - self.last_airborne_timestamp <= 2.0
+                                           else None)
+                if s.timestamp - self.pending_landing.timestamp >= self.ground_confirm_s:
+                    self.phase = Phase.LANDED
+                    descent = self.pending_vs_fpm
+                    out.append({"type": "landing", "timestamp": s.timestamp,
+                                "lat": s.latitude, "lon": s.longitude,
+                                "touchdown_fpm_est": descent})
+        if self.phase == Phase.AIRBORNE and s.stall_warning is True and not self._stall_active:
+            self.stalls += 1
+            out.append({"type": "stall_warning", "timestamp": s.timestamp})
+        self._stall_active = bool(s.stall_warning)
+        self.last = s
+        self.events.extend(out)
+        return out
+
+    def reset(self):
+        self.__init__(self.min_airborne_s, self.ground_confirm_s)
+
+
+class Career:
+    """Economia própria; missões simples vinculadas a aeroportos reais."""
+    def __init__(self, balance: int = 5000):
+        self.balance = balance
+        self.mission: Optional[Mission] = None
+        self.origin_confirmed = False
+        self.completed_ids: list[str] = []
+
+    def accept(self, mission: Mission, sample: Optional[FlightSample] = None):
+        if self.mission is not None:
+            raise ValueError("Conclua ou cancele a missão ativa.")
+        if sample and distance_nm(sample.latitude, sample.longitude,
+                                  AIRPORTS[mission.origin].latitude,
+                                  AIRPORTS[mission.origin].longitude) > 3:
+            raise ValueError(f"Sua aeronave não está próxima de {mission.origin}.")
+        self.mission = mission
+        self.origin_confirmed = sample is not None and sample.on_ground
+
+    def cancel(self):
+        self.mission = None
+        self.origin_confirmed = False
+
+    def evaluate(self, events: list[dict]) -> Optional[dict]:
+        """Crédito somente com decolagem na origem e pouso no destino."""
+        if not self.mission:
+            return None
+        for e in events:
+            if e["type"] == "takeoff":
+                a = AIRPORTS[self.mission.origin]
+                self.origin_confirmed = distance_nm(e["lat"], e["lon"], a.latitude, a.longitude) <= 3
+            if e["type"] == "landing" and self.origin_confirmed:
+                b = AIRPORTS[self.mission.destination]
+                dist = distance_nm(e["lat"], e["lon"], b.latitude, b.longitude)
+                if dist <= 3:
+                    mission = self.mission
+                    self.balance += mission.reward
+                    self.completed_ids.append(mission.id)
+                    self.cancel()
+                    return {"mission": mission.id, "reward": mission.reward, "distance_nm_to_dest": round(dist,2)}
+        return None
