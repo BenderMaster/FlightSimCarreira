@@ -9,7 +9,7 @@
 - [x] Inspetor somente leitura que faz cópia de common.db e extrai apenas estrutura SQLite.
 - [x] Testes independentes de MSFS e ação CI.
 - [x] Demo e conexão SimConnect ao MSFS 2020 confirmadas pelo piloto no Windows.
-- [ ] Inspeção do esquema real do NeoFly (aguarda localizar `common.db` ou `std.bin` no Windows do piloto).
+- [x] Inspeção do esquema real do NeoFly: relatório SQLite analisado (54 tabelas, apenas metadados de estrutura).\n- [ ] Implementar prévia de importação local e somente leitura, sem duplicidade nem alteração dos dados originais.\n- [ ] Validar uma missão completa no MSFS real (decolagem, voo, pouso, recompensa, diário).
 
 ## v0.1.1 — após teste físico
 - Robustez de conexão e reconexão de SimConnect, frequência, dados nulos.
@@ -25,7 +25,7 @@
 - Contratos diferenciados: turismo, carga, táxi aéreo.
 - Progressão financeira, habilitações e reputação.
 
-## v0.3+
+## Painel integrado ao MSFS 2020 — REQUISITO PRIORITÁRIO\n- [ ] Interface integral na toolbar do MSFS 2020, **sem Alt+Tab** para mapa, contratos, pagamentos, frota ou diário.\n- [ ] Motor Windows/SimConnect em segundo plano, API/WS apenas loopback e autenticada para ações mutáveis.\n- [ ] PoC de package Community com painel e telemetria, validada no MSFS 2020 Steam.\n- [ ] Mapa navegável e contratos operacionais na interface in-game.\n- [ ] Inicialização automática do companion e recuperação de conexão sem intervenção externa.\n- [ ] Testes de regressão e validação de UI/ponte real.\n- [ ] Consultar [arquitetura in-game](ARQUITETURA_IN_GAME.md) e [esquema NeoFly](NEOFLY_SCHEMA.md).\n\n## v0.3+
 - Histórias de voos e eventos narrativos originais.
 - Companhia aérea, equipe, frota, empresas e contratos extensos.
 - Pacote de instalação Windows em exe assinado, quando a arquitetura for estabilizada.
