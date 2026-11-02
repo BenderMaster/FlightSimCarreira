@@ -17,7 +17,9 @@
 - [x] Checkpoint de missão/voo e retomada após reinício do app.
 - [x] Pouso+crédito atômico sem recompensa duplicada; migração do SQLite anterior.
 - [x] Rota SIPE → SIFC para teste rápido; testes automatizados e interface virtual aprovados.
-- [ ] Validar voo real SIPE → SIFC no MSFS 2020, inclusive perda de conexão.
+- [x] Validar voo real SIPE → SIFC no MSFS 2020: decolagem 19:45:14, pouso 19:55:07, razão estimada −172 ft/min, $420 creditados, saldo $6.270 e contrato encerrado (evidência: captura enviada pelo piloto em 02/11/2026).
+- [ ] Validar **reconexão automática após perda real de SimConnect em voo**; a captura do pouso comprova conexão ao final, mas não necessariamente recuperação após interrupção.
+- [ ] Validar persistência e ausência de crédito duplicado ao fechar/reabrir o aplicativo após pouso real.
 
 ## v0.1.3 — melhorias após teste físico
 - Robustez de conexão e reconexão de SimConnect, frequência, dados nulos.
