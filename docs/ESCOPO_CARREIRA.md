@@ -51,6 +51,19 @@ Decisões levantadas na conversa em 02/11/2026. **Planejamento:** não confundir
 
 **Importante:** esses limites são apenas defaults provisórios para teste. Não refletem cargas horárias e requisitos regulatórios reais; exigências de avaliação prática, cursos e aeronaves serão discutidas antes de restringir a progressão.
 
+
+## Configuração de realismo — habilitações (decisão de UX em discussão)
+
+- O piloto **não deve ser obrigado** a fazer aulas, testes práticos ou exames para acessar uma categoria se não desejar esse nível de realismo.
+- Planejar um controle simples **“Exigir provas para novas habilitações”**, inicialmente **desligado** (proposta de padrão para confirmar com o piloto).
+- **Desligado:** habilitações virtuais são desbloqueadas pelos requisitos de progressão (XP, voos e pré-requisitos já definidos), sem prova.
+- **Ligado:** novas habilitações podem exigir curso e/ou prova prática, além dos requisitos de progressão; formato e dificuldade dos exames ficam para discussão posterior. Não implementar provas antes da decisão.
+- As provas podem estar disponíveis como **treinos opcionais** mesmo no modo desligado.
+- Alternar a opção **não revoga habilitações já conquistadas**, não remove XP e não reescreve históricos; as regras adicionais valem somente para os próximos desbloqueios.
+- Essa configuração é **independente** do toggle de falhas simuladas. Evitar um único “realismo” geral que ligue falhas involuntariamente.
+- Persistir o ajuste no banco e disponibilizá-lo na UI Windows e futuramente no painel in-game; exigir testes de migração, reinício e mudança de modo sem regressão.
+- **Status:** requisito de produto registrado; toggle e provas **ainda não implementados** nesta etapa.
+
 ## Próximos blocos possíveis
 
 - **Bloco 2:** catálogo de aeronaves, requisitos por categoria, contratos desbloqueáveis, perfis e testes de habilitação.
