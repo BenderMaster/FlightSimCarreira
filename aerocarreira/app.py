@@ -13,6 +13,8 @@ from .sim_adapter import SimConnectWorker
 from .demo import demo_samples
 from .neo_inspect import inspect_neofly, discover_neofly_databases
 from .pilot import QUALIFICATIONS, qualification_eligibility, flight_xp
+from .contracts import (AirportCatalog, TYPES, TYPE_BY_CODE, PLANE_BY_CODE,
+                        generate_offers, eligibility, matches_aircraft)
 from . import __version__
 
 BG = "#08111c"
@@ -65,6 +67,8 @@ class Application:
         self.status_var = StringVar(value="Sem conexão • Demo disponível")
         self.pilot_var = StringVar(value="PILOTO • não cadastrado")
         self.pilot_dialog = None
+        self.market_dialog = None
+        self.airport_catalog = None
         self._refresh_pilot_summary()
         self.info_var = StringVar(value="Sem telemetria")
         self.phase_var = StringVar(value="AGUARDANDO")
@@ -147,8 +151,10 @@ class Application:
               font=(FONT,12,"bold")).pack(side="left")
         self.label(bottom,"SimConnect em somente leitura",9,MUTED).pack(side="right")
 
-        missions = self.section(main, "02  /  CONTRATOS INICIAIS")
+        missions = self.section(main, "02  /  MISSÕES E CONTRATOS")
         missions.grid(row=0,column=1,sticky="nsew",pady=(0,12))
+        self.button(missions,"Mercado regional / Freelancer",self._market_window,accent=True).pack(fill="x",pady=(0,7))
+        self.label(missions,"CONTRATOS FIXOS DE TESTE (legados)",8,MUTED,True).pack(anchor="w")
         self.mission_select = ttk.Combobox(missions, state="readonly", width=38, values=[
             f"{m.origin} → {m.destination}  |  ${m.reward}  | {m.title}" for m in MISSIONS])
         self.mission_select.current(0)
@@ -211,7 +217,7 @@ class Application:
             self.pilot_var.set("PILOTO • não cadastrado")
             return
         stats = self.storage.pilot_stats()
-        self.pilot_var.set(f"{pilot['callsign']} • {stats['xp']} XP")
+        self.pilot_var.set(f"{pilot['callsign']} • NÍVEL {stats['level']} • {stats['xp']} XP")
 
     def _pilot_window(self):
         if self.pilot_dialog is not None and self.pilot_dialog.winfo_exists():
@@ -272,7 +278,7 @@ class Application:
             statsframe.pack(fill="x", pady=(12, 8))
             stats_caption = (f"VOOS NO DIÁRIO: {stats['flights']}      "
                              f"HORAS: {stats['hours']:.1f}      "
-                             f"XP: {stats['xp']}      "
+                             f"XP: {stats['xp']}  •  NÍVEL {stats['level']}      "
                              f"HABILITAÇÕES: {len(stats['qualifications'])}")
             self.label(statsframe, stats_caption, 10, GREEN, True).pack(anchor="w")
             self.label(panel, "TRILHA DE HABILITAÇÕES", 11, GOLD, True).pack(anchor="w", pady=(5, 6))
@@ -359,16 +365,159 @@ class Application:
             messagebox.showwarning("Contrato", "Aceite o contrato no solo, com telemetria atualizada.")
             return
         m=MISSIONS[self.mission_select.current()]
-        if self.mode=="Demo" and m.origin=="SBRF" and m.destination!="SIPE":
+        if self.mode=="Demo" and m.id!="REC-ITA":
             self._log("A demonstração fixa simula SBRF → SIPE. Selecione o primeiro contrato.")
             return
+        self._accept_specific(m)
+
+    def _accept_specific(self, m):
+        if self.mode not in ("MSFS", "Demo") or self.last_sample is None:
+            messagebox.showwarning("Contrato", "Conecte ao MSFS e aguarde telemetria em solo.")
+            return False
+        if self.mode == "Demo" and m.id != "REC-ITA":
+            messagebox.showwarning("Demo", "A demo fixa simula somente SBRF → SIPE.")
+            return False
+        if self.mode == "MSFS" and (not self.connected or not self.last_sample.on_ground
+                                   or time() - self.last_sample.timestamp > 10):
+            messagebox.showwarning("Contrato", "Aceite no solo com telemetria atualizada.")
+            return False
+        if m.category != "legacy":
+            if self.storage.get_pilot() is None:
+                messagebox.showwarning("Contrato", "Cadastre seu piloto primeiro.")
+                return False
+            allowed, reason = eligibility(m, self.storage.pilot_stats(),
+                                          self.storage.owned_qualifications(),
+                                          self.storage.family_experience())
+            if not allowed:
+                messagebox.showwarning("Contrato bloqueado", reason)
+                return False
+            if self.storage.contract_completed(m.id):
+                messagebox.showwarning("Contrato", "Este contrato já foi concluído. Aguarde nova oferta.")
+                return False
         try:
             self.career.accept(m,self.last_sample)
             self._show_mission()
             self._checkpoint(force=True)
             self._log(f"Contrato aceito: {m.title} ({m.origin} → {m.destination}).")
+            if m.freelance:
+                plane = PLANE_BY_CODE[m.employer_plane]
+                self._log(f"FREELANCER: avião fornecido pelo contratante: {plane.name}.")
+                self._log("Selecione este modelo no MSFS antes de decolar; o addon NÃO muda o avião automaticamente.")
+                if not matches_aircraft(self.last_sample.aircraft_title, m.employer_plane):
+                    messagebox.showinfo("Freelancer — aeronave do contratante",
+                        f"Contrato aceito. Avião designado: {plane.name}\n\n"
+                        "Antes de decolar, selecione essa aeronave no MSFS. "
+                        "O SimConnect deve reconhecer o modelo para validar o pagamento.")
+            return True
         except ValueError as exc:
             messagebox.showwarning("Contrato",str(exc))
+            return False
+
+    def _market_window(self):
+        if self.market_dialog is not None and self.market_dialog.winfo_exists():
+            self.market_dialog.lift()
+            return
+        if not self.storage.get_pilot():
+            messagebox.showwarning("Mercado regional", "Crie seu perfil em 'Meu piloto / Habilitações'.")
+            return
+        if self.airport_catalog is None:
+            self.airport_catalog = AirportCatalog()
+        catalog = self.airport_catalog
+        sample = self.last_sample
+        center = catalog.nearest(sample.latitude, sample.longitude, 6) if sample else None
+        if center is None:
+            home = self.storage.get_pilot()["home_icao"]
+            center = catalog.locations.get(home)
+        if center is None:
+            messagebox.showwarning("Mercado regional", "Não foi possível localizar aeroportos próximos. "
+                "Conecte o MSFS ou configure uma base ICAO presente no catálogo.")
+            return
+        window = Toplevel(self.root)
+        self.market_dialog = window
+        window.title("FlightSimCarreira • Mercado regional e Freelancer")
+        window.geometry("1060x680")
+        window.minsize(870,560)
+        window.configure(bg=BG)
+        window.transient(self.root)
+        window.protocol("WM_DELETE_WINDOW", lambda: (setattr(self,"market_dialog",None), window.destroy()))
+        wrapper = Frame(window, bg=BG, padx=20, pady=16)
+        wrapper.pack(fill="both",expand=True)
+        self.label(wrapper, f"MERCADO REGIONAL  /  {center.icao} • {center.name}", 16, CYAN, True).pack(anchor="w")
+        notes = ("Catálogo mundial disponível • apenas ofertas próximas são mantidas"
+                 if catalog.global_catalog else
+                 "Catálogo básico local: instale airportsdata para aeroportos do mundo inteiro")
+        self.label(wrapper,notes,9,MUTED).pack(anchor="w",pady=(4,10))
+        stats = self.storage.pilot_stats()
+        self.label(wrapper,f"PILOTO NÍVEL {stats['level']}  •  {stats['xp']} XP  •  "
+                   f"{stats['hours']:.1f} h  •  Habilitações: {', '.join(sorted(stats['qualifications']))}",
+                   10,GREEN,True).pack(anchor="w",pady=(0,8))
+        columns = ("kind", "origin", "destination", "pay", "plane")
+        table = ttk.Treeview(wrapper,columns=columns,show="headings",height=13,selectmode="browse")
+        for key,title,width in [("kind","TIPO",240),("origin","SAÍDA",85),
+                                 ("destination","DESTINO",100),("pay","PAGAMENTO",110),
+                                 ("plane","AVIÃO CONTRATANTE",260)]:
+            table.heading(key,text=title)
+            table.column(key,width=width,stretch=key in ("kind","plane"))
+        table.pack(fill="both",expand=True)
+        details = StringVar(value="Selecione uma missão. O pagamento requer voo completo e destino correto.")
+        Label(wrapper,textvariable=details,bg=BG,fg=GOLD,font=(FONT,10),
+              wraplength=980,justify="left",anchor="w").pack(fill="x",pady=10)
+        offers_by_id = {}
+
+        def selected(*_):
+            keys=table.selection()
+            if not keys:
+                return
+            m=offers_by_id[keys[0]]
+            kind=TYPE_BY_CODE[m.category]
+            plane=PLANE_BY_CODE[m.employer_plane].name if m.freelance else "Aeronave própria (frota futura)"
+            details.set(f"{kind.title}: nível mínimo {kind.min_level}; {', '.join(kind.qualifications)}; "
+                        f"{kind.min_hours:g}h.  {m.origin} → {m.destination}.  "
+                        f"{plane}.  Freelancer: o piloto recebe salário, não compra o avião.")
+        table.bind("<<TreeviewSelect>>",selected)
+
+        def populate(force=False):
+            for row in table.get_children():
+                table.delete(row)
+            offers_by_id.clear()
+            now=time()
+            if force or not self.storage.offer_cache_valid(center.icao, now):
+                day=int(now//86400)
+                # Uma geração por dia/região; clicando atualizar não cria infinitos contratos.
+                offers=generate_offers(center,catalog,self.storage.pilot_stats(),
+                            self.storage.owned_qualifications(),self.storage.family_experience(),day)
+                self.storage.save_offers(center.icao, offers, now=now,
+                                         valid_s=(day+1)*86400-now)
+            for m in self.storage.active_offers(center.icao,now):
+                allowed,_=eligibility(m,self.storage.pilot_stats(),self.storage.owned_qualifications(),
+                                      self.storage.family_experience())
+                if not allowed:
+                    continue
+                offers_by_id[m.id]=m
+                table.insert("", "end", iid=m.id, values=(TYPE_BY_CODE[m.category].title +
+                    ("  •  FREELANCER" if m.freelance else ""),m.origin,m.destination,
+                    f"${m.reward:,}",PLANE_BY_CODE[m.employer_plane].name if m.freelance else "—"))
+            if not offers_by_id:
+                details.set("Sem propostas disponíveis nesta região/nível. "
+                    "Confira XP e habilitações ou tente outra base.")
+            else:
+                details.set(f"{len(offers_by_id)} propostas locais disponíveis. "
+                            "As ofertas são atualizadas diariamente e não são criadas para outros aeroportos.")
+
+        buttons=Frame(wrapper,bg=BG)
+        buttons.pack(fill="x",pady=(5,0))
+        def accept_selection():
+            keys=table.selection()
+            if not keys:
+                messagebox.showinfo("Mercado", "Selecione uma proposta.",parent=window)
+                return
+            if self._accept_specific(offers_by_id[keys[0]]):
+                window.destroy()
+                self.market_dialog=None
+        self.button(buttons,"Aceitar missão selecionada",accept_selection,accent=True).pack(side="left",padx=(0,9))
+        self.button(buttons,"Atualizar lista",lambda:populate(True)).pack(side="left")
+        self.label(buttons,"Apenas ofertas regionais; máximo 13 armazenadas.",9,MUTED).pack(side="right")
+        populate()
 
     def _cancel(self):
         self.career.cancel()
@@ -378,7 +527,9 @@ class Application:
 
     def _show_mission(self):
         m = self.career.mission
-        self.mission_var.set(f"ATIVA  {m.origin} → {m.destination}  |  ${m.reward}" if m else "Nenhum contrato ativo")
+        self.mission_var.set((f"ATIVA  {m.origin} → {m.destination}  |  ${m.reward}"
+            + (f"  •  FREELANCER: {PLANE_BY_CODE[m.employer_plane].name}" if m.freelance else ""))
+            if m else "Nenhum contrato ativo")
 
     def _checkpoint_data(self, tracker=None):
         return {"version": 1, "career": self.career.snapshot(),
@@ -418,11 +569,13 @@ class Application:
         old_career_state = self.career.snapshot()
         old_balance = self.career.balance
         events = self.tracker.update(s)
-        completion_payment = self.career.evaluate(events)
+        completion_payment = self.career.evaluate(events, s.aircraft_title)
         self.phase_var.set(self.tracker.phase.value.upper())
         for e in events:
             if e["type"] == "takeoff":
                 self._log("DECOLAGEM detectada. Diário iniciado e salvo para recuperação.")
+                if self.career.mission and self.career.mission.freelance and not self.career.employer_aircraft_confirmed:
+                    self._log("ALERTA FREELANCER: modelo não confirmado na decolagem; sem pagamento até próximo voo correto.")
                 self._checkpoint(force=True)
             elif e["type"] == "landing":
                 v=e["touchdown_fpm_est"]
@@ -438,7 +591,8 @@ class Application:
                 try:
                     inserted = self.storage.finalize_flight(start, e, v, self.tracker.stalls,
                                         payment["mission"] if payment else None,
-                                        payment["reward"] if payment else 0, checkpoint_after)
+                                        payment["reward"] if payment else 0, checkpoint_after,
+                                        aircraft_title=s.aircraft_title)
                 except Exception as exc:
                     self._log(f"FALHA AO SALVAR pouso: {exc}. Não feche antes de exportar log.")
                     self.status_var.set("Erro ao salvar voo")
@@ -449,16 +603,19 @@ class Application:
                     return
                 self.tracker = next_tracker
                 self.career.balance = int(self.storage.get_setting("balance") or 5000)
+                actual_credit = int(self.storage.get_setting("balance") or 5000) - old_balance
                 if inserted and self.storage.get_pilot() is not None:
-                    self._log(f"PROGRESSO DO PILOTO: +{flight_xp(payment['reward'] if payment else 0)} XP pelo voo concluído.")
+                    self._log(f"PROGRESSO DO PILOTO: +{flight_xp(actual_credit)} XP pelo voo concluído.")
                     self._refresh_pilot_summary()
                 if not inserted:
                     self._log("Pouso já salvo anteriormente: pagamento duplicado bloqueado.")
                     saved = self.storage.get_checkpoint()
                     if saved:
                         self.career.restore(saved.get("career", {}))
+                elif payment and actual_credit > 0:
+                    self._log(f"CONTRATO CONCLUÍDO: +${actual_credit} em nossa carreira.")
                 elif payment:
-                    self._log(f"CONTRATO CONCLUÍDO: +${payment['reward']} em nossa carreira.")
+                    self._log("Contrato já pago anteriormente. Novo crédito bloqueado.")
                 else:
                     self._log("Voo registrado; contrato não concluído (confira origem e destino).")
                 self.balance_var.set(f"$ {self.career.balance:,}")

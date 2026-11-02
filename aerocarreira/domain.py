@@ -40,6 +40,13 @@ class Mission:
     destination: str
     title: str
     reward: int
+    category: str = "legacy"
+    freelance: bool = False
+    employer_plane: str | None = None
+    origin_lat: float | None = None
+    origin_lon: float | None = None
+    destination_lat: float | None = None
+    destination_lon: float | None = None
 
 
 MISSIONS = (
@@ -65,6 +72,7 @@ class FlightSample:
     fuel_gallons: Optional[float] = None
     stall_warning: Optional[bool] = None
     groundspeed_estimated: bool = False
+    aircraft_title: str | None = None
 
 
 class Phase(str, Enum):
@@ -177,44 +185,64 @@ class Career:
         self.balance = balance
         self.mission: Optional[Mission] = None
         self.origin_confirmed = False
+        self.employer_aircraft_confirmed = False
         self.completed_ids: list[str] = []
 
     def accept(self, mission: Mission, sample: Optional[FlightSample] = None):
         if self.mission is not None:
             raise ValueError("Conclua ou cancele a missão ativa.")
-        if sample and distance_nm(sample.latitude, sample.longitude,
-                                  AIRPORTS[mission.origin].latitude,
-                                  AIRPORTS[mission.origin].longitude) > 3:
+        lat = mission.origin_lat if mission.origin_lat is not None else AIRPORTS[mission.origin].latitude
+        lon = mission.origin_lon if mission.origin_lon is not None else AIRPORTS[mission.origin].longitude
+        if sample and distance_nm(sample.latitude, sample.longitude, lat, lon) > 3:
             raise ValueError(f"Sua aeronave não está próxima de {mission.origin}.")
         self.mission = mission
         self.origin_confirmed = sample is not None and sample.on_ground
+        self.employer_aircraft_confirmed = False
 
     def snapshot(self) -> dict:
         return {"mission_id": self.mission.id if self.mission else None,
-                "origin_confirmed": self.origin_confirmed}
+                "mission_data": asdict(self.mission) if self.mission else None,
+                "origin_confirmed": self.origin_confirmed,
+                "employer_aircraft_confirmed": self.employer_aircraft_confirmed}
 
     def restore(self, data: dict):
         mission_id = data.get("mission_id")
         self.mission = next((m for m in MISSIONS if m.id == mission_id), None)
+        if self.mission is None and mission_id and data.get("mission_data"):
+            candidate = Mission(**data["mission_data"])
+            if candidate.id != mission_id:
+                raise ValueError("ID inconsistente no contrato salvo")
+            self.mission = candidate
         if mission_id and self.mission is None:
             raise ValueError(f"Missão desconhecida no checkpoint: {mission_id}")
         self.origin_confirmed = bool(data.get("origin_confirmed", False)) and self.mission is not None
+        self.employer_aircraft_confirmed = bool(data.get("employer_aircraft_confirmed", False)) and self.mission is not None
 
     def cancel(self):
         self.mission = None
         self.origin_confirmed = False
+        self.employer_aircraft_confirmed = False
 
-    def evaluate(self, events: list[dict]) -> Optional[dict]:
+    def evaluate(self, events: list[dict], aircraft_title: str | None = None) -> Optional[dict]:
         """Crédito somente com decolagem na origem e pouso no destino."""
         if not self.mission:
             return None
         for e in events:
             if e["type"] == "takeoff":
-                a = AIRPORTS[self.mission.origin]
-                self.origin_confirmed = distance_nm(e["lat"], e["lon"], a.latitude, a.longitude) <= 3
+                a_lat = self.mission.origin_lat if self.mission.origin_lat is not None else AIRPORTS[self.mission.origin].latitude
+                a_lon = self.mission.origin_lon if self.mission.origin_lon is not None else AIRPORTS[self.mission.origin].longitude
+                self.origin_confirmed = distance_nm(e["lat"], e["lon"], a_lat, a_lon) <= 3
+                if self.mission.freelance:
+                    from .contracts import matches_aircraft
+                    self.employer_aircraft_confirmed = matches_aircraft(aircraft_title, self.mission.employer_plane)
             if e["type"] == "landing" and self.origin_confirmed:
-                b = AIRPORTS[self.mission.destination]
-                dist = distance_nm(e["lat"], e["lon"], b.latitude, b.longitude)
+                if self.mission.freelance:
+                    from .contracts import matches_aircraft
+                    if not self.employer_aircraft_confirmed or not matches_aircraft(aircraft_title, self.mission.employer_plane):
+                        continue
+                b_lat = self.mission.destination_lat if self.mission.destination_lat is not None else AIRPORTS[self.mission.destination].latitude
+                b_lon = self.mission.destination_lon if self.mission.destination_lon is not None else AIRPORTS[self.mission.destination].longitude
+                dist = distance_nm(e["lat"], e["lon"], b_lat, b_lon)
                 if dist <= 3:
                     mission = self.mission
                     self.balance += mission.reward

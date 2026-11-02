@@ -1,12 +1,28 @@
-# AeroCarreira Lab — v0.2.0 Alpha.1 (Bloco 1: piloto e habilitações)
+# FlightSimCarreira — v0.3.0 Alpha.1 (Bloco 2: contratos e freelancer)
 
 **Nome provisório.** Aplicativo de carreira **original** para Microsoft Flight Simulator 2020, feito em Python 3.11 com interface Windows Tkinter e base de dados SQLite própria.
+
+## Bloco 2 — Mercado regional e freelancer (NOVO)
+
+O botão **Mercado regional / Freelancer** abre contratos gerados perto da posição atual do piloto (ou de sua base cadastrada se o MSFS estiver fechado). Uma nova lista é gerada por dia UTC e por origem, **sem gerar contratos para todos os aeroportos globais**. A lista atual tem no máximo **10 contratos regionais e 3 freelancers**. Contratos já concluídos não podem ser pagos novamente, mesmo depois de reiniciar. Cada novo voo continua registrado em SQLite.
+
+**Tipos e nível mínimo inicial**: carga (1); turismo e passageiros (2); táxi aéreo (3); humanitária (4); transporte médico (6); executivo (8); resgate (10); operações especiais (12). Além de nível, algumas missões exigem habilitações PPA/PCA/IFR/PLA e horas voadas. O XP determina o nível, com progressão gradual; XP e habilitações anteriores permanecem. Esses níveis são balanceamento preliminar do jogo, não exigências regulatórias reais.
+
+**Freelancer**: o contrato indica a **aeronave disponibilizada pelo contratante** (ex.: Cessna 152). O piloto recebe pagamento pelo serviço e não compra/aluga a aeronave dentro da economia do addon. **Nesta Alpha, ainda é necessário escolher esse avião no MSFS manualmente** antes da decolagem. O SimConnect tenta ler o título do modelo; para pagar um freelancer, o modelo precisa ser confirmado na decolagem e no pouso. Se o título estiver indisponível ou não corresponder, o voo é registrado, mas o contrato não é pago. Os contratos de avião avançado levam em conta experiência por família e, quando necessário, no modelo exato. A propriedade real da aeronave/tail number não é verificada ainda: isso virá com gestão de frota.
+
+**Aeroportos globais:** `v0.3.0`0 usa a base MIT **airportsdata 2026.8.2**, instalada por `instalar_windows.bat`. O catálogo pode conter aeroportos que não existem na instalação atual do MSFS, portanto confirme os destinos no mapa do simulador antes de aceitar. Sem o pacote disponível, o programa preserva o catálogo local básico SBRF, SIPE, SIFC e SBJP e informa essa limitação. Nada é importado do banco do NeoFly para gerar missões.
+
+**Como testar (voo curto):** abra MSFS 2020, coloque o Cessna 152 em **SIPE** no solo, abra o app e conecte SimConnect; cadastre o piloto em **Meu piloto / Habilitações**; clique **Mercado regional / Freelancer** e escolha uma proposta para SIFC. Missões regionais exigem decolagem na origem e pouso dentro de 3 NM do destino; freelancing exige também o modelo designado. Se um contrato antigo estiver ativo, cancele antes de aceitar outro. A demo fixa continua separada, com a rota SBRF→SIPE.
+
+**O que ainda não está pronto:** estas são categorias de contrato com geração, progressão, aeronave e pagamento. Mecânicas específicas (busca de vítimas, embarque de passageiros, objetivos turísticos, urgência médica, reputação e carga/peso) virão nos próximos subblocos. O addon ainda não altera a aeronave no MSFS, não usa inventário próprio de frota e não tem interface in-game nesta versão. As opções independentes de provas e falhas estão aprovadas no escopo, mas seus controles de configuração ainda serão implementados.
+
+Mais detalhes: [Bloco 2](docs/BLOCO_2_CONTRATOS.md) e [Escopo aprovado](docs/ESCOPO_CARREIRA.md).
 
 ### Bloco 1 agora disponível
 
 Use **Meu piloto / Habilitações** no topo do programa para cadastrar nome do piloto, indicativo e base ICAO. A partir daí o painel mostra voos, horas, XP e uma trilha de habilitações **virtuais**, com pré-requisitos de XP e quantidade de voos. A habilitação inicial PPA é concedida no cadastro; as seguintes são conquistadas conforme os requisitos provisórios. Não são documentos aeronáuticos reais.
 
-Ao criar o piloto, o aplicativo **não reseta saldo nem histórico** do banco existente em `%APPDATA%\AeroCarreira-Lab\carreira.db`. Voos anteriores contam nas estatísticas, sem gerar XP retroativo. **Novos** voos após criar o piloto geram 25 XP ao pousar e mais 15 XP se o contrato pagar recompensa, tudo na mesma transação e com proteção contra duplicação. O cadastro é **um piloto por carreira** nesta versão; sua edição não reinicia a carreira. Regras de desbloqueio para aeronaves e novas missões ficam para o próximo bloco.
+Ao criar o piloto, o aplicativo **não reseta saldo nem histórico** do banco existente em `%APPDATA%\AeroCarreira-Lab\carreira.db`. Voos anteriores contam nas estatísticas, sem gerar XP retroativo. **Novos** voos após criar o piloto geram 25 XP ao pousar e mais 15 XP se o contrato pagar recompensa, tudo na mesma transação e com proteção contra duplicação. O cadastro é **um piloto por carreira** nesta versão; sua edição não reinicia a carreira. As novas missões do Bloco 2 aplicam os requisitos de nível, habilitações e experiência.
 
 Detalhes e requisitos futuros: [Escopo aprovado](docs/ESCOPO_CARREIRA.md).
 
@@ -22,7 +38,7 @@ Não é uma modificação do NeoFly; não copia sua implementação nem reproduz
 Requisitos: **Windows 10/11**, **Python 3.11 de 64 bits** instalado, com Tkinter (Python oficial inclui Tkinter). MSFS 2020 é necessário apenas para conectar telemetria.
 
 1. Extraia o ZIP em uma pasta como `Documentos\AeroCarreira-Lab`.
-2. Execute `instalar_windows.bat`. Ele cria `.venv` e instala adaptador opcional `SimConnect` do PyPI; é preciso Internet na primeira instalação.
+2. Execute `instalar_windows.bat`. Ele cria `.venv` e instala `SimConnect` e `airportsdata`; é preciso Internet na primeira instalação.
 3. Execute `iniciar_windows.bat`.
 4. Clique **Demo sem MSFS**, selecione `SBRF → SIPE`, e clique **Aceitar contrato**.
 5. Clique **Avançar demo** até pousar em Itapessoca. Deve receber **$850**, registrar voo e incrementar saldo de $5.000 para $5.850.
@@ -37,7 +53,7 @@ Se o adaptador SimConnect não instalar, a interface Demo e o inspetor NeoFly co
 4. Aceite contrato na origem, **em solo**, e voe até o destino. O avaliador decola/pousa apenas quando vê mudanças coerentes de `SIM ON GROUND`.
 5. A recompensa é paga só depois de um pouso confirmado no aeródromo de destino, dentro de **3 NM** do seu ponto de referência.
 
-**Limitações:** Não foi possível testar o SimConnect com o MSFS real neste ambiente. A captura da razão vertical é a **última leitura aérea antes do toque**, uma estimativa que pode diferir de sistemas de avaliação de pouso; não se deve interpretá-la como medição certificada. O intervalo de leitura de 0,4s pode perder o toque exato. Não existe missão completa para todas as aeronaves ou aeroportos. Os aeroportos incluídos são somente SBRF, SIPE, SIFC e SBJP.
+**Limitações:** A conexão SimConnect e o pouso real foram validados pelo piloto na v0.1.2; o novo leitor de TITLE e o mercado mundial ainda requerem teste físico. A captura da razão vertical é a **última leitura aérea antes do toque**, uma estimativa que pode diferir de sistemas de avaliação de pouso; não se deve interpretá-la como medição certificada. O intervalo de leitura de 0,4s pode perder o toque exato. O catálogo pode listar aeroportos não presentes no simulador; o modo local de contingência inclui SBRF, SIPE, SIFC e SBJP.
 
 ### NeoFly — localizar e analisar sem risco
 
@@ -146,6 +162,7 @@ Os testes de regras, SQLite e simulação são independentes do MSFS e da biblio
 - `aerocarreira/neo_inspect.py`: inspetor de banco NeoFly com cópia isolada.
 - `aerocarreira/demo.py`: amostras artificiais para validar fluxo sem MSFS.
 - `aerocarreira/app.py`: interface desktop.
+- `aerocarreira/contracts.py`: níveis, elegibilidade, catálogo de aeroportos, propostas regionais e freelancer.
 
 ## Licenciamento e separação
 

@@ -35,6 +35,20 @@
 - [ ] Alinhar requisitos realistas de cursos/provas antes de bloquear contratos e aeronaves.
 - [x] Documentar escopo completo e opções futuras (falhas configuráveis, tráfego multiplayer, pinturas e companhias).
 
+## v0.3.0-alpha.1 — Bloco 2: contratos e freelance
+- [x] Nível do piloto derivado de XP, independente das habilitações; progressão balanceável.
+- [x] Contratos com 9 tipos, restrições de nível, habilitação e horas.
+- [x] Geração local por aeroportos do entorno; até 10 regionais + 3 freelancer, 1 origem ativa no banco, duração 1 dia UTC.
+- [x] Base `airportsdata` MIT opcional via pip; fallback local e aviso ao piloto, sem usar dados do NeoFly.
+- [x] Freelancer com aeronave designada pelo contratante, remuneração sem compra ou aluguel pelo piloto, experiência por modelo/família.
+- [x] Validação de modelo na decolagem e no pouso; nenhuma recompensa se não houver confirmação.
+- [x] Checkpoint de contrato dinâmico, pagamento único no SQLite e preservação de todos os registros antigos.
+- [x] Tela de mercado e 49 testes automatizados + teste visual em ambiente virtual.
+- [ ] Testar leitura TITLE do SimConnect e catalogação mundial no Windows/MSFS real.
+- [ ] Mecânicas específicas de cada categoria (resgate, ambulância, passageiros, turismo, objetivos temporizados).
+- [ ] Aeronaves fornecidas automaticamente por empresa/frota, e comprovação de propriedade, após gestão de frota e pesquisa SDK.
+- [ ] Painel de toolbar in-game (requisito transversal).
+
 ## v0.2 — fundação de carreira
 - Importação opcional de campos de progresso do NeoFly após estudo de compatibilidade; nunca sobrescrever original.
 - Cadastro de aeronaves, manutenção, abastecimento e seguro.

@@ -1,2 +1,4 @@
-# Opcional para o modo conexão; modo demo e inspector funcionam só com a stdlib.
+# Integração MSFS 2020
 SimConnect>=0.4.20,<0.5
+# Catálogo mundial de aeroportos (MIT); propostas são geradas SOMENTE na região do piloto.
+airportsdata==2026.8.2

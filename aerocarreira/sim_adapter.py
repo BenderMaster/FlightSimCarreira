@@ -38,6 +38,15 @@ class SampleReader:
         except (ValueError, TypeError, KeyError, OSError, RuntimeError):
             return None
 
+    def _title(self):
+        try:
+            value = self.requests.get("TITLE")
+            if isinstance(value, bytes):
+                value = value.decode("utf-8", errors="replace")
+            return value.strip() if isinstance(value, str) and value.strip() else None
+        except (ValueError, TypeError, KeyError, OSError, RuntimeError):
+            return None
+
     def read(self):
         values = {key: self._get(var) for key, var in REQUIRED.items()}
         missing = [REQUIRED[key] for key, val in values.items() if val is None]
@@ -69,7 +78,7 @@ class SampleReader:
             ias_kt=values["ias_kt"], groundspeed_kt=gs,
             vs_fpm=vs, on_ground=values["on_ground"] >= 0.5,
             fuel_gallons=fuel, stall_warning=None if stall is None else stall >= 0.5,
-            groundspeed_estimated=estimated)
+            groundspeed_estimated=estimated, aircraft_title=self._title())
         self.last = s
         return s, []
 
