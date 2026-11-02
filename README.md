@@ -1,6 +1,14 @@
-# AeroCarreira Lab — v0.1.2 Alpha
+# AeroCarreira Lab — v0.2.0 Alpha.1 (Bloco 1: piloto e habilitações)
 
 **Nome provisório.** Aplicativo de carreira **original** para Microsoft Flight Simulator 2020, feito em Python 3.11 com interface Windows Tkinter e base de dados SQLite própria.
+
+### Bloco 1 agora disponível
+
+Use **Meu piloto / Habilitações** no topo do programa para cadastrar nome do piloto, indicativo e base ICAO. A partir daí o painel mostra voos, horas, XP e uma trilha de habilitações **virtuais**, com pré-requisitos de XP e quantidade de voos. A habilitação inicial PPA é concedida no cadastro; as seguintes são conquistadas conforme os requisitos provisórios. Não são documentos aeronáuticos reais.
+
+Ao criar o piloto, o aplicativo **não reseta saldo nem histórico** do banco existente em `%APPDATA%\AeroCarreira-Lab\carreira.db`. Voos anteriores contam nas estatísticas, sem gerar XP retroativo. **Novos** voos após criar o piloto geram 25 XP ao pousar e mais 15 XP se o contrato pagar recompensa, tudo na mesma transação e com proteção contra duplicação. O cadastro é **um piloto por carreira** nesta versão; sua edição não reinicia a carreira. Regras de desbloqueio para aeronaves e novas missões ficam para o próximo bloco.
+
+Detalhes e requisitos futuros: [Escopo aprovado](docs/ESCOPO_CARREIRA.md).
 
 Dois objetivos em paralelo:
 
@@ -33,7 +41,7 @@ Se o adaptador SimConnect não instalar, a interface Demo e o inspetor NeoFly co
 
 ### NeoFly — localizar e analisar sem risco
 
-**Atualização após teste físico:** demo e conexão ao MSFS 2020 foram confirmadas no Windows pelo piloto. O banco NeoFly ainda não foi localizado.
+**Atualização após teste físico:** modo demo, conexão ao MSFS e voo real SIPE → SIFC foram validados pelo piloto. Foi recebido e documentado um relatório com a estrutura SQLite do NeoFly; a importação de registros ainda não foi implementada.
 
 O arquivo varia conforme a versão/instalação do NeoFly:
 
@@ -113,6 +121,10 @@ encerrado, ainda depende de validação física no teu MSFS/Windows; testes
 automatizados simulam amostras, reconexão e reinício, mas não o SDK real.
 A interface in-game permanece no [roadmap](docs/ARQUITETURA_IN_GAME.md).
 
+## Integração no cockpit (planejada)
+
+A interface Windows é transitória: o requisito prioritário é operar todo o gameplay pelo painel in-game na toolbar do MSFS 2020. O mapa VFR e o multiplayer precisam de prova de conceito técnica; não afirmamos que o SDK permita reaproveitar o mapa nativo ou ler jogadores online diretamente. Veja [arquitetura](docs/ARQUITETURA_IN_GAME.md) e [escopo](docs/ESCOPO_CARREIRA.md).
+
 ## Onde os dados são salvos
 
 `%APPDATA%\AeroCarreira-Lab\carreira.db`: banco **nosso**, separado da instalação NeoFly. O saldo inicial desta carreira é **$5.000 fictícios**; não reproduz o saldo real do NeoFly, que ainda não foi importado.
@@ -128,6 +140,7 @@ Os testes de regras, SQLite e simulação são independentes do MSFS e da biblio
 ## Arquitetura
 
 - `aerocarreira/domain.py`: amostras, fases, contratos, distâncias e saldo.
+- `aerocarreira/pilot.py`: requisitos e validação dos perfis/habilitações virtuais.
 - `aerocarreira/storage.py`: base SQLite própria e diário de bordo.
 - `aerocarreira/sim_adapter.py`: adaptador opcional Python-SimConnect, exclusivamente leitura.
 - `aerocarreira/neo_inspect.py`: inspetor de banco NeoFly com cópia isolada.

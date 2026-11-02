@@ -17,9 +17,8 @@
 - [x] Checkpoint de missão/voo e retomada após reinício do app.
 - [x] Pouso+crédito atômico sem recompensa duplicada; migração do SQLite anterior.
 - [x] Rota SIPE → SIFC para teste rápido; testes automatizados e interface virtual aprovados.
-- [x] Validar voo real SIPE → SIFC no MSFS 2020: decolagem 19:45:14, pouso 19:55:07, razão estimada −172 ft/min, $420 creditados, saldo $6.270 e contrato encerrado (evidência: captura enviada pelo piloto em 02/11/2026).
-- [ ] Validar **reconexão automática após perda real de SimConnect em voo**; a captura do pouso comprova conexão ao final, mas não necessariamente recuperação após interrupção.
-- [ ] Validar persistência e ausência de crédito duplicado ao fechar/reabrir o aplicativo após pouso real.
+- [x] Validar voo real SIPE → SIFC, pouso e crédito de $420 no MSFS 2020; saldo persistiu ao reabrir.
+- [ ] Validar reconexão automática após queda real de SimConnect em voo.
 
 ## v0.1.3 — melhorias após teste físico
 - Robustez de conexão e reconexão de SimConnect, frequência, dados nulos.
@@ -27,6 +26,14 @@
 - Atividade e logs de erro mais detalhados.
 - Indicadores de combustível, aeronave, luzes, avisos de estol, arremetida.
 - Refinamento de avaliação da aproximação e pouso para não incentivar comportamentos inseguros.
+
+## v0.2.0-alpha.1 — Bloco 1: piloto e habilitações
+- [x] Cadastro/edição de piloto virtual, indicativo e base ICAO.
+- [x] Pontuação de XP atômica por voo concluído; requisitos e pré-requisitos de habilitações virtuais.
+- [x] UI Meu piloto / Habilitações, migração aditiva de dados e testes automatizados.
+- [ ] Validar UI e progressão no Windows real com o piloto.
+- [ ] Alinhar requisitos realistas de cursos/provas antes de bloquear contratos e aeronaves.
+- [x] Documentar escopo completo e opções futuras (falhas configuráveis, tráfego multiplayer, pinturas e companhias).
 
 ## v0.2 — fundação de carreira
 - Importação opcional de campos de progresso do NeoFly após estudo de compatibilidade; nunca sobrescrever original.
@@ -43,3 +50,5 @@
 ## Requisito prioritário: interface dentro do MSFS 2020
 - [ ] Painel de toolbar dentro do simulador para mapa, contratos, diário de bordo e frota; sem Alt+Tab.
 - [ ] Ponte local testada e package Community. Veja [arquitetura in-game](ARQUITETURA_IN_GAME.md).
+
+Escopo completo em [ESCOPO_CARREIRA.md](ESCOPO_CARREIRA.md).

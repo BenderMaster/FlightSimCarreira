@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 from queue import Queue, Empty
-from tkinter import Tk, Frame, Label, Button, StringVar, filedialog, messagebox, Text, END
+from tkinter import Tk, Toplevel, Frame, Label, Button, Entry, StringVar, filedialog, messagebox, Text, END
 from tkinter import ttk
 from time import strftime, localtime, time
 from .domain import FlightTracker, Career, MISSIONS, AIRPORTS, distance_nm, Phase
@@ -12,6 +12,7 @@ from .storage import Storage
 from .sim_adapter import SimConnectWorker
 from .demo import demo_samples
 from .neo_inspect import inspect_neofly, discover_neofly_databases
+from .pilot import QUALIFICATIONS, qualification_eligibility, flight_xp
 from . import __version__
 
 BG = "#08111c"
@@ -62,6 +63,9 @@ class Application:
         self.mode = "Desconectado"
         self.balance_var = StringVar(value=f"$ {self.career.balance:,}")
         self.status_var = StringVar(value="Sem conexão • Demo disponível")
+        self.pilot_var = StringVar(value="PILOTO • não cadastrado")
+        self.pilot_dialog = None
+        self._refresh_pilot_summary()
         self.info_var = StringVar(value="Sem telemetria")
         self.phase_var = StringVar(value="AGUARDANDO")
         self.mission_var = StringVar(value="Nenhum contrato ativo")
@@ -98,11 +102,12 @@ class Application:
         header.pack(fill="x")
         self.label(header, "AERO", 20, FG, True).pack(side="left")
         self.label(header, "CARREIRA", 20, CYAN, True).pack(side="left")
-        self.label(header, "  LAB  /  v0.1.2 Alpha", 11, MUTED).pack(side="left")
+        self.label(header, "  LAB  /  " + __version__, 11, MUTED).pack(side="left")
         right = Frame(header, bg=BG)
         right.pack(side="right")
         self.label(right, "CAIXA DA CARREIRA", 9, MUTED, True).pack(anchor="e")
         Label(right, textvariable=self.balance_var, font=(FONT, 18, "bold"), fg=GREEN, bg=BG).pack(anchor="e")
+        Label(right, textvariable=self.pilot_var, font=(FONT, 9), fg=CYAN, bg=BG).pack(anchor="e")
 
         bar = Frame(self.root, bg=PANEL, padx=18, pady=10)
         bar.pack(fill="x", padx=20)
@@ -110,7 +115,8 @@ class Application:
         self.button(bar, "Demo sem MSFS", self._demo_start).pack(side="left", padx=(0,8))
         self.button(bar, "Avançar demo", self._demo_next).pack(side="left", padx=(0,8))
         self.button(bar, "Desconectar", self._stop).pack(side="left", padx=(0,8))
-        self.button(bar, "Salvar log", self._save_log).pack(side="left")
+        self.button(bar, "Salvar log", self._save_log).pack(side="left", padx=(0,8))
+        self.button(bar, "Meu piloto / Habilitações", self._pilot_window, accent=True).pack(side="left")
         Label(bar, textvariable=self.status_var, bg=PANEL, fg=CYAN,
               font=(FONT, 9)).pack(side="right")
 
@@ -198,6 +204,106 @@ class Application:
                 f"{('%.0f' % touch) if touch is not None else '—'} ft/min\n"
                 f"      {mission or 'Voo livre'}  +${reward}  avisos estol: {stalls}\n")
         self.history_text.configure(state="disabled")
+
+    def _refresh_pilot_summary(self):
+        pilot = self.storage.get_pilot()
+        if pilot is None:
+            self.pilot_var.set("PILOTO • não cadastrado")
+            return
+        stats = self.storage.pilot_stats()
+        self.pilot_var.set(f"{pilot['callsign']} • {stats['xp']} XP")
+
+    def _pilot_window(self):
+        if self.pilot_dialog is not None and self.pilot_dialog.winfo_exists():
+            self.pilot_dialog.lift()
+            self.pilot_dialog.focus_set()
+            return
+        window = Toplevel(self.root)
+        self.pilot_dialog = window
+        window.title("FlightSimCarreira • Piloto e habilitações (virtuais)")
+        window.geometry("780x720")
+        window.minsize(700, 650)
+        window.configure(bg=BG)
+        window.transient(self.root)
+        window.protocol("WM_DELETE_WINDOW", lambda: (setattr(self, "pilot_dialog", None), window.destroy()))
+
+        def redraw():
+            for widget in window.winfo_children():
+                widget.destroy()
+            panel = Frame(window, bg=BG, padx=22, pady=17)
+            panel.pack(fill="both", expand=True)
+            self.label(panel, "MEU PILOTO  /  BLOCO 01", 17, CYAN, True).pack(anchor="w")
+            self.label(panel, "Habilitações e licenças virtuais do jogo; não substituem certificações reais.", 9, MUTED).pack(anchor="w", pady=(3, 12))
+            pilot = self.storage.get_pilot()
+            fields = Frame(panel, bg=PANEL, padx=14, pady=12)
+            fields.pack(fill="x")
+            vars_ = {}
+            for i, (key, caption, default) in enumerate((
+                ("name", "NOME DO PILOTO", ""),
+                ("callsign", "INDICATIVO", "FS0001"),
+                ("home_icao", "BASE ICAO", "SBRF"))):
+                cell = Frame(fields, bg=PANEL)
+                cell.grid(row=0, column=i, padx=6, sticky="ew")
+                fields.grid_columnconfigure(i, weight=3 if key == "name" else 1)
+                self.label(cell, caption, 8, MUTED, True).pack(anchor="w", pady=(0, 5))
+                var = StringVar(value=pilot[key] if pilot else default)
+                vars_[key] = var
+                Entry(cell, textvariable=var, bg=PANEL2, fg=FG, insertbackground=CYAN,
+                      relief="flat", font=(FONT, 11), highlightthickness=0).pack(fill="x", ipady=7)
+
+            def save():
+                try:
+                    if self.storage.get_pilot() is None:
+                        self.storage.create_pilot(vars_["name"].get(), vars_["callsign"].get(), vars_["home_icao"].get())
+                        self._log("Piloto cadastrado. Habilitação virtual PPA concedida para os voos iniciais.")
+                    else:
+                        self.storage.update_pilot(vars_["name"].get(), vars_["callsign"].get(), vars_["home_icao"].get())
+                        self._log("Cadastro do piloto atualizado sem alterar histórico ou saldo.")
+                except ValueError as exc:
+                    messagebox.showwarning("Cadastro do piloto", str(exc), parent=window)
+                    return
+                self._refresh_pilot_summary()
+                redraw()
+
+            self.button(fields, "Salvar cadastro" if pilot else "Criar piloto", save, accent=True).grid(
+                row=1, column=0, columnspan=3, sticky="ew", padx=6, pady=(12, 0))
+            stats = self.storage.pilot_stats()
+            statsframe = Frame(panel, bg=PANEL, padx=14, pady=12)
+            statsframe.pack(fill="x", pady=(12, 8))
+            stats_caption = (f"VOOS NO DIÁRIO: {stats['flights']}      "
+                             f"HORAS: {stats['hours']:.1f}      "
+                             f"XP: {stats['xp']}      "
+                             f"HABILITAÇÕES: {len(stats['qualifications'])}")
+            self.label(statsframe, stats_caption, 10, GREEN, True).pack(anchor="w")
+            self.label(panel, "TRILHA DE HABILITAÇÕES", 11, GOLD, True).pack(anchor="w", pady=(5, 6))
+            for q in QUALIFICATIONS:
+                item = Frame(panel, bg=PANEL2, padx=11, pady=7)
+                item.pack(fill="x", pady=3)
+                row = Frame(item, bg=PANEL2)
+                row.pack(fill="x")
+                is_owned = q.code in stats["qualifications"]
+                eligible, reason = qualification_eligibility(q.code, stats["qualifications"], stats["flights"], stats["xp"])
+                self.label(row, f"{q.code}  •  {q.title}", 10, GREEN if is_owned else FG, True, PANEL2).pack(side="left")
+                if eligible and pilot is not None:
+                    def grant(code=q.code):
+                        try:
+                            if self.storage.earn_qualification(code):
+                                self._log(f"HABILITAÇÃO VIRTUAL CONCLUÍDA: {code}")
+                                redraw()
+                        except ValueError as exc:
+                            messagebox.showwarning("Habilitação", str(exc), parent=window)
+                    self.button(row, "Concluir etapa", grant, accent=True).pack(side="right")
+                else:
+                    self.label(row, "OBTIDA" if is_owned else reason, 8,
+                               GREEN if is_owned else MUTED, bg=PANEL2).pack(side="right")
+                self.label(item, q.description, 9, MUTED, bg=PANEL2).pack(anchor="w")
+            self.label(panel, "XP novo: 25 por voo registrado + 15 por contrato concluído. "
+                       "Os voos anteriores permanecem nas estatísticas; XP anterior não é inventado.",
+                       9, MUTED).pack(anchor="w", pady=(9, 3))
+            self.label(panel, "Os limites são parâmetros de jogo provisórios. "
+                       "As habilitações avançadas ainda não liberam novas aeronaves/contratos nesta versão.",
+                       9, MUTED).pack(anchor="w")
+        redraw()
 
     def _connect(self):
         # Reconectar NUNCA apaga a fase aérea ou a missão.
@@ -290,7 +396,7 @@ class Application:
     def _save_log(self):
         path = state_dir() / "diagnostico_voo.txt"
         path.parent.mkdir(parents=True, exist_ok=True)
-        info = ["FlightSimCarreira v0.1.2", f"modo={self.mode}",
+        info = ["FlightSimCarreira " + __version__, f"modo={self.mode}",
                 f"fase={self.tracker.phase.value}",
                 f"missao={self.career.snapshot()}",
                 "LOG:", self.log_text.get("1.0", END)]
@@ -343,6 +449,9 @@ class Application:
                     return
                 self.tracker = next_tracker
                 self.career.balance = int(self.storage.get_setting("balance") or 5000)
+                if inserted and self.storage.get_pilot() is not None:
+                    self._log(f"PROGRESSO DO PILOTO: +{flight_xp(payment['reward'] if payment else 0)} XP pelo voo concluído.")
+                    self._refresh_pilot_summary()
                 if not inserted:
                     self._log("Pouso já salvo anteriormente: pagamento duplicado bloqueado.")
                     saved = self.storage.get_checkpoint()
