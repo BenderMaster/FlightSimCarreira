@@ -20,6 +20,7 @@ AIRPORTS = {
     "SBRF": Airport("SBRF", "Recife / Guararapes", -8.126388889, -34.922777778),
     "SIPE": Airport("SIPE", "Itapessoca", -7.656666667, -34.856944444),
     "SBJP": Airport("SBJP", "João Pessoa / Castro Pinto", -7.148333333, -34.950277778),
+    "SIFC": Airport("SIFC", "Coroa do Avião / Igarassu", -7.844444444, -34.891388889),
 }
 
 
@@ -45,6 +46,7 @@ MISSIONS = (
     Mission("REC-ITA", "SBRF", "SIPE", "Encomenda expressa", 850),
     Mission("REC-JPA", "SBRF", "SBJP", "Documentos comerciais", 1450),
     Mission("ITA-JPA", "SIPE", "SBJP", "Peças de manutenção", 1050),
+    Mission("ITA-IGA", "SIPE", "SIFC", "Teste local — Coroa do Avião", 420),
 )
 
 
@@ -62,6 +64,7 @@ class FlightSample:
     engine_running: Optional[bool] = None
     fuel_gallons: Optional[float] = None
     stall_warning: Optional[bool] = None
+    groundspeed_estimated: bool = False
 
 
 class Phase(str, Enum):
@@ -134,6 +137,36 @@ class FlightTracker:
         self.events.extend(out)
         return out
 
+    def snapshot(self) -> dict:
+        """Checkpoint local sem objetos dependentes de UI; permite retomar voo em curso."""
+        return {
+            "phase": self.phase.value,
+            "last": asdict(self.last) if self.last else None,
+            "takeoff_sample": asdict(self.takeoff_sample) if self.takeoff_sample else None,
+            "pending_landing": asdict(self.pending_landing) if self.pending_landing else None,
+            "pending_vs_fpm": self.pending_vs_fpm,
+            "last_airborne_vs": self.last_airborne_vs,
+            "last_airborne_timestamp": self.last_airborne_timestamp,
+            "events": list(self.events), "stalls": self.stalls,
+            "stall_active": self._stall_active,
+        }
+
+    @classmethod
+    def from_snapshot(cls, data: dict) -> "FlightTracker":
+        tr = cls()
+        tr.phase = Phase(data["phase"])
+        for key in ("last", "takeoff_sample", "pending_landing"):
+            raw = data.get(key)
+            if raw is not None:
+                setattr(tr, key, FlightSample(**raw))
+        tr.pending_vs_fpm = data.get("pending_vs_fpm")
+        tr.last_airborne_vs = data.get("last_airborne_vs")
+        tr.last_airborne_timestamp = data.get("last_airborne_timestamp")
+        tr.events = list(data.get("events", []))
+        tr.stalls = int(data.get("stalls", 0))
+        tr._stall_active = bool(data.get("stall_active", False))
+        return tr
+
     def reset(self):
         self.__init__(self.min_airborne_s, self.ground_confirm_s)
 
@@ -155,6 +188,17 @@ class Career:
             raise ValueError(f"Sua aeronave não está próxima de {mission.origin}.")
         self.mission = mission
         self.origin_confirmed = sample is not None and sample.on_ground
+
+    def snapshot(self) -> dict:
+        return {"mission_id": self.mission.id if self.mission else None,
+                "origin_confirmed": self.origin_confirmed}
+
+    def restore(self, data: dict):
+        mission_id = data.get("mission_id")
+        self.mission = next((m for m in MISSIONS if m.id == mission_id), None)
+        if mission_id and self.mission is None:
+            raise ValueError(f"Missão desconhecida no checkpoint: {mission_id}")
+        self.origin_confirmed = bool(data.get("origin_confirmed", False)) and self.mission is not None
 
     def cancel(self):
         self.mission = None

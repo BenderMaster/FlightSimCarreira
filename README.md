@@ -1,4 +1,4 @@
-# AeroCarreira Lab — v0.1.1 Alpha
+# AeroCarreira Lab — v0.1.2 Alpha
 
 **Nome provisório.** Aplicativo de carreira **original** para Microsoft Flight Simulator 2020, feito em Python 3.11 com interface Windows Tkinter e base de dados SQLite própria.
 
@@ -29,7 +29,7 @@ Se o adaptador SimConnect não instalar, a interface Demo e o inspetor NeoFly co
 4. Aceite contrato na origem, **em solo**, e voe até o destino. O avaliador decola/pousa apenas quando vê mudanças coerentes de `SIM ON GROUND`.
 5. A recompensa é paga só depois de um pouso confirmado no aeródromo de destino, dentro de **3 NM** do seu ponto de referência.
 
-**Limitações:** Não foi possível testar o SimConnect com o MSFS real neste ambiente. A captura da razão vertical é a **última leitura aérea antes do toque**, uma estimativa que pode diferir de sistemas de avaliação de pouso; não se deve interpretá-la como medição certificada. O intervalo de leitura de 0,4s pode perder o toque exato. Não existe missão completa para todas as aeronaves ou aeroportos. Os aeroportos incluídos são somente SBRF, SIPE e SBJP.
+**Limitações:** Não foi possível testar o SimConnect com o MSFS real neste ambiente. A captura da razão vertical é a **última leitura aérea antes do toque**, uma estimativa que pode diferir de sistemas de avaliação de pouso; não se deve interpretá-la como medição certificada. O intervalo de leitura de 0,4s pode perder o toque exato. Não existe missão completa para todas as aeronaves ou aeroportos. Os aeroportos incluídos são somente SBRF, SIPE, SIFC e SBJP.
 
 ### NeoFly — localizar e analisar sem risco
 
@@ -66,6 +66,52 @@ py -3.11 -m aerocarreira --inspect-neofly "C:\CAMINHO\PARA\std.bin" --output "$e
 ```
 
 **Compartilhe somente o relatório `neofly_schema_report.json`.** Não publique `common.db`, `std.bin`, a cópia nem arquivos pessoais no GitHub. O repositório informado está público neste momento. O aplicativo não envia dados para GitHub por conta própria.
+
+## v0.1.2 — voo real com recuperação automática
+
+**Por que atualizamos:** no primeiro voo MSFS SBRF → SIPE o leitor parou após
+`SimVar sem resposta: GROUND_VELOCITY`
+
+O FlightSimCarreira agora trata velocidade de solo/razão vertical ausentes como
+telemetria **degradada**, exibindo `~` na velocidade estimada. Leituras críticas
+faltantes são toleradas temporariamente, sem gerar amostras falsas. Persistindo a
+falha, ele tenta reconectar automaticamente (o simulador pode ficar indisponível).
+
+**Checkpoint**: durante voo conectado, registra missão e fase a cada ~2s,
+na mesma base local. Reiniciar o aplicativo durante um voo **já monitorado por esta
+versão** permite recuperar o estado em voo e continuar até o pouso. Um voo anterior
+com v0.1.1, sem checkpoint, **não é recuperável automaticamente**. As recompensas
+são lançadas junto do pouso numa só transação, com chave única por decolagem.
+
+**Rota rápida nova:** `SIPE → SIFC`, aeroporto Coroa do Avião (Igarassu/PE),
+aproximadamente 11,4 NM em linha reta, recompensa de teste `$420`. Referência de
+localização: [AISWEB SIFC](https://aisweb.decea.mil.br/?codigo=SIFC&i=aerodromos).
+É aeródromo privado na realidade; esta versão é **somente simulação**.
+Confirme que `SIFC` está disponível no mapa do teu MSFS 2020 antes de decolar.
+O pagamento exige decolagem perto de SIPE e pouso confirmado perto de SIFC.
+
+**Teste recomendado no MSFS:**
+
+1. Feche o FlightSimCarreira v0.1.1. Descompacte esta versão em pasta nova,
+   instale/inicie normalmente. O saldo e o histórico antigos da pasta APPDATA
+   são preservados e o SQLite recebe migração aditiva segura.
+2. Posicione o avião em solo em **SIPE**. Clique **Conectar MSFS** e aguarde dados.
+   Se aparecer um contrato antigo ativo, cancele antes de aceitar o novo.
+3. Selecione a opção `SIPE → SIFC` e aceite o contrato **em solo**.
+4. Decole e siga para SIFC. Se ocorrer uma falha transitória, o worker deve
+   continuar; se a conexão cair, deve tentar reconectar sozinho. Não precisa
+   clicar em 'Conectar MSFS' durante o voo.
+5. Após pousar em SIFC e permanecer em solo por 2s, o app deve registrar o voo,
+   acrescentar **$420** e remover o contrato. O botão **Salvar log** exporta
+   diagnóstico local para conferir em caso de erro.
+6. Para testar recuperação completa, feche o app **durante o voo**, abra de novo
+   e reconecte: a missão e o status anterior devem permanecer. Faça isso apenas
+   em um voo de teste, sem mexer no NeoFly.
+
+**Limitação:** reconexão automática, inclusive com SimConnect genuinamente
+encerrado, ainda depende de validação física no teu MSFS/Windows; testes
+automatizados simulam amostras, reconexão e reinício, mas não o SDK real.
+A interface in-game permanece no [roadmap](docs/ARQUITETURA_IN_GAME.md).
 
 ## Onde os dados são salvos
 

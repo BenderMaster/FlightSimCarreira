@@ -6,7 +6,7 @@ from pathlib import Path
 from queue import Queue, Empty
 from tkinter import Tk, Frame, Label, Button, StringVar, filedialog, messagebox, Text, END
 from tkinter import ttk
-from time import strftime, localtime
+from time import strftime, localtime, time
 from .domain import FlightTracker, Career, MISSIONS, AIRPORTS, distance_nm, Phase
 from .storage import Storage
 from .sim_adapter import SimConnectWorker
@@ -39,10 +39,22 @@ class Application:
         self.root.minsize(900, 640)
         self.root.configure(bg=BG)
         self.queue = Queue()
-        self.sim = SimConnectWorker(self.queue)
+        self.session_generation = 0
+        self.sim = None
         self.tracker = FlightTracker()
         self.storage = Storage(state_dir() / "carreira.db")
         self.career = Career(int(self.storage.get_setting("balance") or 5000))
+        self.recovered = False
+        self.restore_error = None
+        try:
+            checkpoint = self.storage.get_checkpoint()
+            if checkpoint:
+                self.career.restore(checkpoint.get("career", {}))
+                self.tracker = FlightTracker.from_snapshot(checkpoint["tracker"])
+                self.recovered = self.tracker.phase == Phase.AIRBORNE or self.career.mission is not None
+        except (KeyError, ValueError, TypeError) as exc:
+            self.restore_error = str(exc)
+        self.last_checkpoint_time = 0.0
         self.last_sample = None
         self.demo_seq = demo_samples()
         self.demo_index = 0
@@ -55,6 +67,12 @@ class Application:
         self.mission_var = StringVar(value="Nenhum contrato ativo")
         self.flight_vars = {k: StringVar(value="—") for k in ["ias", "gs", "agl", "alt", "vs", "lat", "lon", "fuel"]}
         self._build()
+        if self.restore_error:
+            self._log(f"ALERTA: checkpoint não restaurado: {self.restore_error}")
+        if self.recovered:
+            self._log("Estado de contrato/voo anterior recuperado. Conecte ao MSFS para continuar.")
+            self.phase_var.set(self.tracker.phase.value.upper())
+            self._show_mission()
         self.root.after(200, self._poll)
         self.root.protocol("WM_DELETE_WINDOW", self._close)
 
@@ -80,7 +98,7 @@ class Application:
         header.pack(fill="x")
         self.label(header, "AERO", 20, FG, True).pack(side="left")
         self.label(header, "CARREIRA", 20, CYAN, True).pack(side="left")
-        self.label(header, "  LAB  /  v0.1.1 Alpha", 11, MUTED).pack(side="left")
+        self.label(header, "  LAB  /  v0.1.2 Alpha", 11, MUTED).pack(side="left")
         right = Frame(header, bg=BG)
         right.pack(side="right")
         self.label(right, "CAIXA DA CARREIRA", 9, MUTED, True).pack(anchor="e")
@@ -91,7 +109,8 @@ class Application:
         self.button(bar, "Conectar MSFS", self._connect, accent=True).pack(side="left", padx=(0,8))
         self.button(bar, "Demo sem MSFS", self._demo_start).pack(side="left", padx=(0,8))
         self.button(bar, "Avançar demo", self._demo_next).pack(side="left", padx=(0,8))
-        self.button(bar, "Desconectar", self._stop).pack(side="left")
+        self.button(bar, "Desconectar", self._stop).pack(side="left", padx=(0,8))
+        self.button(bar, "Salvar log", self._save_log).pack(side="left")
         Label(bar, textvariable=self.status_var, bg=PANEL, fg=CYAN,
               font=(FONT, 9)).pack(side="right")
 
@@ -181,19 +200,31 @@ class Application:
         self.history_text.configure(state="disabled")
 
     def _connect(self):
+        # Reconectar NUNCA apaga a fase aérea ou a missão.
+        was_demo = self.mode == "Demo"
         self._stop()
-        self.tracker.reset()
+        if was_demo:
+            self.tracker.reset()
+        self.session_generation += 1
+        self.sim = SimConnectWorker(self.queue, generation=self.session_generation)
         self.mode="MSFS"
         self.status_var.set("Conectando ao MSFS...")
+        self._log("Iniciando monitoramento com reconexão automática.")
         self.sim.start()
 
     def _stop(self):
-        self.sim.stop()
+        if self.sim:
+            self.sim.stop()
+            self.sim = None
+        self.session_generation += 1  # descartar mensagens de sessões antigas
         self.connected=False
         self.mode="Desconectado"
         self.status_var.set("Desconectado")
 
     def _demo_start(self):
+        if self.career.mission or self.tracker.phase == Phase.AIRBORNE:
+            self._log("Demo bloqueada: há um contrato/voo real pendente. Preserve-o ou cancele o contrato primeiro.")
+            return
         self._stop()
         self.tracker.reset()
         self.demo_seq=demo_samples()
@@ -215,63 +246,129 @@ class Application:
         self._process_sample(sample)
 
     def _accept(self):
+        if self.mode not in ("MSFS", "Demo") or self.last_sample is None:
+            messagebox.showwarning("Contrato", "Conecte ao simulador e aguarde a primeira telemetria em solo.")
+            return
+        if self.mode == "MSFS" and (not self.connected or not self.last_sample.on_ground or time()-self.last_sample.timestamp > 10):
+            messagebox.showwarning("Contrato", "Aceite o contrato no solo, com telemetria atualizada.")
+            return
         m=MISSIONS[self.mission_select.current()]
         if self.mode=="Demo" and m.origin=="SBRF" and m.destination!="SIPE":
             self._log("A demonstração fixa simula SBRF → SIPE. Selecione o primeiro contrato.")
             return
         try:
             self.career.accept(m,self.last_sample)
-            self.mission_var.set(f"ATIVA  {m.origin} → {m.destination}  |  ${m.reward}")
+            self._show_mission()
+            self._checkpoint(force=True)
             self._log(f"Contrato aceito: {m.title} ({m.origin} → {m.destination}).")
         except ValueError as exc:
             messagebox.showwarning("Contrato",str(exc))
 
     def _cancel(self):
         self.career.cancel()
-        self.mission_var.set("Nenhum contrato ativo")
+        self._show_mission()
+        self._checkpoint(force=True)
         self._log("Contrato cancelado. Não houve pagamento.")
+
+    def _show_mission(self):
+        m = self.career.mission
+        self.mission_var.set(f"ATIVA  {m.origin} → {m.destination}  |  ${m.reward}" if m else "Nenhum contrato ativo")
+
+    def _checkpoint_data(self, tracker=None):
+        return {"version": 1, "career": self.career.snapshot(),
+                "tracker": (tracker or self.tracker).snapshot()}
+
+    def _checkpoint(self, force=False):
+        # Demo mantém o banco de carreira; checkpoint do voo é para modo MSFS.
+        if self.mode == "Demo":
+            return
+        now = time()
+        if force or now - self.last_checkpoint_time >= 2:
+            self.storage.set_checkpoint(self._checkpoint_data())
+            self.last_checkpoint_time = now
+
+    def _save_log(self):
+        path = state_dir() / "diagnostico_voo.txt"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        info = ["FlightSimCarreira v0.1.2", f"modo={self.mode}",
+                f"fase={self.tracker.phase.value}",
+                f"missao={self.career.snapshot()}",
+                "LOG:", self.log_text.get("1.0", END)]
+        path.write_text("\n".join(info), encoding="utf-8")
+        self._log(f"Log salvo em {path}")
+        messagebox.showinfo("Diagnóstico salvo", f"Arquivo local:\n{path}\n\nPode conter localização do voo; revise antes de compartilhar.")
 
     def _process_sample(self,s):
         self.last_sample=s
         fmt=lambda n: f"{n:,.0f}"
         for key,val in {
-            "ias":fmt(s.ias_kt),"gs":fmt(s.groundspeed_kt),
+            "ias":fmt(s.ias_kt),"gs":fmt(s.groundspeed_kt) + ("~" if s.groundspeed_estimated else ""),
             "agl":fmt(s.agl_ft),"alt":fmt(s.altitude_ft),
             "vs":f"{s.vs_fpm:+,.0f}",
             "lat":f"{s.latitude:.5f}","lon":f"{s.longitude:.5f}",
             "fuel":f"{s.fuel_gallons:.1f}" if s.fuel_gallons is not None else "—"}.items():
             self.flight_vars[key].set(val)
-        events=self.tracker.update(s)
-        completion_payment=self.career.evaluate(events)
+        previous_phase = self.tracker.phase
+        old_career_state = self.career.snapshot()
+        old_balance = self.career.balance
+        events = self.tracker.update(s)
+        completion_payment = self.career.evaluate(events)
         self.phase_var.set(self.tracker.phase.value.upper())
         for e in events:
-            if e["type"]=="takeoff":
-                self._log("DECOLAGEM detectada. Diário iniciado.")
-            elif e["type"]=="landing":
+            if e["type"] == "takeoff":
+                self._log("DECOLAGEM detectada. Diário iniciado e salvo para recuperação.")
+                self._checkpoint(force=True)
+            elif e["type"] == "landing":
                 v=e["touchdown_fpm_est"]
                 self._log(f"POUSO confirmado. Razão vertical aproximada: {v:.0f} ft/min" if v is not None else "POUSO confirmado (razão vertical indisponível).")
-                payment=completion_payment
-                self.storage.save_flight(self.tracker.events[0],e,v,self.tracker.stalls,
-                                         payment["mission"] if payment else None,
-                                         payment["reward"] if payment else 0)
-                if payment:
+                start = next((item for item in self.tracker.events if item["type"] == "takeoff"), None)
+                if start is None:
+                    self._log("ERRO: decolagem anterior indisponível. Mantendo estado para diagnóstico.")
+                    continue
+                payment = completion_payment
+                next_tracker = FlightTracker()
+                next_tracker.update(s)
+                checkpoint_after = self._checkpoint_data(tracker=next_tracker)
+                try:
+                    inserted = self.storage.finalize_flight(start, e, v, self.tracker.stalls,
+                                        payment["mission"] if payment else None,
+                                        payment["reward"] if payment else 0, checkpoint_after)
+                except Exception as exc:
+                    self._log(f"FALHA AO SALVAR pouso: {exc}. Não feche antes de exportar log.")
+                    self.status_var.set("Erro ao salvar voo")
+                    self.career.restore(old_career_state)
+                    self.career.balance = old_balance
+                    # O checkpoint anterior mantém a fase em voo; ao reiniciar,
+                    # o app poderá confirmar novamente o pouso em solo.
+                    return
+                self.tracker = next_tracker
+                self.career.balance = int(self.storage.get_setting("balance") or 5000)
+                if not inserted:
+                    self._log("Pouso já salvo anteriormente: pagamento duplicado bloqueado.")
+                    saved = self.storage.get_checkpoint()
+                    if saved:
+                        self.career.restore(saved.get("career", {}))
+                elif payment:
                     self._log(f"CONTRATO CONCLUÍDO: +${payment['reward']} em nossa carreira.")
-                    self.storage.set_setting("balance",str(self.career.balance))
-                    self.balance_var.set(f"$ {self.career.balance:,}")
-                    self.mission_var.set("Nenhum contrato ativo")
                 else:
-                    self._log("Voo livre registrado; sem recompensa de contrato.")
+                    self._log("Voo registrado; contrato não concluído (confira origem e destino).")
+                self.balance_var.set(f"$ {self.career.balance:,}")
+                self._show_mission()
+                self.phase_var.set(self.tracker.phase.value.upper())
                 self._refresh_history()
-                self.tracker.reset()
-                self.tracker.update(s)  # inicia novo ciclo no solo
-            elif e["type"]=="stall_warning":
+                self.last_checkpoint_time = time()
+            elif e["type"] == "stall_warning":
                 self._log("AVISO DE ESTOL detectado (não é penalidade automática).")
+        if previous_phase != self.tracker.phase or self.career.mission and events:
+            self._checkpoint(force=True)
+        else:
+            self._checkpoint()
 
     def _poll(self):
         try:
             while True:
-                kind,item=self.queue.get_nowait()
-                if self.mode!="MSFS":
+                kind,item,generation=self.queue.get_nowait()
+                if self.mode!="MSFS" or generation != self.session_generation:
                     continue
                 if kind=="sample": self._process_sample(item)
                 elif kind=="connected":
@@ -279,11 +376,15 @@ class Application:
                     self.status_var.set(item)
                     self._log(item)
                 elif kind=="error":
-                    self.status_var.set("Erro de conexão")
+                    self.connected=False
+                    self.status_var.set("Adaptador indisponível")
+                    self._log(item)
+                elif kind=="warning":
+                    self.status_var.set("Monitorando / recuperação")
                     self._log(item)
                 elif kind=="disconnected":
                     self.connected=False
-                    self.status_var.set("Desconectado")
+                    self.status_var.set(item)
         except Empty:
             pass
         self.root.after(200,self._poll)
@@ -325,7 +426,9 @@ class Application:
             messagebox.showerror("Análise interrompida",str(exc))
 
     def _close(self):
-        self.sim.stop()
+        self._checkpoint(force=True)
+        if self.sim:
+            self.sim.stop()
         self.storage.close()
         self.root.destroy()
 

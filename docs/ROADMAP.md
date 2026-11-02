@@ -9,9 +9,17 @@
 - [x] Inspetor somente leitura que faz cópia de common.db e extrai apenas estrutura SQLite.
 - [x] Testes independentes de MSFS e ação CI.
 - [x] Demo e conexão SimConnect ao MSFS 2020 confirmadas pelo piloto no Windows.
-- [x] Inspeção do esquema real do NeoFly: relatório SQLite analisado (54 tabelas, apenas metadados de estrutura).\n- [ ] Implementar prévia de importação local e somente leitura, sem duplicidade nem alteração dos dados originais.\n- [ ] Validar uma missão completa no MSFS real (decolagem, voo, pouso, recompensa, diário).
+- [x] Inspeção do esquema real do NeoFly: relatório SQLite (54 tabelas, sem registros pessoais).
 
-## v0.1.1 — após teste físico
+## v0.1.2 — falha de conexão em voo: patch entregue para validação física
+- [x] Proteger a sessão de perdas pontuais de `GROUND_VELOCITY` / `VERTICAL_SPEED`.
+- [x] Reconectar automaticamente em caso de queda persistente de SimConnect.
+- [x] Checkpoint de missão/voo e retomada após reinício do app.
+- [x] Pouso+crédito atômico sem recompensa duplicada; migração do SQLite anterior.
+- [x] Rota SIPE → SIFC para teste rápido; testes automatizados e interface virtual aprovados.
+- [ ] Validar voo real SIPE → SIFC no MSFS 2020, inclusive perda de conexão.
+
+## v0.1.3 — melhorias após teste físico
 - Robustez de conexão e reconexão de SimConnect, frequência, dados nulos.
 - Registro de múltiplos voos por sessão sem falso positivo em toques sucessivos.
 - Atividade e logs de erro mais detalhados.
@@ -25,7 +33,11 @@
 - Contratos diferenciados: turismo, carga, táxi aéreo.
 - Progressão financeira, habilitações e reputação.
 
-## Painel integrado ao MSFS 2020 — REQUISITO PRIORITÁRIO\n- [ ] Interface integral na toolbar do MSFS 2020, **sem Alt+Tab** para mapa, contratos, pagamentos, frota ou diário.\n- [ ] Motor Windows/SimConnect em segundo plano, API/WS apenas loopback e autenticada para ações mutáveis.\n- [ ] PoC de package Community com painel e telemetria, validada no MSFS 2020 Steam.\n- [ ] Mapa navegável e contratos operacionais na interface in-game.\n- [ ] Inicialização automática do companion e recuperação de conexão sem intervenção externa.\n- [ ] Testes de regressão e validação de UI/ponte real.\n- [ ] Consultar [arquitetura in-game](ARQUITETURA_IN_GAME.md) e [esquema NeoFly](NEOFLY_SCHEMA.md).\n\n## v0.3+
+## v0.3+
 - Histórias de voos e eventos narrativos originais.
 - Companhia aérea, equipe, frota, empresas e contratos extensos.
 - Pacote de instalação Windows em exe assinado, quando a arquitetura for estabilizada.
+
+## Requisito prioritário: interface dentro do MSFS 2020
+- [ ] Painel de toolbar dentro do simulador para mapa, contratos, diário de bordo e frota; sem Alt+Tab.
+- [ ] Ponte local testada e package Community. Veja [arquitetura in-game](ARQUITETURA_IN_GAME.md).
