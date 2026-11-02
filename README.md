@@ -62,7 +62,7 @@ Ou procurar manualmente colando `%ProgramData%\NeoFly` e `%LOCALAPPDATA%\Program
 Linha de comando para inspecionar o **arquivo que tu realmente encontrou**:
 
 ```powershell
-py -3.11 -m aerocarreira --inspect-neofly "C:\CAMINHO\PARA\std.bin" --output "%TEMP%\neofly-inspecao"
+py -3.11 -m aerocarreira --inspect-neofly "C:\CAMINHO\PARA\std.bin" --output "$env:TEMP\neofly-inspecao"
 ```
 
 **Compartilhe somente o relatório `neofly_schema_report.json`.** Não publique `common.db`, `std.bin`, a cópia nem arquivos pessoais no GitHub. O repositório informado está público neste momento. O aplicativo não envia dados para GitHub por conta própria.
