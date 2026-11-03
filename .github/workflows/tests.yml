@@ -33,3 +33,19 @@ jobs:
         with:
           name: midnight-dashboard-validation
           path: validation/
+  windows-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements-windows.txt pyinstaller
+      - name: Build standalone Windows folder
+        run: python -m PyInstaller --noconfirm --clean --onedir --name FlightSimCarreira --collect-all webview --collect-all SimConnect --add-data "aerocarreira/midnight;aerocarreira/midnight" --add-data "in_game;in_game" launch_midnight.py
+      - name: Executable version smoke test
+        run: .\dist\FlightSimCarreira\FlightSimCarreira.exe --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FlightSimCarreira-0.7.0-midnight-alpha1-Windows
+          path: dist/FlightSimCarreira/

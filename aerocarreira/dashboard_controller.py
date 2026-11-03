@@ -18,7 +18,8 @@ class DashboardController:
         self.server=DashboardServer();self.server.publish(self.presenter.snapshot());self.server.start()
         self.tick_id=app.root.after(250,self.tick)
         if os.getenv('FLIGHTSIM_HEADLESS')!='1':
-            self.process=subprocess.Popen([sys.executable,'-m','aerocarreira.webview_host',self.server.url])
+            args=([sys.executable,'--webview-host',self.server.url] if getattr(sys,'frozen',False) else [sys.executable,'-m','aerocarreira.webview_host',self.server.url])
+            self.process=subprocess.Popen(args)
         app.root.withdraw()
 
     def tick(self):
@@ -112,6 +113,8 @@ class DashboardController:
             fm=app.storage.fleet_manager();plane=fm.selected();s=app.last_sample
             if app.tracker.phase==Phase.AIRBORNE:messagebox.showwarning('Frota','Operação permitida somente em solo.');return
             if not plane:messagebox.showwarning('Frota','Selecione sua aeronave no Hangar.');return
+            if app.career.mission and app.career.mission.freelance:
+                messagebox.showwarning('Frota','O contrato utiliza aeronave do contratante. Gerencie sua frota pelo Hangar.');return
             if action=='refuel':
                 if not (app.mode=='MSFS' and app.connected and s and s.on_ground and time()-s.timestamp<10 and aircraft_model(s.aircraft_title)==plane['code']):
                     messagebox.showwarning('Combustível','Conecte ao MSFS com o modelo selecionado no solo e telemetria atualizada.');return

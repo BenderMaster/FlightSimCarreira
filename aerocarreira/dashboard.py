@@ -4,7 +4,7 @@ import base64
 import json
 from pathlib import Path
 from time import time
-from .contracts import AirportCatalog, generate_offers, eligibility, TYPE_BY_CODE, next_level_xp, aircraft_model
+from .contracts import AirportCatalog, generate_offers, eligibility, TYPE_BY_CODE, next_level_xp, aircraft_model, PLANE_BY_CODE
 from .employment import generate_employer_routes
 from .pilot import level_progress
 from .domain import AIRPORTS, Phase, distance_nm
@@ -84,6 +84,11 @@ class DashboardPresenter:
         plane=db.fleet_manager().selected()
         fuel=app.fuel_manager.get(plane['ref']) if plane else None
         s=app.last_sample;m=app.career.mission;plan=app._saved_preflight()
+        if m and m.freelance and m.employer_plane in PLANE_BY_CODE:
+            assigned=PLANE_BY_CODE[m.employer_plane]
+            plane={'ref':'contract:'+m.id,'code':m.employer_plane,'title':assigned.name,
+                   'condition':None,'airport':m.origin,'kind':'Aeronave do contratante'}
+            fuel=app.fuel_manager.get(plane['ref'])
         bonus=inspect_preflight(m,plan) if m and plan else None
         if app.tracker.phase==Phase.AIRBORNE:
             bonus= dict(bonus or {},bonus_fraction=app.realism_frozen,frozen=True)
@@ -110,7 +115,7 @@ class DashboardPresenter:
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
             status=app.status_var.get(),mode=app.mode,summary=summary,mission=mission_data(m) if m else None,
-            market=dict(icao=self.center.icao,name=self.center.name) if self.center else None,offers=offers,
+            market=dict(icao=self.center.icao,name=self.center.name,lat=self.center.latitude,lon=self.center.longitude) if self.center else None,offers=offers,
             plane=plane,fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
             capacity=capacity,
             live=s.fuel_gallons if s else None),telemetry=telemetry,phase=app.phase_var.get(),bonus=bonus,

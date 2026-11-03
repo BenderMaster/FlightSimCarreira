@@ -43,7 +43,7 @@ with tempfile.TemporaryDirectory() as temp:
             # Native action routed through the command queue, reflected in telemetry.
             before=page.locator('#metric-alt').inner_text()
             page.evaluate("() => command('demo_next')")
-            page.wait_for_timeout(1000)
+            page.wait_for_timeout(4200)
             for width,height in resolutions:
                 for scale in (1,1.25,1.5):
                     # Windows logical work area, reserving 40 physical pixels for taskbar.
@@ -53,13 +53,13 @@ with tempfile.TemporaryDirectory() as temp:
                       const required=['.header','.sidebar','.market','.summary','.contract','.map-card','.telemetry','.flight-log','.realism','.aircraft','.dispatch'];
                       const out=required.filter(s=>{const r=document.querySelector(s).getBoundingClientRect();return r.x<-.5||r.y<-.5||r.right>innerWidth+.5||r.bottom>innerHeight+.5||r.width<1||r.height<1});
                       const buttons=[...document.querySelectorAll('main button')].filter(e=>!e.closest('dialog')).filter(e=>{const r=e.getBoundingClientRect();return r.bottom>innerHeight+.5||r.right>innerWidth+.5});
-                      return {out,buttons:buttons.map(e=>e.innerText),scrollX:document.documentElement.scrollWidth>innerWidth,scrollY:document.documentElement.scrollHeight>innerHeight};
+                      const clipped=[...document.querySelectorAll('.nav-item,.map-tabs button,.dispatch button')].filter(e=>e.scrollWidth>e.clientWidth+2).map(e=>e.innerText);const metrics=document.querySelector('.metrics').getBoundingClientRect(),weather=document.querySelector('.weather-row').getBoundingClientRect();const overlap=metrics.bottom>weather.top+.5;return {out,clipped,overlap,buttons:buttons.map(e=>e.innerText),scrollX:document.documentElement.scrollWidth>innerWidth,scrollY:document.documentElement.scrollHeight>innerHeight};
                     }''')
                     filename=f'{width}x{height}-{int(scale*100)}pct.png'
                     page.screenshot(path=str(OUTPUT/filename))
                     results.append(dict(resolution=[width,height],scale=scale,viewport=viewport,**audit))
             assert not errors,errors
-            failures=[r for r in results if r['out'] or r['buttons'] or r['scrollX'] or r['scrollY']]
+            failures=[r for r in results if r['overlap'] or r['out'] or r['clipped'] or r['buttons'] or r['scrollX'] or r['scrollY']]
             (OUTPUT.parent/'layout-results.json').write_text(json.dumps({'browser_errors':errors,'cases':results},indent=2))
             assert not failures,json.dumps(failures,indent=2)
             # Safe shutdown persists the active contract in the isolated career.

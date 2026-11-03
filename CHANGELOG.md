@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0-midnight.alpha.1 — branch de redesign sobre v0.6.1 (03/11/2026)
+
+- Dashboard HTML/CSS local em WebView2, cabeçalho, sidebar, mercado, contrato, mapa, telemetria, METAR indisponível, log, checklist e frota.
+- Apresentação com dados reais; comandos retornam ao motor existente na thread Tk, com transporte loopback autenticado e limites de entrada/fila.
+- Foto de piloto local, país da base, progresso real de XP, inventário de combustível e ações de manutenção/abastecimento.
+- Foto C152 CC BY-SA 4.0, cenário decorativo gerado por IA, assets vetoriais originais e fonte Barlow Semi Condensed OFL embarcada.
+- Testes de apresentação/segurança, matriz gráfica de 15 áreas lógicas e build Windows PyInstaller em CI.
+- Main preservada; PR de integração em draft para reconciliação das alterações posteriores da v0.6.2/0.6.3.
+- Limitações: mapa sem satélite, aeronave genérica identificada, telas secundárias Tk, METAR/reputação indisponíveis, sem validação física MSFS/WebView2.
+
+
 ## 0.6.1-alpha.1 — localizador e combustível em SimConnect (03/11/2026)
 - Starter C152, aeronaves compradas e alugadas agora têm aeroporto atualizado no pouso (inclusive voo sem contrato), sem movimentar avião de freelancer/companhia.
 - Backfill controlado e único do último pouso conhecido do starter, sem alterar dinheiro/XP. Backup SQLite pré-v0.6.1.

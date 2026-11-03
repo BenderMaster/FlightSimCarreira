@@ -1240,20 +1240,21 @@ class Application:
         Checkbutton(opts,text='Permitir falhas (preparação; ainda não injeta)',variable=fault_var,
                     command=lambda:save_option('simulated_failures_enabled',fault_var),bg=BG,fg=FG,
                     selectcolor=PANEL,activebackground=BG,activeforeground=FG).pack(side='left')
-        fuel_opts=Frame(main,bg=BG);fuel_opts.pack(fill='x',pady=(5,0))
-        fuel_var=IntVar(value=int(self.storage.get_setting('fuel_control_enabled') or '0'))
-        def change_fuel_mode():
-            if self.tracker.phase==Phase.AIRBORNE:
-                messagebox.showwarning('Combustível','Altere apenas em solo; o modo fica congelado na decolagem.',parent=window)
-                fuel_var.set(int(self.storage.get_setting('fuel_control_enabled') or '0'))
-                return
-            self.storage.set_setting('fuel_control_enabled',str(int(fuel_var.get())))
-            self._log('Controle combustível '+('ATIVO' if fuel_var.get() else 'DESLIGADO: -30% R$/XP nos próximos voos'))
-        Checkbutton(fuel_opts,text='Combustível controlado pelo FlightSimCarreira',variable=fuel_var,
-                    command=change_fuel_mode,bg=BG,fg=FG,selectcolor=PANEL,
-                    activebackground=BG,activeforeground=FG).pack(side='left',padx=(0,12))
-        self.label(fuel_opts,'Desligado: -30% dinheiro e XP. Com controle ativo, abasteça pela Frota avançada.',
-                   9,GOLD).pack(side='left')
+        if not getattr(self,'dashboard',None):
+            fuel_opts=Frame(main,bg=BG);fuel_opts.pack(fill='x',pady=(5,0))
+            fuel_var=IntVar(value=int(self.storage.get_setting('fuel_control_enabled') or '0'))
+            def change_fuel_mode():
+                if self.tracker.phase==Phase.AIRBORNE:
+                    messagebox.showwarning('Combustível','Altere apenas em solo; o modo fica congelado na decolagem.',parent=window)
+                    fuel_var.set(int(self.storage.get_setting('fuel_control_enabled') or '0'))
+                    return
+                self.storage.set_setting('fuel_control_enabled',str(int(fuel_var.get())))
+                self._log('Controle combustível '+('ATIVO' if fuel_var.get() else 'DESLIGADO: -30% R$/XP nos próximos voos'))
+            Checkbutton(fuel_opts,text='Combustível controlado pelo FlightSimCarreira',variable=fuel_var,
+                        command=change_fuel_mode,bg=BG,fg=FG,selectcolor=PANEL,
+                        activebackground=BG,activeforeground=FG).pack(side='left',padx=(0,12))
+            self.label(fuel_opts,'Desligado: -30% dinheiro e XP. Com controle ativo, abasteça pela Frota avançada.',
+                       9,GOLD).pack(side='left')
 
         def redraw():
             balance_text.set(f"Saldo: {brl(int(self.storage.get_setting('balance') or 0))}    •    "

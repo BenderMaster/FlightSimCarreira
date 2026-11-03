@@ -3,10 +3,14 @@ import json
 import sys
 import urllib.request
 
-def main():
+def main(url=None):
     import webview
-    url=sys.argv[1];origin,token=url.split('/#',1)
-    window=webview.create_window('FlightSimCarreira • Midnight Ops',url,width=1600,height=900,min_size=(800,480),background_color='#030e17')
+    url=url or sys.argv[1];origin,token=url.split('/#',1)
+    class WindowAPI:
+        def minimize(self):window.minimize()
+    screen=webview.screens[0]
+    width=min(1600,max(800,screen.width-32));height=min(900,max(440,screen.height-80))
+    window=webview.create_window('FlightSimCarreira • Midnight Ops',url,width=width,height=height,min_size=(800,440),background_color='#030e17',frameless=True,easy_drag=False,js_api=WindowAPI())
     def closed():
         try:
             request=urllib.request.Request(origin+'/command',data=json.dumps({'action':'close'}).encode(),headers={'Origin':origin,'X-Flight-Token':token,'Content-Type':'application/json'})

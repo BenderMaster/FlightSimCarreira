@@ -1,3 +1,13 @@
+# FlightSimCarreira — Midnight Ops 0.7.0 Alpha 1
+
+Esta branch reconstrói o dashboard sobre a **v0.6.1-alpha.1**, commit `3048bb86ee498770b93862ef449fb4d2ff6e061f`, preservando seu motor Python. A `main` v0.6.3 permanece independente.
+
+Execute `instalar_windows.bat` e `iniciar_windows.bat`, ou use o pacote Windows compilado produzido pelo GitHub Actions. Requer Microsoft Edge WebView2 Runtime. Recuperação: `iniciar_classico_windows.bat`.
+
+Leia [instalação, arquitetura e limitações](docs/MIDNIGHT_OPS.md) e [licenças dos assets](docs/MIDNIGHT_ASSETS.md). Esta alpha possui mapa offline por coordenadas, foto licenciada do C152 e cenário decorativo original; **não é reprodução pixel a pixel** da referência. As telas secundárias preservam a UI Tk funcional da base.
+
+---
+
 # FlightSimCarreira — v0.6.0 Alpha.1 | Frota e Planejamento de Voo
 
 **Instalação Windows:** termine o voo, feche o addon anterior, extraia o novo ZIP em pasta nova e execute `instalar_windows.bat` e `iniciar_windows.bat`. **Não apague `%APPDATA%\AeroCarreira-Lab`**: a carreira, a XP e os pagamentos ficam lá. A versão cria automaticamente `carreira.pre_v060.backup.db` antes da migração. Recomendamos ainda um backup externo do banco, sempre com o app fechado.
