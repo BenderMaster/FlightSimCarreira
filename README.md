@@ -1,3 +1,24 @@
+# FlightSimCarreira — v0.6.0 Alpha.1 | Frota e Planejamento de Voo
+
+**Instalação Windows:** termine o voo, feche o addon anterior, extraia o novo ZIP em pasta nova e execute `instalar_windows.bat` e `iniciar_windows.bat`. **Não apague `%APPDATA%\AeroCarreira-Lab`**: a carreira, a XP e os pagamentos ficam lá. A versão cria automaticamente `carreira.pre_v060.backup.db` antes da migração. Recomendamos ainda um backup externo do banco, sempre com o app fechado.
+
+## Novidades desta Alpha
+
+1. **Frota avançada:** abra `Finanças / Hangar` → `Frota avançada` para comprar aeronaves novas ou usadas, alugar, vender e revisar individualmente. O mercado de usadas renova por aeroporto e semana e não pode vender a mesma oferta duas vezes.
+2. **Inventário do MSFS:** em `Frota avançada`, clique `Aeronaves instaladas no MSFS` para ler os `aircraft.cfg` do Official/Community, incluindo aeronaves e pinturas de addons. **Instalação detectada não equivale a licença/propriedade** na conta do jogo.
+3. **Despacho pré-voo:** aceite uma missão e clique `Preparar voo / Despacho`. Planeje combustível, peso, altitude, confira clima, hora, assistências, pista, iluminação e rota. Enquanto conectado em solo, o painel aproveita leituras opcionais do SimConnect.
+4. **Bônus de realismo:** no máximo **+18%** sobre valor bruto e XP do contrato, de acordo com verificações e declarações. O bônus fica congelado na decolagem e é concedido só no pouso legítimo, uma vez. Não é garantido só por marcar checkboxes: combustível e peso dependem de telemetria válida.
+5. **Preparação de voo antes de conectar:** com piloto cadastrado, contrato no aeroporto-base pode ser reservado offline. Gere `.PLN` para importar manualmente no MSFS, ou tente o comando de carregar o plano quando já estiver em solo conectado ao SimConnect. Não cria o avião nem o voo completo no Mapa-Múndi automaticamente.
+6. **Painel experimental local:** botão `Painel local (experimental)` abre `http://127.0.0.1:8769/` com saldo, telemetria e esboço geométrico da rota. Existe **código-fonte** de protótipo de toolbar em `in_game/toolbar`, mas ele exige build com SDK e teste físico, não é ainda addon in-game pronto para Community.
+
+**Não implementado:** seleção/troca automática de avião no MSFS 2020; injeção de clima/combustível, mapa VFR nativo, outros jogadores multiplayer, scanner de propriedade da conta, voo criado diretamente no Mapa-Múndi ou painel interativo pronto dentro do simulador. Continuam prioridades de pesquisa e testes no hardware real.
+
+**Compatibilidade:** Windows 10/11, Python 3.11 64 bits, MSFS 2020 e pacote Python-SimConnect (instalado pelo `.bat`). `airportsdata` opcional para aeroportos do mundo. Falhas, seguros e companhias IA não são sistemas completos nesta Alpha. Voos e dinheiro anteriores preservados; custos só em missões futuras com aeronave própria identificada.
+
+**Manual completo do bloco:** [Frota, despacho, bônus e SDK](docs/BLOCO_5_FROTA_DESPACHO.md). **Testes:** `py -3.11 -m unittest discover -s tests -v`.
+
+---
+
 # FlightSimCarreira v0.5.1 Alpha.1 — progresso visual e horas de voo
 
 Patch incremental sobre a v0.5.0, sem perda de saldo, XP ou histórico.

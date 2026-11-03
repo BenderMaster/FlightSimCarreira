@@ -1,5 +1,6 @@
 """Painel Windows Tkinter. O domínio e banco de dados podem ser testados sem GUI."""
 from __future__ import annotations
+from dataclasses import replace
 import json
 import os
 from pathlib import Path
@@ -19,6 +20,10 @@ from .employment import (EMPLOYER_BY_CODE, vacancies, weekly_period,
     employment_eligibility, generate_employer_routes, OWN_MIN_LEVEL, OWN_INVESTMENT)
 from .flightplan import export_vfr_plan
 from .finance import AIRCRAFT_ECONOMY, brl, estimated_minutes
+from .fleet import used_market, resale_price
+from .planning import Preflight, inspect_preflight, aircraft_title_matches
+from .aircraft_catalog import scan_installed_aircraft, detect_package_roots
+from .ingame_bridge import PanelState, LocalPanelServer
 from . import __version__
 
 BG = "#08111c"
@@ -53,11 +58,16 @@ class Application:
         self.career = Career(int(self.storage.get_setting("balance") or 0))
         self.recovered = False
         self.restore_error = None
+        self.realism_frozen = 0.0
+        self.realism_mission = None
         try:
             checkpoint = self.storage.get_checkpoint()
             if checkpoint:
                 self.career.restore(checkpoint.get("career", {}))
                 self.tracker = FlightTracker.from_snapshot(checkpoint["tracker"])
+                if self.tracker.phase == Phase.AIRBORNE and self.career.mission:
+                    self.realism_frozen = float(checkpoint.get('realism_frozen',0.0))
+                    self.realism_mission = checkpoint.get('realism_mission')
                 self.recovered = self.tracker.phase == Phase.AIRBORNE or self.career.mission is not None
         except (KeyError, ValueError, TypeError) as exc:
             self.restore_error = str(exc)
@@ -77,7 +87,14 @@ class Application:
         self.market_dialog = None
         self.employment_dialog = None
         self.finance_dialog = None
+        self.fleet_dialog = None
+        self.planning_dialog = None
         self.airport_catalog = None
+        self.bridge_state = PanelState()
+        self.bridge = LocalPanelServer(self.bridge_state)
+        self.bridge_error = None
+        try: self.bridge.start()
+        except OSError as exc: self.bridge_error = str(exc)
         self._refresh_pilot_summary()
         self.info_var = StringVar(value="Sem telemetria")
         self.phase_var = StringVar(value="AGUARDANDO")
@@ -86,6 +103,10 @@ class Application:
         self._build()
         if self.restore_error:
             self._log(f"ALERTA: checkpoint não restaurado: {self.restore_error}")
+        if self.bridge_error:
+            self._log(f'Painel local indisponível: {self.bridge_error}')
+        else:
+            self._log('Painel de bordo local: http://127.0.0.1:8769 (SDK ainda em testes)')
         if self.recovered:
             self._log("Estado de contrato/voo anterior recuperado. Conecte ao MSFS para continuar.")
             self.phase_var.set(self.tracker.phase.value.upper())
@@ -162,10 +183,15 @@ class Application:
         self.button(bar, "Salvar log", self._save_log).pack(side="left", padx=(0,8))
         self.button(bar, "Meu piloto / Habilitações", self._pilot_window, accent=True).pack(side="left", padx=(0,7))
         self.button(bar, "Finanças / Hangar", self._finance_window, accent=True).pack(side="left")
-        Label(bar, textvariable=self.status_var, bg=PANEL, fg=CYAN,
+        # Segunda linha preserva botões e telemetria de conexão em 1100px,
+        # sem cortar o acesso ao painel experimental em telas menores.
+        subbar = Frame(self.root, bg=PANEL, padx=18, pady=3)
+        subbar.pack(fill="x", padx=20)
+        self.button(subbar, "Painel local (experimental)", self._open_local_panel).pack(side="left")
+        Label(subbar, textvariable=self.status_var, bg=PANEL, fg=CYAN,
               font=(FONT, 9)).pack(side="right")
 
-        main = Frame(self.root, bg=BG, padx=20, pady=14)
+        main = Frame(self.root, bg=BG, padx=20, pady=9)
         main.pack(fill="both", expand=True)
         main.grid_columnconfigure(0, weight=3)
         main.grid_columnconfigure(1, weight=2)
@@ -204,7 +230,8 @@ class Application:
         Label(missions,textvariable=self.mission_var,bg=PANEL,fg=GOLD,
               font=(FONT,10),wraplength=320,justify="left").pack(anchor="w",pady=8)
         self.button(missions,"Cancelar contrato",self._cancel).pack(fill="x")
-        self.button(missions,"Preparar plano VFR da missão",self._prepare_active_plan).pack(fill="x",pady=(7,0))
+        self.button(missions,"Preparar voo / Despacho",self._planning_window,accent=True).pack(fill="x",pady=(7,0))
+        self.button(missions,"Carregar plano VFR no MSFS",self._prepare_active_plan).pack(fill="x",pady=(7,0))
         self.button(missions,"Vagas e companhias",self._employment_window).pack(fill="x",pady=(7,0))
 
         logp = self.section(main, "03  /  REGISTRO DE VOO")
@@ -480,9 +507,17 @@ class Application:
         self._accept_specific(m)
 
     def _accept_specific(self, m):
-        if self.mode not in ("MSFS", "Demo") or self.last_sample is None:
+        # No menu do MSFS ainda não existe SimConnect; o jogador pode
+        # reservar contrato na base do seu perfil e preparar o plano .PLN.
+        offline = self.mode == "Desconectado"
+        if not offline and (self.mode not in ("MSFS", "Demo") or self.last_sample is None):
             messagebox.showwarning("Contrato", "Conecte ao MSFS e aguarde telemetria em solo.")
             return False
+        if offline:
+            profile=self.storage.get_pilot()
+            if profile is None or m.origin != profile['home_icao']:
+                messagebox.showwarning('Mercado', 'No modo offline só é possível aceitar na base cadastral do piloto.')
+                return False
         if self.mode == "Demo" and m.id != "REC-ITA":
             messagebox.showwarning("Demo", "A demo fixa simula somente SBRF → SIPE.")
             return False
@@ -508,7 +543,8 @@ class Application:
                 messagebox.showwarning("Contrato", "Este contrato já foi concluído. Aguarde nova oferta.")
                 return False
         try:
-            self.career.accept(m,self.last_sample)
+            self.career.accept(m, None if offline else self.last_sample)
+            self.storage.set_setting('preflight_v1','')  # outro contrato exige novo despacho
             self._show_mission()
             self._checkpoint(force=True)
             self._log(f"Contrato aceito: {m.title} ({m.origin} → {m.destination}).")
@@ -516,7 +552,7 @@ class Application:
                 plane = PLANE_BY_CODE[m.employer_plane]
                 self._log(f"FREELANCER: avião fornecido pelo contratante: {plane.name}.")
                 self._log("Selecione este modelo no MSFS antes de decolar; o addon NÃO muda o avião automaticamente.")
-                if not matches_aircraft(self.last_sample.aircraft_title, m.employer_plane):
+                if not offline and self.last_sample and not matches_aircraft(self.last_sample.aircraft_title, m.employer_plane):
                     messagebox.showinfo("Freelancer — aeronave do contratante",
                         f"Contrato aceito. Avião designado: {plane.name}\n\n"
                         "Antes de decolar, selecione essa aeronave no MSFS. "
@@ -649,11 +685,17 @@ class Application:
             messagebox.showinfo('Plano VFR','Aceite primeiro um contrato.')
             return
         try:
-            path=export_vfr_plan(m,state_dir()/'planos_vfr')
+            data=self._saved_preflight()
+            path=export_vfr_plan(m,state_dir()/'planos_vfr', data.altitude_ft if data else 2500)
         except (OSError,ValueError) as exc:
             messagebox.showerror('Plano VFR',str(exc))
             return
         self._log(f'Plano VFR exportado: {path}')
+        if self.mode != 'MSFS' or not self.connected:
+            messagebox.showinfo('Plano preparado para o Mapa-Múndi',
+                f'Plano exportado: {path}\n\nNo menu Mapa-Múndi do MSFS 2020, use Carregar/Salvar para abrir este .PLN e selecione manualmente a aeronave. '
+                'Não existe integração testada para mudar automaticamente o avião pelo menu.')
+            return
         if not messagebox.askyesno('Plano VFR criado',
             f'Plano salvo em:\n{path}\n\nSolicitar carregamento no MSFS agora?\n'
             'Isso altera a rota do simulador, mas NÃO troca a aeronave nem a posição.\n'
@@ -792,6 +834,9 @@ class Application:
 
     def _cancel(self):
         self.career.cancel()
+        self.storage.set_setting('preflight_v1','')
+        self.realism_frozen=0.0
+        self.realism_mission=None
         self._show_mission()
         self._checkpoint(force=True)
         self._log("Contrato cancelado. Não houve pagamento.")
@@ -804,7 +849,9 @@ class Application:
 
     def _checkpoint_data(self, tracker=None):
         return {"version": 1, "career": self.career.snapshot(),
-                "tracker": (tracker or self.tracker).snapshot()}
+                "tracker": (tracker or self.tracker).snapshot(),
+                'realism_frozen':self.realism_frozen,
+                'realism_mission':self.realism_mission}
 
     def _checkpoint(self, force=False):
         # Demo mantém o banco de carreira; checkpoint do voo é para modo MSFS.
@@ -838,6 +885,7 @@ class Application:
             self.flight_vars[key].set(val)
         previous_phase = self.tracker.phase
         old_career_state = self.career.snapshot()
+        mission_before=self.career.mission
         old_balance = self.career.balance
         events = self.tracker.update(s)
         completion_payment = self.career.evaluate(events, s.aircraft_title)
@@ -845,6 +893,28 @@ class Application:
         for e in events:
             if e["type"] == "takeoff":
                 self._log("DECOLAGEM detectada. Diário iniciado e salvo para recuperação.")
+                self.realism_frozen=0.0
+                self.realism_mission=None
+                plan=self._saved_preflight()
+                if plan and self.career.mission:
+                    try:
+                        # São usados valores DO INÍCIO DO VOO, não leituras antigas
+                        # do checklist. Se o piloto mudou aeronave, não há bônus.
+                        if not aircraft_title_matches(plan.aircraft_title, s.aircraft_title):
+                            self._log('Despacho: avião diferente da seleção; bônus desativado.')
+                        else:
+                            snapshot=replace(plan,
+                                planned_fuel_gal=s.fuel_gallons,
+                                planned_weight_lbs=s.total_weight_lbs,
+                                max_weight_lbs=s.max_gross_weight_lbs,
+                                real_time_declared=(plan.real_time_declared and
+                                    (s.sim_rate is None or 0.99 <= s.sim_rate <= 1.01)))
+                            details=inspect_preflight(self.career.mission,snapshot)
+                            self.realism_frozen=details['bonus_fraction']
+                            self.realism_mission=self.career.mission.id
+                            self._log(f'Despacho: bônus de {self.realism_frozen:.0%} congelado na decolagem (dados disponíveis).')
+                    except ValueError as exc:
+                        self._log('Despacho indisponível: '+str(exc))
                 if self.career.mission and self.career.mission.freelance and not self.career.employer_aircraft_confirmed:
                     self._log("ALERTA FREELANCER: modelo não confirmado na decolagem; sem pagamento até próximo voo correto.")
                 self._checkpoint(force=True)
@@ -859,6 +929,10 @@ class Application:
                 next_tracker = FlightTracker()
                 next_tracker.update(s)
                 checkpoint_after = self._checkpoint_data(tracker=next_tracker)
+                checkpoint_after['realism_frozen']=0.0
+                checkpoint_after['realism_mission']=None
+                realism_fraction=(self.realism_frozen if payment and
+                                  self.realism_mission==payment['mission'] else 0.0)
                 try:
                     inserted = self.storage.finalize_flight(start, e, v, self.tracker.stalls,
                                         payment["mission"] if payment else None,
@@ -866,7 +940,9 @@ class Application:
                                         aircraft_title=s.aircraft_title,
                                         fuel_start=(self.tracker.takeoff_sample.fuel_gallons
                                                     if self.tracker.takeoff_sample else None),
-                                        fuel_end=s.fuel_gallons)
+                                        fuel_end=s.fuel_gallons,
+                                        realism_fraction=realism_fraction,
+                                        destination=mission_before.destination if payment and mission_before else None)
                 except Exception as exc:
                     self._log(f"FALHA AO SALVAR pouso: {exc}. Não feche antes de exportar log.")
                     self.status_var.set("Erro ao salvar voo")
@@ -876,11 +952,15 @@ class Application:
                     # o app poderá confirmar novamente o pouso em solo.
                     return
                 self.tracker = next_tracker
+                self.realism_frozen=0.0
+                self.realism_mission=None
                 self.career.balance = int(self.storage.get_setting("balance") or 0)
                 summary = self.storage.flight_finance(start)
                 actual_credit = self.career.balance - old_balance
                 if inserted and self.storage.get_pilot() is not None:
-                    self._log(f"PROGRESSO DO PILOTO: +{flight_xp(summary['gross'])} XP pelo voo concluído.")
+                    base_xp=flight_xp(payment['reward'] if payment else 0)
+                    bonus_xp=round(base_xp*realism_fraction) if payment else 0
+                    self._log(f"PROGRESSO DO PILOTO: +{base_xp+bonus_xp} XP ({bonus_xp} do despacho realista).")
                     self._refresh_pilot_summary()
                 if not inserted:
                     self._log("Pouso já salvo anteriormente: pagamento duplicado bloqueado.")
@@ -894,6 +974,8 @@ class Application:
                 else:
                     self._log("Voo registrado; contrato não concluído (confira origem e destino).")
                 self.balance_var.set(brl(self.career.balance))
+                if inserted and payment:
+                    self.storage.set_setting('preflight_v1','')
                 self._show_mission()
                 self.phase_var.set(self.tracker.phase.value.upper())
                 self._refresh_history()
@@ -904,6 +986,33 @@ class Application:
             self._checkpoint(force=True)
         else:
             self._checkpoint()
+
+    def _publish_bridge(self):
+        m=self.career.mission
+        s=self.last_sample if self.connected else None
+        mission=None
+        if m:
+            a,b=AIRPORTS.get(m.origin),AIRPORTS.get(m.destination)
+            mission={'origin':m.origin,'destination':m.destination,'title':m.title,
+                     'reward':m.reward,'origin_lat':m.origin_lat if m.origin_lat is not None else (a.latitude if a else None),
+                     'origin_lon':m.origin_lon if m.origin_lon is not None else (a.longitude if a else None),
+                     'destination_lat':m.destination_lat if m.destination_lat is not None else (b.latitude if b else None),
+                     'destination_lon':m.destination_lon if m.destination_lon is not None else (b.longitude if b else None)}
+        self.bridge_state.update(status='connected' if s else 'offline',
+            phase=self.tracker.phase.value,balance=self.career.balance,
+            aircraft=s.aircraft_title if s else None,
+            position={'lat':s.latitude,'lon':s.longitude} if s else None,
+            fuel_gallons=s.fuel_gallons if s else None,
+            mission=mission,updated=time())
+
+    def _open_local_panel(self):
+        import webbrowser
+        if self.bridge_error:
+            messagebox.showwarning('Painel local','Não foi possível iniciar a ponte: '+self.bridge_error)
+            return
+        self._publish_bridge()
+        webbrowser.open('http://127.0.0.1:8769/')
+        self._log('Painel local aberto no navegador. Para o usar na toolbar, compilar in_game/toolbar com SDK MSFS 2020.')
 
     def _poll(self):
         try:
@@ -934,6 +1043,7 @@ class Application:
                     self.status_var.set(item)
         except Empty:
             pass
+        self._publish_bridge()
         self.root.after(200,self._poll)
 
     def _finance_window(self):
@@ -994,6 +1104,7 @@ class Application:
         actions=Frame(fleet_panel,bg=PANEL)
         actions.pack(fill="x")
         self.button(actions,'Resgatar C152 inicial',lambda:transact(self.storage.claim_starter),accent=True).pack(side="left",padx=(0,7))
+        self.button(actions,'Frota avançada',self._fleet_window,accent=True).pack(side='left',padx=(0,7))
         self.button(actions,'Comprar modelo',lambda:transact(lambda:self.storage.buy_aircraft(code())) if messagebox.askyesno('Comprar aeronave', f'Comprar {AIRCRAFT_ECONOMY[code()].title} por {brl(AIRCRAFT_ECONOMY[code()].purchase_price)}?',parent=window) else None).pack(side="left",padx=(0,7))
         self.button(actions,'Revisão completa',lambda:transact(lambda:self.storage.service_aircraft(code()))).pack(side="left",padx=(0,7))
         self.button(actions,'Alternar seguro',lambda:transact(lambda:self.storage.set_insurance(code(),
@@ -1039,6 +1150,211 @@ class Application:
             history.configure(state='disabled')
         redraw()
 
+    def _saved_preflight(self, mission_id=None):
+        raw=self.storage.get_setting('preflight_v1')
+        current_id = mission_id or (self.career.mission.id if self.career.mission else None)
+        if not raw or current_id is None:
+            return None
+        try:
+            data=Preflight(**json.loads(raw))
+            return data if data.mission_id==current_id else None
+        except (TypeError, ValueError, KeyError):
+            return None
+
+    def _planning_window(self):
+        if not self.career.mission:
+            messagebox.showinfo('Despacho','Aceite primeiro um contrato regional ou freelancer.')
+            return
+        if self.planning_dialog is not None and self.planning_dialog.winfo_exists():
+            self.planning_dialog.lift();return
+        m=self.career.mission
+        window=Toplevel(self.root)
+        self.planning_dialog=window
+        window.title('FlightSimCarreira • Despacho pré-voo')
+        window.geometry('900x760');window.minsize(760,650);window.configure(bg=BG)
+        window.protocol('WM_DELETE_WINDOW',lambda:(setattr(self,'planning_dialog',None),window.destroy()))
+        body=Frame(window,bg=BG,padx=24,pady=18);body.pack(fill='both',expand=True)
+        self.label(body,f'DESPACHO / {m.origin} → {m.destination}',17,CYAN,True).pack(anchor='w')
+        self.label(body,'Pontos verificados pelo MSFS são diferentes das declarações do piloto.',9,MUTED).pack(anchor='w',pady=(2,12))
+        saved=self._saved_preflight()
+        model_name=(self.last_sample.aircraft_title if self.last_sample and self.last_sample.aircraft_title else
+                    (saved.aircraft_title if saved else 'Cessna 152'))
+        fleet=self.storage.fleet_manager()
+        selected=fleet.selected()
+        airplane=StringVar(value=selected['title'] if selected else model_name)
+        self.label(body,'AERONAVE DESIGNADA / SELECIONADA',10,GOLD,True).pack(anchor='w')
+        Entry(body,textvariable=airplane,fg=FG,bg=PANEL2,insertbackground=FG,
+              relief='flat',font=(FONT,11)).pack(fill='x',pady=(4,7))
+        if m.freelance:
+            self.label(body,'Freelancer: usar aeronave do contratante. A troca de avião no MSFS ainda é manual.',9,GOLD).pack(anchor='w')
+        self.label(body,'CHECKLIST: confirme somente o que realmente foi configurado/conferido no MSFS.',9,MUTED).pack(anchor='w',pady=(9,7))
+        items=[('real_weather_declared','Clima ao vivo (confirmação manual)'),
+            ('real_time_declared','Horário real (confirmação manual)'),
+            ('assists_realistic_declared','Assistências realistas (confirmação manual)'),
+            ('runway_checked','Pista e iluminação verificadas no mapa/aviação'),
+            ('route_checked','Rota e altitude revisadas no mapa VFR/GPS'),
+            ('fuel_checked','Combustível e reserva conferidos'),
+            ('payload_checked','Peso e balanceamento verificados')]
+        flags={key:IntVar(value=int(bool(getattr(saved,key,False)))) for key,_ in items}
+        for key,caption in items:
+            Checkbutton(body,text=caption,variable=flags[key],bg=BG,fg=FG,
+                selectcolor=PANEL2,activebackground=BG,activeforeground=FG,
+                font=(FONT,10)).pack(anchor='w',pady=1)
+        altitude=StringVar(value=str(saved.altitude_ft if saved else 2500))
+        self.label(body,'Altitude de cruzeiro (ft)',9,MUTED).pack(anchor='w',pady=(11,2))
+        Entry(body,textvariable=altitude,width=14,bg=PANEL2,fg=FG,insertbackground=FG).pack(anchor='w')
+        report=Text(body,bg=PANEL2,fg=FG,height=9,font=('Consolas',10),relief='flat',wrap='word',padx=12,pady=9)
+        report.pack(fill='both',expand=True,pady=(12,10))
+        def build():
+            s=self.last_sample
+            if self.mode=='MSFS' and s and time()-s.timestamp<12 and s.on_ground:
+                fuel=s.fuel_gallons
+                weight=s.total_weight_lbs
+                maxweight=s.max_gross_weight_lbs
+            else:
+                fuel=weight=maxweight=None
+            return Preflight(m.id,airplane.get().strip(),**{key:bool(v.get()) for key,v in flags.items()},
+                planned_fuel_gal=fuel,planned_weight_lbs=weight,max_weight_lbs=maxweight,
+                altitude_ft=int(altitude.get()))
+        def review(save=False):
+            if self.tracker.phase==Phase.AIRBORNE:
+                messagebox.showwarning('Despacho','Conclua o voo antes de mudar os critérios do contrato.',parent=window);return
+            try:
+                plan=build()
+                details=inspect_preflight(m,plan)
+                if save:
+                    self.storage.set_setting('preflight_v1',json.dumps(plan.snapshot(),ensure_ascii=False))
+                    self._log(f'Despacho salvo para {m.origin} → {m.destination}, bônus previsto até {details["bonus_fraction"]:.0%} (condicionado ao pouso).')
+                report.delete('1.0',END)
+                report.insert(END,f'Distância: {details["distance_nm"]} NM\nDuração estimada: {details["minutes"]} min\n')
+                report.insert(END,f'Combustível mínimo estimado (inclui margem): {details["fuel_required_gal"]} gal\n')
+                for key,val in details['components'].items():
+                    report.insert(END,f'{"OK" if val["ok"] else "PENDENTE"}: {key} (+{val["rate"]*100:g}%)\n')
+                report.insert(END,f'\nBônus previsto: +{details["bonus_fraction"]*100:.1f}% sobre pagamento e XP do contrato\n')
+                report.insert(END,'Clima/horário/assistências/pista são declarações do piloto, NÃO telemetria validada.\n')
+                if save:
+                    messagebox.showinfo('Despacho','Checklist salvo. Os valores medidos foram congelados em solo; confirme as opções declaradas.',parent=window)
+            except (ValueError,TypeError) as exc:
+                messagebox.showwarning('Despacho',str(exc),parent=window)
+        bar=Frame(body,bg=BG);bar.pack(fill='x')
+        self.button(bar,'Revisar',lambda:review(False)).pack(side='left',padx=(0,8))
+        self.button(bar,'Salvar checklist',lambda:review(True),accent=True).pack(side='left',padx=(0,8))
+        self.button(bar,'Exportar/Carregar .PLN',self._prepare_active_plan).pack(side='left')
+        review(False)
+
+    def _fleet_window(self):
+        if self.fleet_dialog is not None and self.fleet_dialog.winfo_exists():
+            self.fleet_dialog.lift();return
+        window=Toplevel(self.root);self.fleet_dialog=window
+        window.title('FlightSimCarreira • Frota 2.0 e aeronaves do MSFS')
+        window.geometry('1050x730');window.minsize(890,630);window.configure(bg=BG)
+        window.protocol('WM_DELETE_WINDOW',lambda:(setattr(self,'fleet_dialog',None),window.destroy()))
+        main=Frame(window,bg=BG,padx=20,pady=14);main.pack(fill='both',expand=True)
+        self.label(main,'FROTA  /  NOVAS, USADAS, ALUGUEL E VENDA',16,CYAN,True).pack(anchor='w')
+        self.label(main,'Transações virtuais; o MSFS não troca o avião automaticamente.',9,MUTED).pack(anchor='w',pady=(4,10))
+        cols=('ref','code','title','kind','condition','location')
+        view=ttk.Treeview(main,columns=cols,show='headings',height=9,selectmode='browse')
+        for key,title,w in [('ref','ID',105),('code','MODELO',65),('title','AERONAVE',245),
+                            ('kind','AQUISIÇÃO',125),('condition','ESTADO',95),('location','AERÓDROMO',100)]:
+            view.heading(key,text=title);view.column(key,width=w,stretch=key=='title')
+        view.pack(fill='x')
+        fm=self.storage.fleet_manager()
+        balance=StringVar()
+        Label(main,textvariable=balance,bg=BG,fg=GREEN,font=(FONT,11,'bold')).pack(anchor='w',pady=(8,5))
+        airport=StringVar(value=(self.storage.get_pilot() or {}).get('home_icao','SBRF'))
+        line=Frame(main,bg=BG);line.pack(fill='x',pady=(3,10))
+        self.label(line,'Aeroporto:',9,MUTED).pack(side='left')
+        Entry(line,textvariable=airport,width=7,bg=PANEL2,fg=FG,insertbackground=FG).pack(side='left',padx=6)
+        model=StringVar(value='c152')
+        models=ttk.Combobox(line,textvariable=model,state='readonly',width=24,
+                  values=[f'{code} | {p.title}' for code,p in AIRCRAFT_ECONOMY.items()])
+        models.current(0);models.pack(side='left',padx=7)
+        def code():return model.get().split(' | ',1)[0]
+        def chosen():
+            ids=view.selection()
+            return ids[0] if ids else None
+        def at_home():
+            location=airport.get().strip().upper()
+            if len(location)!=4 or not location.isalpha():raise ValueError('Informe ICAO válido.')
+            return location
+        def redraw():
+            for row in view.get_children():view.delete(row)
+            for plane in fm.all():
+                view.insert('','end',iid=plane['ref'],values=(plane['ref'],plane['code'],plane['title'],plane['kind'],
+                    f"{plane['condition']:.1f}%",plane['airport']))
+            selected=fm.selected()
+            balance.set(f"Caixa: {brl(int(self.storage.get_setting('balance') or 0))}  •  Selecionado: {selected['title'] if selected else 'nenhum'}")
+        def op(fn):
+            if self.tracker.phase==Phase.AIRBORNE:
+                messagebox.showwarning('Frota','Faça transações somente em solo.',parent=window);return
+            try:
+                item=fn()
+                self.career.balance=int(self.storage.get_setting('balance') or 0)
+                self.balance_var.set(brl(self.career.balance))
+                redraw();return item
+            except (ValueError,KeyError) as exc:
+                messagebox.showwarning('Frota',str(exc),parent=window)
+        buttons=Frame(main,bg=BG);buttons.pack(fill='x',pady=(0,10))
+        self.button(buttons,'Selecionar para voo',lambda:op(lambda:fm.select(chosen()))).pack(side='left',padx=(0,6))
+        self.button(buttons,'Comprar nova',lambda:op(lambda:fm.purchase(code(),at_home())) if messagebox.askyesno('Compra nova',f'Comprar {AIRCRAFT_ECONOMY[code()].title} por {brl(AIRCRAFT_ECONOMY[code()].purchase_price)}?',parent=window) else None).pack(side='left',padx=(0,6))
+        self.button(buttons,'Alugar 24h',lambda:op(lambda:fm.rent(code(),at_home()))).pack(side='left',padx=(0,6))
+        self.button(buttons,'Vender escolhida',lambda:op(lambda:fm.sell(chosen())) if messagebox.askyesno('Vender','Vender aeronave selecionada? Valor de revenda abaixo do preço de compra.',parent=window) else None).pack(side='left',padx=(0,6))
+        self.button(buttons,'Revisar escolhida',lambda:op(lambda:fm.service(chosen()))).pack(side='left')
+        market=self.section(main,'MERCADO DE SEGUNDA MÃO (ATUALIZA SEMANALMENTE)')
+        market.pack(fill='both',expand=True)
+        second=ttk.Treeview(market,columns=('title','cond','hours','price'),show='headings',height=5)
+        for col,title in [('title','AERONAVE'),('cond','ESTADO'),('hours','HORAS'),('price','PREÇO')]:
+            second.heading(col,text=title);second.column(col,width=145,stretch=True)
+        second.pack(fill='x')
+        def refresh_used():
+            for row in second.get_children():second.delete(row)
+            offers=used_market(at_home(),int(time()//(7*86400)))
+            for offer in offers:
+                second.insert('','end',iid=offer.offer_id,values=(offer.title,
+                    f'{offer.condition:.1f}%',f'{offer.hours:.0f} h',brl(offer.price)))
+            return {x.offer_id:x for x in offers}
+        offered={}
+        def update_offers():
+            try:
+                offered.clear();offered.update(refresh_used())
+            except ValueError as exc:messagebox.showwarning('Mercado',str(exc),parent=window)
+        def buy_used():
+            row=second.selection()
+            if not row:return
+            offer=offered[row[0]]
+            if messagebox.askyesno('Comprar usada',f'{offer.title}, {offer.condition:.1f}% de estado, {brl(offer.price)}?',parent=window):
+                op(lambda:fm.purchase(offer.code,at_home(),offer=offer))
+        row=Frame(market,bg=PANEL);row.pack(fill='x',pady=(6,0))
+        self.button(row,'Comprar usada selecionada',buy_used,accent=True).pack(side='left',padx=(0,8))
+        self.button(row,'Atualizar mercado local',update_offers).pack(side='left',padx=(0,8))
+        self.button(row,'Aeronaves instaladas no MSFS',self._installed_aircraft_window).pack(side='left')
+        redraw();update_offers()
+
+    def _installed_aircraft_window(self):
+        win=Toplevel(self.root);win.title('FlightSimCarreira • Aeronaves instaladas MSFS 2020')
+        win.geometry('910x630');win.configure(bg=BG)
+        panel=Frame(win,bg=BG,padx=16,pady=14);panel.pack(fill='both',expand=True)
+        self.label(panel,'INVENTÁRIO LOCAL DO SIMULADOR',16,CYAN,True).pack(anchor='w')
+        self.label(panel,'Community + Official: instalação detectada ≠ prova de posse/licença no MSFS.',9,MUTED).pack(anchor='w',pady=(2,8))
+        status=StringVar(value='Clique em Escanear.')
+        Label(panel,textvariable=status,bg=BG,fg=GOLD,font=(FONT,9)).pack(anchor='w')
+        box=Text(panel,bg=PANEL2,fg=FG,font=('Consolas',10),height=18,relief='flat',wrap='none')
+        box.pack(fill='both',expand=True,pady=(7,8))
+        def search():
+            from tkinter import filedialog
+            roots=detect_package_roots()
+            if not roots:
+                path=filedialog.askdirectory(title='Selecione pasta InstalledPackages do MSFS')
+                if not path:return
+                roots=[Path(path)]
+            items=scan_installed_aircraft(roots)
+            box.delete('1.0',END)
+            for x in items:
+                box.insert(END,f'{x.title} | {x.ui_variation} | {x.source}\n')
+            status.set(f'{len(items)} títulos/variações encontrados em '+', '.join(str(x) for x in roots))
+            if not items:box.insert(END,'Nenhum aircraft.cfg legível. Marketplace pode estar protegido; confira a pasta de instalação.\n')
+        self.button(panel,'Escanear aeronaves instaladas',search,accent=True).pack(anchor='w')
+
     def _locate_neofly(self):
         paths = discover_neofly_databases()
         if paths:
@@ -1077,6 +1393,7 @@ class Application:
 
     def _close(self):
         self._checkpoint(force=True)
+        self.bridge.stop()
         if self.sim:
             self.sim.stop()
         self.storage.close()

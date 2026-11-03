@@ -1,0 +1,34 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FlightSimCarreira — painel experimental</title>
+<style>
+:root{color-scheme:dark;--bg:#08111c;--panel:#101e2d;--cyan:#54c8d5;--gold:#d4ae6e;--fg:#e4edf5;--muted:#94a8bb}
+*{box-sizing:border-box}body{font:14px 'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--fg);margin:0;padding:14px}
+header{display:flex;align-items:center;justify-content:space-between;gap:14px;border-bottom:1px solid #263f55;padding:0 0 12px}
+h1{font-size:18px;margin:0}h1 span{color:var(--cyan)}.status{font-size:12px;color:var(--cyan)}.panel{background:var(--panel);border-radius:8px;padding:14px;margin:12px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}.stat{background:#172a3a;padding:10px;border-radius:6px}.stat label{display:block;font-size:11px;color:var(--muted)}.stat strong{display:block;font-size:19px;margin-top:4px}
+small{color:var(--muted)}h2{font-size:13px;color:var(--gold);margin:0 0 10px;letter-spacing:.08em}#map{width:100%;height:300px;background:#0c1b28;border-radius:8px;border:1px solid #284155}
+#map text{fill:var(--fg);font:11px Arial}#map .gridline{stroke:#203b50;stroke-width:1}#map .path{stroke:var(--cyan);stroke-width:3;stroke-dasharray:6 5;fill:none}
+#map .origin{fill:var(--gold)}#map .dest{fill:#77cba3}#map .plane{fill:#fff}#map .unknown{fill:var(--muted)}footer{color:var(--muted);font-size:11px;padding:8px 0}
+</style></head><body>
+<header><h1>FLIGHTSIM<span>CARREIRA</span> <small>LAB</small></h1><div id="connection" class="status">AGUARDANDO PONTE</div></header>
+<section class="panel"><h2>CARREIRA EM VOO</h2><div class="grid"><div class="stat"><label>CAIXA</label><strong id="balance">—</strong></div><div class="stat"><label>FASE</label><strong id="phase">—</strong></div><div class="stat"><label>AERONAVE</label><strong id="plane" style="font-size:14px">—</strong></div><div class="stat"><label>COMBUSTÍVEL</label><strong id="fuel">—</strong></div></div></section>
+<section class="panel"><h2>CONTRATO ATIVO</h2><div id="mission">Nenhum contrato reservado.</div></section>
+<section class="panel"><h2>MAPA DE TRAJETO — ESQUEMA GEOGRÁFICO</h2><svg id="map" viewBox="0 0 700 300" role="img" aria-label="Trajeto e posição do avião"><g id="chart"></g></svg><small>Este NÃO é o mapa VFR oficial: não contém cartas, obstáculos, relevo, pistas, jogadores online nem dados certificados. É somente um traçado de rota com posição.</small></section>
+<footer>Painel experimental somente leitura. Deixe o FlightSimCarreira aberto no Windows. Mapa/toolbar precisam de validação no MSFS Steam.</footer>
+<script>
+'use strict';
+const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
+const fmt=(x,d=1)=>typeof x==='number' && Number.isFinite(x)?x.toFixed(d):'—';
+function el(tag,attrs={},text=''){const n=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>n.setAttribute(k,String(v)));if(text)n.textContent=text;return n}
+function draw(data){const root=$('chart');root.replaceChildren();for(let x=70;x<700;x+=70)root.append(el('line',{x1:x,y1:0,x2:x,y2:300,class:'gridline'}));for(let y=30;y<300;y+=30)root.append(el('line',{x1:0,y1:y,x2:700,y2:y,class:'gridline'}));
+ const places=[];const m=data.mission;if(m){if(Number.isFinite(m.origin_lat)&&Number.isFinite(m.origin_lon))places.push([m.origin_lat,m.origin_lon,'origin',m.origin]);if(Number.isFinite(m.destination_lat)&&Number.isFinite(m.destination_lon))places.push([m.destination_lat,m.destination_lon,'dest',m.destination]);}
+ const p=data.position;if(p && Number.isFinite(p.lat) && Number.isFinite(p.lon))places.push([p.lat,p.lon,'plane','AVIÃO']);
+ if(!places.length){root.append(el('text',{x:240,y:156,class:'unknown'},'Sem coordenadas disponíveis'));return}
+ let lats=places.map(a=>a[0]),lons=places.map(a=>a[1]);let minLat=Math.min(...lats),maxLat=Math.max(...lats),minLon=Math.min(...lons),maxLon=Math.max(...lons);
+ let centerLat=(minLat+maxLat)/2,latScale=Math.max((maxLat-minLat)*1.3,0.08),lonScale=Math.max((maxLon-minLon)*1.3,0.08),cos=Math.max(.2,Math.cos(centerLat*Math.PI/180));
+ let points=places.map(a=>({x:350+(a[1]-(minLon+maxLon)/2)*cos/lonScale*520,y:150-(a[0]-centerLat)/latScale*240,kind:a[2],label:a[3]}));
+ if(m && points.length>=2 && points[0].kind==='origin'&&points[1].kind==='dest')root.append(el('path',{d:`M${points[0].x},${points[0].y} L${points[1].x},${points[1].y}`,class:'path'}));
+ points.forEach(q=>{root.append(el('circle',{cx:q.x,cy:q.y,r:q.kind==='plane'?8:6,class:q.kind}));root.append(el('text',{x:q.x+11,y:q.y-10},q.label))});}
+async function refresh(){try{const r=await fetch('/api/status',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();$('connection').textContent=d.status==='connected'?'SIMCONNECT ATIVO':'PONTE ATIVA · SIM OFFLINE';$('balance').textContent='R$ '+(d.balance||0).toLocaleString('pt-BR');$('phase').textContent=d.phase||'—';$('plane').textContent=d.aircraft||'—';$('fuel').textContent=Number.isFinite(d.fuel_gallons)?fmt(d.fuel_gallons)+' gal':'—';$('mission').textContent=d.mission?`${d.mission.origin} → ${d.mission.destination} • ${d.mission.title} • R$ ${d.mission.reward.toLocaleString('pt-BR')}`:'Nenhum contrato ativo';draw(d);}catch(e){$('connection').textContent='SEM CONEXÃO COM O SERVIÇO LOCAL'}}
+refresh();setInterval(refresh,1500);
+</script></body></html>

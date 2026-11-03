@@ -11,3 +11,10 @@ neofly_analise/
 *.log
 build/
 dist/
+
+# Artefatos de compilação do SDK de painel MSFS
+in_game/toolbar/_Temp/
+in_game/toolbar/Packages/
+in_game/toolbar/Build/
+in_game/toolbar/*.spb
+*.fspackage

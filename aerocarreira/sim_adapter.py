@@ -19,7 +19,10 @@ REQUIRED = {
 }
 # Uma única ausência de GROUND_VELOCITY NÃO derruba a sessão.
 SOFT = {"groundspeed_kt": "GROUND_VELOCITY", "vs_fpm": "VERTICAL_SPEED"}
-OPTIONAL = {"stall_warning": "STALL_WARNING", "fuel_gallons": "FUEL_TOTAL_QUANTITY"}
+OPTIONAL = {"stall_warning": "STALL_WARNING", "fuel_gallons": "FUEL_TOTAL_QUANTITY",
+            "total_weight_lbs": "TOTAL_WEIGHT", "max_gross_weight_lbs": "MAX_GROSS_WEIGHT",
+            "wind_kt": "AMBIENT_WIND_VELOCITY", "ambient_temperature_c": "AMBIENT_TEMPERATURE",
+            "sim_rate": "SIMULATION_RATE"}
 
 
 class SampleReader:
@@ -78,7 +81,12 @@ class SampleReader:
             ias_kt=values["ias_kt"], groundspeed_kt=gs,
             vs_fpm=vs, on_ground=values["on_ground"] >= 0.5,
             fuel_gallons=fuel, stall_warning=None if stall is None else stall >= 0.5,
-            groundspeed_estimated=estimated, aircraft_title=self._title())
+            groundspeed_estimated=estimated, aircraft_title=self._title(),
+            total_weight_lbs=self._get(OPTIONAL['total_weight_lbs']),
+            max_gross_weight_lbs=self._get(OPTIONAL['max_gross_weight_lbs']),
+            wind_kt=self._get(OPTIONAL['wind_kt']),
+            ambient_temperature_c=self._get(OPTIONAL['ambient_temperature_c']),
+            sim_rate=self._get(OPTIONAL['sim_rate']))
         self.last = s
         return s, []
 

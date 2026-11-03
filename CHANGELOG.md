@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0-alpha.1 — frota individual, despacho e ponte de painel local
+
+- Frota avançada com novas/usadas (instâncias próprias, registro individual), aluguel, revenda, mercado semanal local, serviços e localização; preserva frota legada.
+- Detector read-only de modelos e liveries em `aircraft.cfg` do Official/Community, sem afirmar posse na conta.
+- Despacho offline para contratos na base do piloto + exportação `.PLN` e pedido explícito de carga SimConnect ao entrar no mundo.
+- Checklist de realismo com fatores de previsão, peso e combustível com telemetria opcional, e declarações manuais explicitamente identificadas.
+- Até 18% de bônus sobre recompensa e XP do contrato, congelado na decolagem em checkpoint e pago atomicamente no pouso; comportamento idempotente após reinício.
+- Correção: títulos SimConnect com prefixo do fabricante são reconhecidos como mesmo modelo de aeronave no despacho.
+- Ponte HTTP local apenas loopback/somente leitura, UI no navegador com esboço geométrico de rota, saldo e posição; projeto-fonte de toolbar que requer SDK e validação física.
+- Migração aditiva SQLite com backup `pre_v060`, sem alterar perfil, caixa, XP, voos ou NeoFly.
+- Testes unitários de frota, mercado, scanner de aeronaves, despacho, bônus, persistência e bridge, mais fluxo ponta a ponta em Tk/SQLite e reinício simulado.
+- **Limitação assumida:** não existe integração validada que monte Mapa-Múndi/avião automaticamente, nem VFR nativo, clima real confirmado pelo simulador ou painel toolbar já compilado.
+
 ## 0.5.1-alpha.1 — barras de progresso e habilitações com horas (02/11/2026)
 - Barra visual de nível do piloto no cabeçalho, com progresso relativo ao nível atual.
 - Barras visuais individuais e texto atual/meta para horas, número de voos e XP por habilitação.
@@ -10,7 +23,6 @@
 - Testes adicionais de metas, persistência, progressão de nível e elegibilidade.
 - V0.4.0: piloto confirmou no MSFS voo, missão, XP e carregamento do plano VFR.
 
-# Changelog
 
 ## 0.5.0-alpha.1 — Mercado/Finanças/Manutenção (03/11/2026)
 - BRL fictício com migração 1:1 do valor nominal, sem cambial; UI financeira e mercado em R$.

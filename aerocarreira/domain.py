@@ -74,6 +74,11 @@ class FlightSample:
     stall_warning: Optional[bool] = None
     groundspeed_estimated: bool = False
     aircraft_title: str | None = None
+    total_weight_lbs: float | None = None
+    max_gross_weight_lbs: float | None = None
+    wind_kt: float | None = None
+    ambient_temperature_c: float | None = None
+    sim_rate: float | None = None
 
 
 class Phase(str, Enum):

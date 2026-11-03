@@ -6,6 +6,21 @@
 
 # Roadmap
 
+## v0.6.0 Alpha.1 — Bloco 5: Frota e planejamento
+- [x] Compra nova/usada, aluguel, venda, serviços, localização e modelo ativo em frota individual.
+- [x] Varredura read-only dos `aircraft.cfg` Official e Community (títulos/variantes de pintura).
+- [x] Despacho de voo, checklist, limite de bônus de realismo +18% no XP e BRL, congelamento de critérios na decolagem.
+- [x] `.PLN` disponível offline (a partir da base do piloto) e comando SimConnect de carga em solo.
+- [x] Ponte HTTP local read-only e desenho de rota próprio; protótipo **fonte** SDK da toolbar criado.
+- [x] Testes de frota, economia, duplicidade, scanner e ponte; GUI e voo artificial ponta a ponta com reinício validados no ambiente de desenvolvimento.
+- [ ] Validar novas SimVars (peso, vento e sim rate) no MSFS 2020 Steam real, além do bônus real e da varredura de aeronaves instaladas.
+- [ ] Compilar o projeto-fonte no SDK; testar permissões do iframe/Coherent e a toolbar dentro do jogo.
+- [ ] Provar se existe mecanismo suportado de alternar aeronave e criar voo no Mapa-Múndi; **não implementado nem prometido**.
+- [ ] Integração de mapa VFR real, multiplayer e dados operacionais de aeroporto/clima automaticamente verificados.
+- [ ] Disponibilizar comandos de carreira autenticados no painel do simulador quando a comunicação for validada.
+
+Detalhes em [Bloco 5](BLOCO_5_FROTA_DESPACHO.md) e [Arquitetura in-game](ARQUITETURA_IN_GAME.md).
+
 ## v0.1 Alpha — entregue para validação no Windows
 - [x] Aplicativo Windows Tkinter, modo Demo sem simulador.
 - [x] Integração opcional SimConnect somente leitura com 8 SimVars (7 essenciais exibidas, 1 para estado de solo; mais 2 opcionais: combustível/estol).

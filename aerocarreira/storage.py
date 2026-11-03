@@ -6,6 +6,7 @@ from .pilot import validate_pilot, qualification_eligibility, QUAL_BY_CODE, flig
 from .contracts import aircraft_family, aircraft_model, pilot_level, next_level_xp
 from .domain import Mission
 from .finance import AIRCRAFT_ECONOMY, brl, flight_operating_cost
+from .fleet import init_fleet, FleetManager
 from .employment import (Vacancy, EMPLOYER_BY_CODE, vacancies, weekly_period,
     employment_eligibility, selection_result, OWN_MIN_LEVEL, OWN_MIN_HOURS,
     OWN_INVESTMENT, valid_company_name)
@@ -110,6 +111,16 @@ class Storage:
                 principal INTEGER NOT NULL, debt INTEGER NOT NULL,
                 created_utc REAL NOT NULL, CHECK(debt >= 0));
         """)
+        # Bloco 5: frota individual sem substituir a tabela de aeronaves antigas.
+        if existing:
+            safety = self.path.with_name(self.path.stem + '.pre_v060.backup.db')
+            if not safety.exists():
+                target = sqlite3.connect(safety)
+                try:
+                    self.conn.backup(target)
+                finally:
+                    target.close()
+        init_fleet(self.conn)
         self.conn.commit()
         if self.get_setting("balance") is None:
             self.set_setting("balance", "5000")
@@ -124,6 +135,9 @@ class Storage:
             self.set_setting('income_tax_enabled','0')
         if self.get_setting('simulated_failures_enabled') is None:
             self.set_setting('simulated_failures_enabled','0')
+
+    def fleet_manager(self):
+        return FleetManager(self)
 
     def get_setting(self, key: str) -> Optional[str]:
         row = self.conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
@@ -149,11 +163,14 @@ class Storage:
     def finalize_flight(self, start: dict, end: dict, touchdown_fpm_est, stalls: int,
                         mission_id: str | None, reward: int, checkpoint: dict,
                         aircraft_title: str | None = None,
-                        fuel_start: float | None = None, fuel_end: float | None = None) -> bool:
+                        fuel_start: float | None = None, fuel_end: float | None = None,
+                        realism_fraction: float = 0.0, destination: str | None = None) -> bool:
         """Pouso+crédito+estado em UMA transação; repetição não duplica dinheiro.
 
         A identidade é determinada pela decolagem original e sobrevive a reinícios.
         """
+        if not (0 <= realism_fraction <= 0.18) or not isinstance(realism_fraction,(float,int)):
+            raise ValueError('Bônus de realismo inválido')
         flight_key = f"takeoff:{float(start['timestamp']):.6f}:{float(start['lat']):.7f}:{float(start['lon']):.7f}"
         with self.conn:
             # Se o pouso já foi processado, não reivindicar outro contrato.
@@ -168,44 +185,55 @@ class Storage:
                     (mission_id, flight_key, time()))
                 if claim.rowcount == 0:
                     actual_reward = 0
+            realism_amount = round(actual_reward * float(realism_fraction)) if actual_reward > 0 else 0
+            gross_reward = actual_reward + realism_amount
             cursor = self.conn.execute('''INSERT OR IGNORE INTO flights
                 (started_utc,ended_utc,from_lat,from_lon,to_lat,to_lon,
                 touchdown_fpm_est,stall_warnings,mission_id,reward,flight_key,aircraft_title)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?)''',
                 (start["timestamp"], end["timestamp"], start["lat"], start["lon"],
                  end["lat"], end["lon"], touchdown_fpm_est, stalls,
-                 mission_id, actual_reward, flight_key, aircraft_title))
+                 mission_id, gross_reward, flight_key, aircraft_title))
             inserted = cursor.rowcount == 1
             if inserted:
                 old_balance = int(self.get_setting("balance") or 0)
-                # Custos de operação: somente aeronave que o jogador possui.
-                from .contracts import aircraft_model
+                # Uma aeronave própria selecionada é individualizada; fallback legado
+                # mantém os voos antigos sem migrar/duplicar inventário.
                 model = aircraft_model(aircraft_title)
-                owned = self.conn.execute(
-                    "SELECT condition, hours, insured FROM owned_aircraft WHERE code=?", (model,)
-                ).fetchone() if model else None
-                # Contratante fornece aeronave/combustível em voos FREE/EMP.
-                # Sem missão: apenas voos de treinamento monitorados, sem cobrança.
+                fleet = FleetManager(self)
+                selected = fleet.selected()
+                legacy = self.conn.execute('SELECT condition,hours,insured FROM owned_aircraft WHERE code=?',(model,)).fetchone() if model else None
                 company_plane = bool(mission_id and mission_id.startswith(('FREE-', 'EMP-')))
-                charged = bool(owned and mission_id and not company_plane)
+                selected_matches = bool(selected and selected['code']==model)
+                flight_asset = selected if selected_matches else (None if selected else (
+                    {'ref':'legacy:'+model,'code':model,'insured':bool(legacy[2]),'kind':'legacy'} if legacy else None))
+                charged = bool(flight_asset and mission_id and not company_plane)
                 costs = flight_operating_cost(model, end['timestamp'] - start['timestamp'],
-                    fuel_start, fuel_end, bool(owned and owned[2])) if charged else {}
-                tax = round(actual_reward * .04) if (actual_reward > 0 and
+                    fuel_start, fuel_end, bool(flight_asset and flight_asset['insured'])) if charged else {}
+                tax = round(gross_reward * .04) if (gross_reward > 0 and
                     self.get_setting('income_tax_enabled') == '1') else 0
-                total_expenses = tax + sum(costs.get(k, 0) for k in ('fuel_brl', 'airport_brl', 'insurance_brl'))
-                # Voo pode ficar negativo: o ledger reflete custo, inclusive se ultrapassar o saldo.
-                new_balance = old_balance + actual_reward - total_expenses
+                total_expenses = tax + sum(costs.get(k, 0) for k in ('fuel_brl','airport_brl','insurance_brl'))
+                new_balance = old_balance + gross_reward - total_expenses
                 if actual_reward:
                     self._ledger_in_transaction(f'{flight_key}:income', 'contrato', actual_reward,
                         old_balance + actual_reward, f'Contrato {mission_id}')
+                if realism_amount:
+                    self._ledger_in_transaction(f'{flight_key}:realism', 'bonus_realismo', realism_amount,
+                        old_balance + gross_reward, f'Bônus realismo +{realism_fraction:.0%}: {mission_id}')
                 if tax:
                     self._ledger_in_transaction(f'{flight_key}:tax', 'taxa_simulada', -tax,
-                                                old_balance+actual_reward-tax,
+                                                old_balance+gross_reward-tax,
                                                 'Tributação opcional de carreira (fictícia)')
                 if charged:
-                    self.conn.execute('UPDATE owned_aircraft SET condition=max(0,condition-?), hours=hours+? WHERE code=?',
-                        (costs['wear'], max(0,(end['timestamp']-start['timestamp'])/3600), model))
-                    running = old_balance + actual_reward - tax
+                    if flight_asset['ref'].startswith('legacy:'):
+                        self.conn.execute('UPDATE owned_aircraft SET condition=max(0,condition-?), hours=hours+? WHERE code=?',
+                            (costs['wear'], max(0,(end['timestamp']-start['timestamp'])/3600), model))
+                    elif flight_asset['ref'].startswith('unit:'):
+                        self.conn.execute('UPDATE fleet_units SET condition=max(0,condition-?), flight_hours=flight_hours+? WHERE id=?',
+                            (costs['wear'], max(0,(end['timestamp']-start['timestamp'])/3600), int(flight_asset['ref'][5:])))
+                        if destination:
+                            self.conn.execute('UPDATE fleet_units SET airport=? WHERE id=?',(destination,int(flight_asset['ref'][5:])))
+                    running = old_balance + gross_reward - tax
                     for key, kind, desc in (
                         ('fuel_brl','combustivel','Combustível utilizado em voo'),
                         ('airport_brl','taxa_aeroporto','Taxa de operação no destino')):
@@ -215,7 +243,8 @@ class Storage:
                             self._ledger_in_transaction(f'{flight_key}:{kind}',kind,-amount,running,desc)
                 if self.get_pilot() is not None:
                     self.conn.execute("INSERT OR IGNORE INTO pilot_xp_ledger(flight_key,xp,awarded_utc) VALUES(?,?,?)",
-                                      (flight_key, flight_xp(actual_reward), time()))
+                                      (flight_key, flight_xp(actual_reward) +
+                                       (round(flight_xp(actual_reward)*realism_fraction) if actual_reward > 0 else 0), time()))
                 self.conn.execute("INSERT INTO settings(key,value) VALUES('balance',?) "
                                   "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(new_balance),))
                 self.conn.execute("INSERT INTO settings(key,value) VALUES('flight_checkpoint_v1',?) "
@@ -249,9 +278,10 @@ class Storage:
     def flight_finance(self, start: dict) -> dict:
         flight_key = f"takeoff:{float(start['timestamp']):.6f}:{float(start['lat']):.7f}:{float(start['lon']):.7f}"
         rows=self.conn.execute('SELECT kind,amount FROM finance_ledger WHERE event_key LIKE ?', (flight_key+':%',)).fetchall()
-        gross=sum(amount for kind,amount in rows if kind=='contrato')
+        gross=sum(amount for kind,amount in rows if kind in ('contrato','bonus_realismo'))
         costs=-sum(amount for kind,amount in rows if kind in ('combustivel','taxa_aeroporto','taxa_simulada'))
-        return {'gross':gross,'expenses':costs,'net':gross-costs}
+        bonus=sum(amount for kind,amount in rows if kind=='bonus_realismo')
+        return {'gross':gross,'expenses':costs,'net':gross-costs,'realism_bonus':bonus}
 
     def claim_starter(self) -> bool:
         """Uma aeronave inicial, concedida apenas uma vez à carreira por opção explícita."""
