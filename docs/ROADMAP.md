@@ -123,3 +123,14 @@ Consulte [Bloco 3](BLOCO_3_CARREIRAS.md).
 - [ ] Validar escrita de tanques do Cessna 152 **no MSFS Steam real**, inclusive menu de combustível e desligamento do controle.
 - [ ] Validar retroposição SBRF → SNAE no banco existente do piloto e persistência em Windows real.
 - [ ] Ampliar suporte a complexos sistemas de combustível de addons sem injetar dados em tanques não identificados.
+
+## v0.6.3 Alpha.1 — UI Midnight Ops Premium (03/11/2026)
+- [x] Dashboard sem barra de rolagem, com distribuição adaptável em múltiplas resoluções.
+- [x] Header com slot de foto local, bandeira baseada na base ICAO, badge virtual, XP, saldo e estado de conexão.
+- [x] Botões, cartões, progresso e imagens reformulados; ofertas com pagamento/duração.
+- [x] Log, realismo, planejamento e combustível nos lugares acordados; controles reutilizam a lógica existente.
+- [x] Testes de UI e regressão sem alteração do SQLite.
+- [ ] Testar em Windows com DPI de 125/150% e com dados reais de carreira.
+- [ ] Mapa satélite legalmente licenciado; API do VFR do simulador ainda não comprovada.
+- [ ] METAR externo e imagem específica de cada modelo.
+- [ ] Unificar janelas secundárias e toolbar in-game no estilo premium.

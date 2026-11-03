@@ -176,7 +176,7 @@ class Application:
 
     def _build(self):
         """Interface Midnight Ops; o painel clássico permanece como fallback."""
-        from .dashboard_ui import DashboardUI
+        from .dashboard_premium import DashboardUI
         self.ui = DashboardUI(self)
         self.ui.build()
         self.root.after(1500, self._dashboard_refresh)

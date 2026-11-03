@@ -2,3 +2,6 @@
 SimConnect>=0.4.20,<0.5
 # Catálogo mundial de aeroportos (MIT); propostas são geradas SOMENTE na região do piloto.
 airportsdata==2026.8.2
+
+# Imagens integradas aos cartões e foto local do piloto (fallback simples sem Pillow).
+Pillow>=11.0,<13.0

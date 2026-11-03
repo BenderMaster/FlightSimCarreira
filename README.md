@@ -1,8 +1,39 @@
+# FlightSimCarreira — v0.6.3 Alpha.1 | Midnight Ops Premium
+
+**Patch visual e responsivo sobre a v0.6.2.** O motor SimConnect, os contratos, a frota, o controle de combustível, a economia e o banco SQLite permanecem intactos. Esta versão foi desenvolvida para que o Dashboard inteiro caiba na área útil do monitor, **sem barra de rolagem na tela principal**.
+
+## Melhorias
+
+- Cabeçalho integrado com **foto local do piloto** (clicar no avatar ou Configurações), **bandeira do país da base ICAO**, emblema virtual, nível/XP, saldo, estado de conexão e botões de janela. **A bandeira indica o país da base escolhida, não a cidadania legal do piloto.** Se o aeroporto não estiver no catálogo, a interface não inventa nacionalidade.
+- Navegação lateral com ícones, botões arredondados, realce ciano ao passar o cursor e ação real para cada módulo.
+- Ofertas regionais com preço e minutos, destaque da missão e botão para ver todas.
+- Cartões de telemetria sem duplicar combustível. Combustível só no painel da aeronave, junto com o seu controle, abastecimento e revisão.
+- Barras de nível, estado da aeronave, combustível e reputação com gradiente; a barra de reputação só terá preenchimento se existir um valor gravado por um sistema de reputação. **A reputação ainda não é calculada na economia atual.**
+- Imagens com enquadramento, máscara arredondada e transição escura, em vez de PNGs flutuantes. Foto local do piloto em `%APPDATA%\AeroCarreira-Lab\pilot_avatar.png`, sem upload para GitHub.
+- Layout de três colunas e mapa/telemetria/METAR/log/bônus distribuídos por Grid de Tkinter. Em monitores compactos, algumas informações secundárias são recolhidas, sem bloquear ações essenciais.
+
+**Exatamente o que ainda é experimental:** o mapa é **esquemático**, não satélite ou VFR real; METAR remoto ainda não integrado; aeronaves de outros modelos não têm arte específica nesta versão; painel dentro do MSFS ainda exige compilação/validação. Essas integrações dependem de fases separadas e não são simuladas com dados falsos.
+
+## Instalar / preservar a carreira
+
+1. Termine qualquer voo ativo e feche o programa antigo.
+2. Extraia este ZIP para pasta nova, rode `instalar_windows.bat`, depois `iniciar_windows.bat`.
+3. Não remova `%APPDATA%\AeroCarreira-Lab`, que contém sua carreira. A migração visual **não altera o esquema do banco**.
+4. Para foto: clique no avatar do topo ou em **Configurações → Selecionar foto do piloto**. Arquivos JPG/PNG/WEBP são reamostrados localmente e a cópia não conserva dados EXIF.
+
+**Telas verificadas localmente:** 1280×720, 1366×768, 1650×930 e 1920×1080 em ambiente gráfico virtual. Alguns controles de texto podem variar conforme escala DPI e fontes do Windows; a validação final é no Windows do piloto.
+
+**Testes:** `python -m unittest discover -s tests -v`. Os testes são executados em CI Windows/Linux e não requerem o simulador.
+
+[Veja o diário da versão e requisitos de UI](docs/BLOCO_7_DASHBOARD_PREMIUM.md).
+
+---
+
 # FlightSimCarreira — v0.6.2 Alpha.1 (Dashboard Midnight Ops)
 
 **Novidade:** nova tela principal com sidebar, três colunas, contrato e rota central, ofertas regionais, telemetria, resumo da carreira, bônus e painel de aeronave. Visual inspirado no mockup aprovado; **somente interface e dados já implementados**. Mantidos saldo, banco, SimConnect, contratos e funcionalidades anteriores.
 
-- Abrir normalmente pelos arquivos `.bat`. A janela principal agora tem layout Midnight Ops; se a tela for menor, role verticalmente para alcançar os detalhes inferiores.
+- Abrir normalmente pelos arquivos `.bat`. Na versão v0.6.2 o layout Midnight Ops ainda rolava verticalmente; **a v0.6.3 removeu essa rolagem** e distribui as regiões conforme o monitor.
 - Mercado: cinco ofertas elegíveis próximas, com botão para abrir todas.
 - Configurações: conexão, demo e diagnóstico; para testar a demo aceite o contrato de teste por **Configurações → Aceitar contrato da demo**.
 - Planejamento: bônus editáveis na janela **Preparar voo / Despacho** enquanto em solo. A tela principal apenas reflete a escolha salva.

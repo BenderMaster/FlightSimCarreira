@@ -1,3 +1,15 @@
+## v0.6.3-alpha.1 — Midnight Ops Premium, revisão de responsividade (03/11/2026)
+
+- Novo shell premium em `dashboard_premium.py` e componentes de UI separados em `midnight_widgets.py` (somente camada de apresentação).
+- Removida a scrollbar vertical da tela principal. Grid e dimensões adaptáveis à área do monitor, com ajustes de densidade em baixa altura; mapa, log e bônus permanecem acessíveis.
+- Cabeçalho com área de foto local, badge da base ICAO, emblema virtual de patente/nível, nível e XP com barra luminosa, saldo em reais e conexão com cor contextual.
+- Mercado com cards de ofertas, pagamento e duração; sidebar com botões interativos arredondados.
+- Indicadores com gradiente: XP, estado, combustível e reputação quando houver dado real. A reputação continua sem cálculo próprio nesta versão.
+- Imagens redimensionadas/mescladas nos cards com Pillow, com fallback para instalação incompleta. Foto local sem publicação e sem dados EXIF.
+- **Sem alteração de domínio:** contratos, dinheiro, controle de tanques, checkpoint, SimConnect, frota, banco e cálculo de XP preservados.
+- Adicionados testes de bandeira por base, patente virtual conforme habilitação real obtida, cores e geometria dos controles. Teste gráfico manual em múltiplas resoluções.
+- **Não incluído:** mapa Google/satélite licenciado, VFR do MSFS, METAR externo ou toolbar in-game funcional. Permanecem no roadmap.
+
 # Changelog
 
 ## 0.6.2-alpha.1 — Midnight Ops / Dashboard Fase 1 (03/11/2026)
