@@ -53,3 +53,21 @@
 - https://docs.flightsimulator.com/html/Programming_Tools/SimConnect/API_Reference/Flight_Plan/SimConnect_FlightLoad.htm
 - https://docs.flightsimulator.com/html/Programming_Tools/SimConnect/SimConnect_SDK.htm
 - Consulte também `docs/ARQUITETURA_IN_GAME.md` e `in_game/toolbar/README.md`.
+
+
+## Validação de interface v0.6.0 pelo piloto (03/11/2026, screenshots)
+
+**Confirmado pelo piloto no Windows real:**
+- Tela **Frota 2.0** abre e lista pelo menos um exemplar legado Cessna 152, com conservação e aeródromo SBRF.
+- **Mercado de segunda mão** apresenta ofertas de aeronaves com preço, horas e condição; piloto relatou que navegação/consulta funcionam.
+- **Consulta às aeronaves instaladas no MSFS** foi reportada como funcional pelo piloto; não há ainda prova de cada variante/livery ou de direitos de licença.
+- **Painel local** abre no navegador e mostra SimConnect ativo, saldo R$ 9.376, fase em solo, modelo Cessna 152, combustível, contrato SNPO → SNAE e traçado geométrico da rota.
+
+**Ainda precisa de validação física:**
+- Efetivar compra, aluguel, revenda, pagamento, manutenção e persistência dessas transações após reinício.
+- Verificar se o aeródromo do exemplar legado SBRF é atualizado ao concluir missões em outros aeroportos; não inferir bug só pela tela da frota.
+- Confirmar leitura de aeronaves adicionais instaladas e correspondência com o modelo escolhido na carreira.
+- Não confundir painel no navegador com **toolbar dentro do MSFS**; última ainda é experimental.
+- Validar bônus de realismo, despacho e pagamentos em missão real.
+
+Evidência: capturas fornecidas pelo piloto na conversa. Não publicar screenshots pessoais, dados do perfil ou bancos locais no repositório público.
