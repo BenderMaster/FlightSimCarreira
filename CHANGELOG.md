@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0-alpha.2 — correção de backup no Windows (02/11/2026)
+- Fechamento explícito do handle da conexão SQLite de backup após a cópia, evitando `WinError 32` no runner Windows.
+- Sem alterações de funcionalidade no domínio; mantém Bloco 3 e a interface da Alpha.1.
+
 ## 0.4.0-alpha.1 — modalidades de carreira e plano VFR (02/11/2026)
 - Nova modalidade `autonomo` por padrão, `empregado` após seleção semanal, e `empresario` como registro inicial de companhia no endgame.
 - Catálogo limitado de quatro vagas semanais **fictícias**, com empresas de referência e validação de nível/horas/habilitações; uma candidatura por semana, resultado após o ciclo, sem duplicidades.

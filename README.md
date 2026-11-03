@@ -33,7 +33,7 @@ Dois objetivos em paralelo:
 
 Não é uma modificação do NeoFly; não copia sua implementação nem reproduz o código proprietário. Não é software aeronáutico para voo real.
 
-## v0.4.0 Alpha.1 — Bloco 3: modalidades de carreira e plano VFR
+## v0.4.0 Alpha.2 — Bloco 3: modalidades de carreira e plano VFR
 
 - Todos começam **autônomos**. Novo botão **Vagas e companhias** na tela principal e no mercado.
 - São geradas no máximo quatro **vagas semanais fictícias**, com empresas de referência AeroNordeste, Azul, GOL e LATAM. As oportunidades **não são vagas reais**, e as empresas não são afiliadas ao projeto.

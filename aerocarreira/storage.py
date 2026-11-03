@@ -25,8 +25,13 @@ class Storage:
         if existing:
             backup_path = self.path.with_name(self.path.stem + '.pre_v040.backup.db')
             if not backup_path.exists():
-                with sqlite3.connect(backup_path) as backup_conn:
+                backup_conn = sqlite3.connect(backup_path)
+                try:
                     self.conn.backup(backup_conn)
+                finally:
+                    # Context manager de sqlite3 NÃO fecha handle no Windows.
+                    # Fechar explicitamente evita WinError 32 em pasta temporária.
+                    backup_conn.close()
         self.conn.execute("PRAGMA busy_timeout=3000")
         self.conn.executescript("""
             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);

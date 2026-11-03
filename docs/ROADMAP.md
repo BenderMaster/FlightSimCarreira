@@ -67,7 +67,7 @@
 
 Escopo completo em [ESCOPO_CARREIRA.md](ESCOPO_CARREIRA.md).
 
-## v0.4.0 Alpha.1 — Bloco 3: carreiras e companhias
+## v0.4.0 Alpha.2 — Bloco 3: carreiras e companhias
 - [x] Modalidade autônomo por padrão, com migração de banco sem alterar dados.
 - [x] Vagas semanais simuladas, requisitos e candidaturas com resultado estável após semana seguinte.
 - [x] Emprego, demissão e trechos exclusivos da companhia, com confirmação de modelo em decolagem/pouso.
