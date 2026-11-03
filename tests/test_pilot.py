@@ -16,9 +16,9 @@ class PilotTests(unittest.TestCase):
         self.db.close()
         self.temp.cleanup()
 
-    def flight(self, i, reward=420):
-        start = {"timestamp": 1000 + i*100, "lat": -7.6566, "lon": -34.8569}
-        end = {"timestamp": 1030 + i*100, "lat": -7.8444, "lon": -34.8913}
+    def flight(self, i, reward=420, duration_s=30):
+        start = {"timestamp": 1000 + i*10000, "lat": -7.6566, "lon": -34.8569}
+        end = {"timestamp": start["timestamp"] + duration_s, "lat": -7.8444, "lon": -34.8913}
         return self.db.finalize_flight(start, end, -172, 0, "ITA-IGA" if reward else None,
                                        reward, {"career": {"mission_id": None}, "tracker": {"phase": "solo"}})
 
@@ -63,23 +63,24 @@ class PilotTests(unittest.TestCase):
     def test_qualifications_unlock_only_at_threshold_and_prerequisites(self):
         self.db.create_pilot("Piloto Teste", "FS0001", "SIPE")
         self.assertRaises(ValueError, self.db.earn_qualification, "PCA")
-        for i in range(4):
-            self.assertTrue(self.flight(i))
-        self.assertEqual(self.db.pilot_stats()["xp"], 160)
+        # 8 voos com 75 min = 10 horas de experiência.
+        for i in range(8):
+            self.assertTrue(self.flight(i, duration_s=4500))
+        self.assertEqual(self.db.pilot_stats()["xp"], 320)
+        self.assertAlmostEqual(self.db.pilot_stats()["hours"], 10)
         self.assertTrue(self.db.earn_qualification("PCA"))
-        self.assertRaises(ValueError,
-                          self.db.earn_qualification, "PCA")
+        self.assertRaises(ValueError, self.db.earn_qualification, "PCA")
         self.assertRaises(ValueError, self.db.earn_qualification, "IFR")
-        for i in range(4, 8):
-            self.flight(i)
+        for i in range(8, 16):
+            self.flight(i, duration_s=4500)
         self.assertTrue(self.db.earn_qualification("IFR"))
         self.assertRaises(ValueError, self.db.earn_qualification, "MLTE")
-        for i in range(8, 12):
-            self.flight(i)
+        for i in range(16, 24):
+            self.flight(i, duration_s=4500)
         self.assertTrue(self.db.earn_qualification("MLTE"))
         self.assertRaises(ValueError, self.db.earn_qualification, "PLA")
-        for i in range(12, 40):
-            self.flight(i)
+        for i in range(24, 50):
+            self.flight(i, duration_s=4500)
         self.assertTrue(self.db.earn_qualification("PLA"))
         self.assertEqual(self.db.owned_qualifications(), {q.code for q in QUALIFICATIONS})
 
@@ -127,7 +128,7 @@ class PilotTests(unittest.TestCase):
         self.assertRaises(ValueError, self.db.earn_qualification, "PCA")
         self.db.create_pilot("Piloto Teste", "FS0001", "SIPE")
         self.assertRaises(ValueError, self.db.earn_qualification, "NAO_EXISTE")
-        self.assertEqual(qualification_eligibility("PCA", {"PPA"}, 4, 160), (True, "Disponível"))
+        self.assertEqual(qualification_eligibility("PCA", {"PPA"}, 8, 160, 10), (True, "Disponível"))
         self.assertEqual(qualification_eligibility("MLTE", {"PPA"}, 50, 3000)[0], False)
 
 

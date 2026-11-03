@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 from queue import Queue, Empty
-from tkinter import Tk, Toplevel, Frame, Label, Button, Entry, StringVar, IntVar, Checkbutton, filedialog, messagebox, Text, END
+from tkinter import Tk, Toplevel, Frame, Label, Button, Entry, StringVar, IntVar, Checkbutton, Canvas, filedialog, messagebox, Text, END
 from tkinter import ttk
 from time import strftime, localtime, time
 from .domain import FlightTracker, Career, MISSIONS, AIRPORTS, distance_nm, Phase
@@ -12,7 +12,7 @@ from .storage import Storage
 from .sim_adapter import SimConnectWorker
 from .demo import demo_samples
 from .neo_inspect import inspect_neofly, discover_neofly_databases
-from .pilot import QUALIFICATIONS, qualification_eligibility, flight_xp
+from .pilot import QUALIFICATIONS, qualification_eligibility, flight_xp, level_progress, progress_fraction
 from .contracts import (AirportCatalog, TYPES, TYPE_BY_CODE, PLANE_BY_CODE,
                         generate_offers, eligibility, matches_aircraft)
 from .employment import (EMPLOYER_BY_CODE, vacancies, weekly_period,
@@ -70,6 +70,9 @@ class Application:
         self.balance_var = StringVar(value=brl(self.career.balance))
         self.status_var = StringVar(value="Sem conexão • Demo disponível")
         self.pilot_var = StringVar(value="PILOTO • não cadastrado")
+        self.level_progress_var = StringVar(value="Cadastre seu piloto para acompanhar o nível")
+        self.level_bar = None
+        self.level_fraction = 0.0
         self.pilot_dialog = None
         self.market_dialog = None
         self.employment_dialog = None
@@ -102,6 +105,33 @@ class Application:
                       relief="flat", bd=0, padx=13, pady=9,
                       font=(FONT, 10, "bold"), cursor="hand2")
 
+    def _progress_meter(self, parent, fraction: float, width: int = 160,
+                        height: int = 9, color: str = CYAN):
+        """Barra Midnight sem tema do SO, redimensionável e sem valores fictícios."""
+        meter = Canvas(parent, width=width, height=height, bg=PANEL2,
+                       highlightthickness=0, bd=0, relief="flat")
+        meter.fraction = progress_fraction(fraction, 1)
+        meter.fill_color = color
+        meter.bind("<Configure>", lambda _event: self._draw_meter(meter))
+        return meter
+
+    @staticmethod
+    def _draw_meter(meter):
+        if not meter.winfo_exists():
+            return
+        width = meter.winfo_width()
+        height = meter.winfo_height()
+        meter.delete("all")
+        meter.create_rectangle(0, 0, width, height, fill="#284155", outline="")
+        fill_width = round(width * meter.fraction)
+        if fill_width > 0:
+            meter.create_rectangle(0, 0, fill_width, height,
+                                   fill=meter.fill_color, outline="")
+
+    def _set_meter(self, meter, fraction: float):
+        meter.fraction = progress_fraction(fraction, 1)
+        self._draw_meter(meter)
+
     def section(self, parent, title):
         f = Frame(parent, bg=PANEL, padx=16, pady=12)
         self.label(f, title, 11, GOLD, True).pack(anchor="w", pady=(0,9))
@@ -118,6 +148,10 @@ class Application:
         self.label(right, "CAIXA DA CARREIRA", 9, MUTED, True).pack(anchor="e")
         Label(right, textvariable=self.balance_var, font=(FONT, 18, "bold"), fg=GREEN, bg=BG).pack(anchor="e")
         Label(right, textvariable=self.pilot_var, font=(FONT, 9), fg=CYAN, bg=BG).pack(anchor="e")
+        Label(right, textvariable=self.level_progress_var, font=(FONT, 8), fg=MUTED,
+              bg=BG).pack(anchor="e", pady=(3, 2))
+        self.level_bar = self._progress_meter(right, self.level_fraction, width=180, height=9)
+        self.level_bar.pack(fill="x", anchor="e")
 
         bar = Frame(self.root, bg=PANEL, padx=18, pady=10)
         bar.pack(fill="x", padx=20)
@@ -224,9 +258,20 @@ class Application:
         pilot = self.storage.get_pilot()
         if pilot is None:
             self.pilot_var.set("PILOTO • não cadastrado")
-            return
-        stats = self.storage.pilot_stats()
-        self.pilot_var.set(f"{pilot['callsign']} • NÍVEL {stats['level']} • {stats['xp']} XP")
+            self.level_progress_var.set("NÍVEL —")
+            self.level_fraction = 0.0
+        else:
+            stats = self.storage.pilot_stats()
+            progress = level_progress(stats["xp"])
+            self.pilot_var.set(f"{pilot['callsign']} • NÍVEL {progress['level']}")
+            self.level_fraction = progress["fraction"]
+            if progress["next_level"] is None:
+                self.level_progress_var.set("NÍVEL MÁXIMO ATINGIDO")
+            else:
+                self.level_progress_var.set(
+                    f"NÍVEL {progress['next_level']} • faltam {round((1-progress['fraction']) * 100)}%")
+        if self.level_bar is not None:
+            self._set_meter(self.level_bar, self.level_fraction)
 
     def _pilot_window(self):
         if self.pilot_dialog is not None and self.pilot_dialog.winfo_exists():
@@ -236,19 +281,38 @@ class Application:
         window = Toplevel(self.root)
         self.pilot_dialog = window
         window.title("FlightSimCarreira • Piloto e habilitações (virtuais)")
-        window.geometry("780x720")
-        window.minsize(700, 650)
+        window.geometry("850x760")
+        window.minsize(720, 550)
         window.configure(bg=BG)
         window.transient(self.root)
         window.protocol("WM_DELETE_WINDOW", lambda: (setattr(self, "pilot_dialog", None), window.destroy()))
 
+        # Rolagem obrigatória: cinco habilitações x três requisitos não cabem
+        # na janela anterior de 720 px. Canvas não interfere no painel principal.
+        outer = Frame(window, bg=BG)
+        outer.pack(fill="both", expand=True)
+        scroll = Canvas(outer, bg=BG, highlightthickness=0, bd=0)
+        scroll.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(outer, orient="vertical", command=scroll.yview)
+        scrollbar.pack(side="right", fill="y")
+        scroll.configure(yscrollcommand=scrollbar.set)
+        content = Frame(scroll, bg=BG)
+        content_id = scroll.create_window((0, 0), anchor="nw", window=content)
+        content.bind("<Configure>", lambda _event: scroll.configure(scrollregion=scroll.bbox("all")))
+        scroll.bind("<Configure>", lambda event: scroll.itemconfigure(content_id, width=event.width))
+        window.bind("<MouseWheel>", lambda event: scroll.yview_scroll(-int(event.delta/120), "units"))
+        window.bind("<Button-4>", lambda _event: scroll.yview_scroll(-3, "units"))
+        window.bind("<Button-5>", lambda _event: scroll.yview_scroll(3, "units"))
+
         def redraw():
-            for widget in window.winfo_children():
+            offset = scroll.yview()[0]
+            for widget in content.winfo_children():
                 widget.destroy()
-            panel = Frame(window, bg=BG, padx=22, pady=17)
+            panel = Frame(content, bg=BG, padx=22, pady=17)
             panel.pack(fill="both", expand=True)
             self.label(panel, "MEU PILOTO  /  BLOCO 01", 17, CYAN, True).pack(anchor="w")
-            self.label(panel, "Habilitações e licenças virtuais do jogo; não substituem certificações reais.", 9, MUTED).pack(anchor="w", pady=(3, 12))
+            self.label(panel, "Habilitações virtuais do jogo; não substituem certificações reais.",
+                       9, MUTED).pack(anchor="w", pady=(3, 12))
             pilot = self.storage.get_pilot()
             fields = Frame(panel, bg=PANEL, padx=14, pady=12)
             fields.pack(fill="x")
@@ -270,10 +334,10 @@ class Application:
                 try:
                     if self.storage.get_pilot() is None:
                         self.storage.create_pilot(vars_["name"].get(), vars_["callsign"].get(), vars_["home_icao"].get())
-                        self._log("Piloto cadastrado. Habilitação virtual PPA concedida para os voos iniciais.")
+                        self._log("Piloto cadastrado. Habilitação virtual PPA inicial concedida.")
                     else:
                         self.storage.update_pilot(vars_["name"].get(), vars_["callsign"].get(), vars_["home_icao"].get())
-                        self._log("Cadastro do piloto atualizado sem alterar histórico ou saldo.")
+                        self._log("Cadastro atualizado sem alterar histórico ou saldo.")
                 except ValueError as exc:
                     messagebox.showwarning("Cadastro do piloto", str(exc), parent=window)
                     return
@@ -290,34 +354,70 @@ class Application:
                              f"XP: {stats['xp']}  •  NÍVEL {stats['level']}      "
                              f"HABILITAÇÕES: {len(stats['qualifications'])}")
             self.label(statsframe, stats_caption, 10, GREEN, True).pack(anchor="w")
-            self.label(panel, "TRILHA DE HABILITAÇÕES", 11, GOLD, True).pack(anchor="w", pady=(5, 6))
+            progress = level_progress(stats["xp"])
+            next_level = progress["next_level"]
+            level_label = (f"NÍVEL {progress['level']}  →  {next_level}  •  "
+                           f"{round(progress['fraction'] * 100)}% concluído" if next_level
+                           else "NÍVEL MÁXIMO ATINGIDO")
+            self.label(statsframe, level_label, 9, MUTED).pack(anchor="w", pady=(7, 4))
+            self._progress_meter(statsframe, progress["fraction"], height=9).pack(fill="x")
+
+            self.label(panel, "TRILHA DE HABILITAÇÕES", 11, GOLD, True).pack(anchor="w", pady=(8, 7))
             for q in QUALIFICATIONS:
-                item = Frame(panel, bg=PANEL2, padx=11, pady=7)
-                item.pack(fill="x", pady=3)
+                item = Frame(panel, bg=PANEL2, padx=11, pady=10)
+                item.pack(fill="x", pady=4)
                 row = Frame(item, bg=PANEL2)
                 row.pack(fill="x")
                 is_owned = q.code in stats["qualifications"]
-                eligible, reason = qualification_eligibility(q.code, stats["qualifications"], stats["flights"], stats["xp"])
-                self.label(row, f"{q.code}  •  {q.title}", 10, GREEN if is_owned else FG, True, PANEL2).pack(side="left")
+                eligible, reason = qualification_eligibility(
+                    q.code, stats["qualifications"], stats["flights"], stats["xp"], stats["hours"])
+                self.label(row, f"{q.code}  •  {q.title}", 10, GREEN if is_owned else FG,
+                           True, PANEL2).pack(side="left")
                 if eligible and pilot is not None:
                     def grant(code=q.code):
                         try:
                             if self.storage.earn_qualification(code):
                                 self._log(f"HABILITAÇÃO VIRTUAL CONCLUÍDA: {code}")
+                                self._refresh_pilot_summary()
                                 redraw()
                         except ValueError as exc:
                             messagebox.showwarning("Habilitação", str(exc), parent=window)
                     self.button(row, "Concluir etapa", grant, accent=True).pack(side="right")
                 else:
-                    self.label(row, "OBTIDA" if is_owned else reason, 8,
-                               GREEN if is_owned else MUTED, bg=PANEL2).pack(side="right")
-                self.label(item, q.description, 9, MUTED, bg=PANEL2).pack(anchor="w")
-            self.label(panel, "XP novo: 25 por voo registrado + 15 por contrato concluído. "
-                       "Os voos anteriores permanecem nas estatísticas; XP anterior não é inventado.",
-                       9, MUTED).pack(anchor="w", pady=(9, 3))
-            self.label(panel, "Os limites são parâmetros de jogo provisórios. "
-                       "As habilitações avançadas ainda não liberam novas aeronaves/contratos nesta versão.",
-                       9, MUTED).pack(anchor="w")
+                    missing = [pre for pre in q.prerequisites if pre not in stats["qualifications"]]
+                    status = "OBTIDA" if is_owned else ("PRÉ-REQ.: " + ", ".join(missing) if missing else "EM PROGRESSO")
+                    self.label(row, status, 8, GREEN if is_owned else MUTED,
+                               bg=PANEL2).pack(side="right")
+                self.label(item, q.description, 9, MUTED, bg=PANEL2).pack(anchor="w", pady=(3, 9))
+
+                metrics = Frame(item, bg=PANEL2)
+                metrics.pack(fill="x")
+                for idx, (title, actual, target, display) in enumerate((
+                    ("HORAS DE VOO", stats["hours"], q.hours,
+                     f"{stats['hours']:.1f} / {q.hours:g} h"),
+                    ("QUANTIDADE DE VOOS", stats["flights"], q.flights,
+                     f"{stats['flights']} / {q.flights}"),
+                    ("EXPERIÊNCIA (XP)", stats["xp"], q.xp,
+                     f"{stats['xp']} / {q.xp}"),
+                )):
+                    col = Frame(metrics, bg=PANEL2)
+                    col.grid(row=0, column=idx, sticky="nsew", padx=(0 if idx == 0 else 8, 0))
+                    metrics.grid_columnconfigure(idx, weight=1, uniform="metric")
+                    self.label(col, title, 8, MUTED, True, bg=PANEL2).pack(anchor="w")
+                    self.label(col, display if target > 0 else "Sem exigência", 9,
+                               GREEN if target <= 0 or actual >= target else FG,
+                               bg=PANEL2).pack(anchor="w", pady=(3, 4))
+                    frac = progress_fraction(actual, target)
+                    self._progress_meter(col, frac, height=8,
+                                         color=GREEN if frac >= 1 else CYAN).pack(fill="x")
+            self.label(panel, "XP: 25 por voo registrado + 15 por contrato concluído. "
+                       "Voos antigos contam para horas e voos, sem XP retroativo.",
+                       9, MUTED).pack(anchor="w", pady=(12, 4))
+            self.label(panel, "Requisitos provisórios do jogo. Habilitações já obtidas são preservadas "
+                       "mesmo após ajustar as metas.", 9, MUTED).pack(anchor="w")
+            panel.update_idletasks()
+            scroll.configure(scrollregion=scroll.bbox("all"))
+            scroll.yview_moveto(offset)
         redraw()
 
     def _connect(self):

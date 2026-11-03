@@ -425,7 +425,7 @@ class Storage:
         with self.conn:
             progress = self.pilot_stats()
             eligible, reason = qualification_eligibility(
-                code, progress["qualifications"], progress["flights"], progress["xp"])
+                code, progress["qualifications"], progress["flights"], progress["xp"], progress["hours"])
             if not eligible:
                 raise ValueError(reason)
             result = self.conn.execute(

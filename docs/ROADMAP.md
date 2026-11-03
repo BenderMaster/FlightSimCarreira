@@ -1,3 +1,9 @@
+## v0.5.1 Alpha.1 — progresso visual do piloto
+- [x] Barra de nível no painel principal.
+- [x] Horas, voos e XP com barras individuais por habilitação; janela rolável.
+- [x] Requisitos de horas reais do diário e permanência de habilitações já obtidas.
+- [ ] Validar visual e desbloqueios no Windows real do piloto.
+
 # Roadmap
 
 ## v0.1 Alpha — entregue para validação no Windows

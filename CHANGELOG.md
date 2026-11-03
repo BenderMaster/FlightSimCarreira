@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.1-alpha.1 — barras de progresso e habilitações com horas (02/11/2026)
+- Barra visual de nível do piloto no cabeçalho, com progresso relativo ao nível atual.
+- Barras visuais individuais e texto atual/meta para horas, número de voos e XP por habilitação.
+- Requisitos novos e configuráveis em código: PCA 10 h/8 voos/160 XP, IFR 20 h/16 voos/320 XP, MLTE 30 h/24 voos/450 XP, PLA 60 h/50 voos/1500 XP.
+- Janela de perfil rolável; visual Midnight preservado.
+- Respeita horas somadas do diário (sem arredondar para conceder habilitação).
+- Habilitações já concedidas não são removidas, saldos e banco sem migração destrutiva.
+- Testes adicionais de metas, persistência, progressão de nível e elegibilidade.
+- V0.4.0: piloto confirmou no MSFS voo, missão, XP e carregamento do plano VFR.
+
+# Changelog
+
 ## 0.5.0-alpha.1 — Mercado/Finanças/Manutenção (03/11/2026)
 - BRL fictício com migração 1:1 do valor nominal, sem cambial; UI financeira e mercado em R$.
 - Rebalanceamento de propostas regionais e freelancer com piso e cálculo por tempo estimado; rotas mais curtas para nível baixo.

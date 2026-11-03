@@ -1,3 +1,27 @@
+# FlightSimCarreira v0.5.1 Alpha.1 — progresso visual e horas de voo
+
+Patch incremental sobre a v0.5.0, sem perda de saldo, XP ou histórico.
+
+- Cabeçalho: barra de nível abaixo do indicativo, com percentual do progresso **dentro do nível atual**; sem valores numéricos de XP no cabeçalho.
+- Meu piloto / Habilitações: barra de nível e **três indicadores em cada habilitação** (horas de voo, voos e XP), com valor atual e meta escritos.
+- Janela de habilitações com rolagem para caberem todos os requisitos.
+- Desbloqueios passam a exigir **horas efetivamente registradas no diário**, além de voos, XP e pré-requisitos.
+- Regras provisórias: PPA inicial; PCA 10 h / 8 voos / 160 XP; IFR 20 h / 16 voos / 320 XP; MLTE 30 h / 24 voos / 450 XP; PLA 60 h / 50 voos / 1500 XP.
+- As habilitações obtidas antes do patch **não são revogadas**; nenhuma alteração retroativa no banco é necessária.
+- Provas permanecem opcionais como requisito futuro, com chave de realismo documentada e ainda não implementada.
+- Preservadas as funcionalidades financeiras e do mercado da v0.5.0.
+
+## Instalação
+
+Feche o aplicativo (não atualize durante o voo), extraia em uma **pasta nova**, execute `instalar_windows.bat` e depois `iniciar_windows.bat`.
+Não apague `%APPDATA%\AeroCarreira-Lab`, onde está a carreira. Antes do teste, é prudente fazer também um backup externo de `carreira.db` com o app fechado.
+
+## Testes
+
+`py -3.11 -m unittest discover -s tests -v`
+
+---
+
 # FlightSimCarreira — v0.5.0 Alpha.1 (Bloco 4: finanças e manutenção)
 
 ## v0.5.0 Alpha.1 — Mercado equilibrado, reais e Finanças / Hangar
