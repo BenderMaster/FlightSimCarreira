@@ -22,3 +22,5 @@ in_game/toolbar/*.spb
 # Local visual validation and private QA careers
 validation/screenshots/
 validation/layout-results.json
+
+validation/final-ci/

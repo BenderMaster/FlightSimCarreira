@@ -1240,7 +1240,7 @@ class Application:
         Checkbutton(opts,text='Permitir falhas (preparação; ainda não injeta)',variable=fault_var,
                     command=lambda:save_option('simulated_failures_enabled',fault_var),bg=BG,fg=FG,
                     selectcolor=PANEL,activebackground=BG,activeforeground=FG).pack(side='left')
-        if not getattr(self,'dashboard',None):
+        if not getattr(self,'dashboard',None) or self.dashboard.fallback:
             fuel_opts=Frame(main,bg=BG);fuel_opts.pack(fill='x',pady=(5,0))
             fuel_var=IntVar(value=int(self.storage.get_setting('fuel_control_enabled') or '0'))
             def change_fuel_mode():
@@ -1531,8 +1531,8 @@ class Application:
 
     def _close(self):
         if getattr(self,"_closing",False):return
-        self._closing=True
         self._checkpoint(force=True)
+        self._closing=True
         if getattr(self,"dashboard",None):self.dashboard.stop()
         self.bridge.stop()
         if self.sim:

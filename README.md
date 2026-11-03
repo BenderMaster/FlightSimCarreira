@@ -4,7 +4,7 @@ Esta branch reconstrói o dashboard sobre a **v0.6.1-alpha.1**, commit `3048bb86
 
 Execute `instalar_windows.bat` e `iniciar_windows.bat`, ou use o pacote Windows compilado produzido pelo GitHub Actions. Requer Microsoft Edge WebView2 Runtime. Recuperação: `iniciar_classico_windows.bat`.
 
-Leia [instalação, arquitetura e limitações](docs/MIDNIGHT_OPS.md) e [licenças dos assets](docs/MIDNIGHT_ASSETS.md). Esta alpha possui mapa offline por coordenadas, foto licenciada do C152 e cenário decorativo original; **não é reprodução pixel a pixel** da referência. As telas secundárias preservam a UI Tk funcional da base.
+Leia [instalação, arquitetura e limitações](docs/MIDNIGHT_OPS.md) e [licenças dos assets](docs/MIDNIGHT_ASSETS.md). Esta alpha possui mapa com NASA GIBS e alternativa offline por coordenadas, foto licenciada do C152 e cenário decorativo original; **não é reprodução pixel a pixel** da referência. As telas secundárias preservam a UI Tk funcional da base.
 
 ---
 

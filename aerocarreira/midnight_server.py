@@ -7,7 +7,7 @@ from pathlib import Path
 from queue import Queue, Full
 
 ACTIONS={'pilot','market','fleet','planning','finance','employment','history','reports','settings','connect','disconnect',
-         'demo','demo_next','legacy','cancel','plan','fuel','refuel','service','avatar','refresh','offer','close','minimize','save_log','installed','analyze','locate','local_panel'}
+         'demo','demo_next','legacy','cancel','plan','fuel','refuel','service','avatar','refresh','offer','close','save_log','installed','analyze','locate','local_panel'}
 ASSETS=Path(__file__).with_name('midnight')
 class DashboardServer:
     def __init__(self):
@@ -22,7 +22,7 @@ class DashboardServer:
                 self.send_header('Content-Type',mime)
                 self.send_header('Cache-Control','no-store')
                 self.send_header('X-Content-Type-Options','nosniff')
-                self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'")
+                self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://gibs.earthdata.nasa.gov; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'")
                 self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
             def valid_host(self):return self.headers.get('Host')==owner.host
             def authorized(self):return self.valid_host() and secrets.compare_digest(self.headers.get('X-Flight-Token',''),owner.token)

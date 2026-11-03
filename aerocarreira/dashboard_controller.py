@@ -13,7 +13,7 @@ from .midnight_server import DashboardServer
 
 class DashboardController:
     def __init__(self,app):
-        self.app=app;self.closed=False;self.process=None
+        self.app=app;self.closed=False;self.process=None;self.fallback=False
         self.presenter=DashboardPresenter(app)
         self.server=DashboardServer();self.server.publish(self.presenter.snapshot());self.server.start()
         self.tick_id=app.root.after(250,self.tick)
@@ -35,6 +35,7 @@ class DashboardController:
                 if self.process.returncode:
                     messagebox.showerror('Midnight Ops','A janela WebView não iniciou. Execute instalar_windows.bat e confirme o Microsoft Edge WebView2 Runtime. A interface clássica será aberta.')
                     self.process=None
+                    self.fallback=True
                     self.app.root.deiconify()
                 else:self.app._close();return
         except Exception as exc:

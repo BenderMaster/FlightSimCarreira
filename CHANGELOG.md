@@ -8,7 +8,8 @@
 - Foto C152 CC BY-SA 4.0, cenário decorativo gerado por IA, assets vetoriais originais e fonte Barlow Semi Condensed OFL embarcada.
 - Testes de apresentação/segurança, matriz gráfica de 15 áreas lógicas e build Windows PyInstaller em CI.
 - Main preservada; PR de integração em draft para reconciliação das alterações posteriores da v0.6.2/0.6.3.
-- Limitações: mapa sem satélite, aeronave genérica identificada, telas secundárias Tk, METAR/reputação indisponíveis, sem validação física MSFS/WebView2.
+- Mapa NASA GIBS Blue Marble histórico com grade offline de recuperação e coordenadas reais.
+- Limitações: detalhe geográfico limitado, ilustração genérica para modelos sem foto, telas secundárias Tk, METAR/reputação indisponíveis, sem validação física MSFS/WebView2.
 
 
 ## 0.6.1-alpha.1 — localizador e combustível em SimConnect (03/11/2026)

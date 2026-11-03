@@ -95,7 +95,7 @@ class DashboardPresenter:
         rows=db.conn.execute("SELECT kind, SUM(amount) FROM finance_ledger GROUP BY kind").fetchall()
         ledger=dict(rows)
         # Only flight revenues/expenses, excluding starting cash, loans, purchases and sales.
-        flight_kinds=('contrato','bonus_realismo','penalidade_combustivel','combustivel','taxa_aeroporto','taxa_simulada','seguro')
+        flight_kinds=('contrato','bonus_realismo','penalidade_combustivel','combustivel','taxa_aeroporto','taxa_simulada','seguro','abastecimento','manutencao','aluguel')
         summary=dict(stats,net=sum(ledger.get(k,0) for k in flight_kinds),bonus=ledger.get('bonus_realismo',0))
         offers=[]
         for offer in self.offers.values():

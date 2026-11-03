@@ -62,6 +62,12 @@ with tempfile.TemporaryDirectory() as temp:
             failures=[r for r in results if r['overlap'] or r['out'] or r['clipped'] or r['buttons'] or r['scrollX'] or r['scrollY']]
             (OUTPUT.parent/'layout-results.json').write_text(json.dumps({'browser_errors':errors,'cases':results},indent=2))
             assert not failures,json.dumps(failures,indent=2)
+            # External imagery can fail without breaking route or engine updates.
+            page.route('https://gibs.earthdata.nasa.gov/**',lambda route:route.abort())
+            page.evaluate('() => { tileCache.clear(); renderMap(state); }')
+            page.wait_for_timeout(800)
+            assert page.locator('#route').inner_text()=='SBRF → SIPE'
+            assert page.locator('#route-map circle').count()>=2
             # Safe shutdown persists the active contract in the isolated career.
             page.evaluate("() => command('close')")
             process.wait(timeout=10)

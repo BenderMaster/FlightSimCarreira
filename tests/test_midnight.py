@@ -42,6 +42,35 @@ class PresenterTests(unittest.TestCase):
         self.pilot();s=self.presenter.snapshot();self.assertIsNone(s['fuel']['quantity'])
         self.app.fuel_manager.observe('legacy:c152','c152',{'LEFT_MAIN':8,'RIGHT_MAIN':8},16,True,{'LEFT_MAIN':13,'RIGHT_MAIN':13})
         s=self.presenter.snapshot();self.assertEqual(s['fuel']['quantity'],16)
+    def test_operating_result_includes_prepaid_fuel_and_excludes_loans(self):
+        self.pilot()
+        self.db.take_loan(1000)
+        self.app.fuel_manager.observe('legacy:c152','c152',{'LEFT_MAIN':8,'RIGHT_MAIN':8},16,True,{'LEFT_MAIN':13,'RIGHT_MAIN':13})
+        paid=self.app.fuel_manager.refuel_full('legacy:c152')
+        summary=self.presenter.snapshot()['summary']
+        self.assertEqual(summary['net'],-paid['cost_brl'])
+        self.assertNotEqual(summary['net'],int(self.db.get_setting('balance')))
+
+    def test_webview_failure_opens_complete_classic_fallback(self):
+        controller=object.__new__(DashboardController)
+        controller.closed=False;controller.fallback=False;controller.app=Mock()
+        controller.process=Mock(returncode=1);controller.process.poll.return_value=1
+        controller.presenter=Mock();controller.server=Mock()
+        controller.server.commands.get_nowait.side_effect=Empty
+        with patch('aerocarreira.dashboard_controller.messagebox.showerror'):
+            controller.tick()
+        self.assertTrue(controller.fallback)
+        controller.app.root.deiconify.assert_called_once()
+
+    def test_close_can_be_retried_after_checkpoint_failure(self):
+        from aerocarreira.app import Application
+        app=object.__new__(Application)
+        app._checkpoint=Mock(side_effect=[OSError('disk full'),None])
+        app.bridge=Mock();app.sim=Mock();app.storage=Mock();app.root=Mock();app.dashboard=None
+        with self.assertRaises(OSError):app._close()
+        self.assertFalse(getattr(app,'_closing',False))
+        app._close();app.storage.close.assert_called_once()
+
     def test_frozen_bonus_is_reported(self):
         self.pilot();self.app.career.accept(MISSIONS[0]);self.app.tracker.phase=Phase.AIRBORNE;self.app.realism_frozen=.18
         s=self.presenter.snapshot();self.assertEqual(s['bonus']['bonus_fraction'],.18);self.assertTrue(s['bonus']['frozen'])

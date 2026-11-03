@@ -33,17 +33,17 @@ Mercado usa o gerador, cache diário, condições de elegibilidade e exclusão d
 
 Combustível usa inventário persistido e capacidade registrada. Controle ativo **não** é apresentado como prova de sincronização: a confirmação/erro continua no registro do motor. A telemetria não duplica combustível. A mudança do controle é bloqueada em voo. Bônus máximo de 18% e penalidade de 30% continuam no domínio original, congelados na decolagem.
 
-Receita líquida é soma das categorias de receitas/despesas de voo, excluindo saldo inicial, empréstimos e transações de compra/venda. Não é saldo disponível. Reputação e METAR permanecem indisponíveis.
+Resultado operacional é soma em regime de caixa das receitas de contratos e bônus menos penalidades, taxas, combustível, abastecimento pré-pago, manutenção, seguro e aluguel. Exclui saldo inicial, empréstimos, parcelas de financiamento, fundação de companhia e compra/venda de ativos. Não é saldo disponível nem lucro contábil por competência. Reputação e METAR permanecem indisponíveis.
 
 ## Mapa e limitações visuais
 
 O mapa desta alpha é uma projeção equiretangular local com correção de longitude pela latitude central. Usa coordenadas reais dos aeroportos e da telemetria, escala em NM, zoom e reenquadramento. Sem missão, mostra a posição recebida ou a base conhecida. Telemetria antiga é marcada como desatualizada. Não inventa relevo, litoral nem rota.
 
-**Não há camada satélite**. O Cessna 152 possui fotografia licenciada (CC BY-SA 4.0), exibida somente para esse modelo, com crédito acessível no botão de informação. Demais modelos usam ilustração genérica identificada. O cenário decorativo da sidebar foi gerado por IA e não é fotografia documental. O mapa não é uma carta de navegação.
+**Há camada online NASA GIBS Blue Marble**, um mosaico histórico de resolução limitada (até nível 7 geográfico), com crédito visível. Apenas tiles da área visível são solicitados; até 64 imagens são mantidas em memória. Sem rede, permanece a grade com coordenadas/rota. A imagem não representa clima atual, tráfego nem carta aeronáutica. O Cessna 152 possui fotografia licenciada (CC BY-SA 4.0), exibida somente para esse modelo, com crédito acessível no botão de informação. Demais modelos usam ilustração genérica identificada. O cenário decorativo da sidebar foi gerado por IA e não é fotografia documental. O mapa não é uma carta de navegação.
 
 As janelas secundárias de frota, piloto, finanças, companhias e despacho continuam sendo as telas Tk da v0.6.1. O dashboard recebeu o novo estilo; a migração visual dessas janelas fica pendente. Pistas/Peso abrem o despacho existente, sem anunciar base de dados nova. Relatórios avançados ficam identificados como em desenvolvimento.
 
-A referência aprovada tem fotografia, satélite e detalhes de tipografia que esta alpha ainda não reproduz. A entrega não é pixel a pixel idêntica e não atende integralmente o alvo visual final.
+A referência aprovada usa enquadramento, fotografia, mapa de maior detalhe e tipografia que esta alpha ainda não reproduz exatamente. A entrega não é pixel a pixel idêntica e não atende integralmente o alvo visual final.
 
 ## Validação reproduzível
 
