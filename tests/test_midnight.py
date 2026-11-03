@@ -71,6 +71,16 @@ class PresenterTests(unittest.TestCase):
         self.assertFalse(getattr(app,'_closing',False))
         app._close();app.storage.close.assert_called_once()
 
+    def test_telemetry_poll_does_not_rescan_world_airports_each_frame(self):
+        from aerocarreira.demo import demo_samples
+        from aerocarreira.domain import AIRPORTS
+        self.pilot();self.app.connected=True;self.app.last_sample=demo_samples()[0]
+        from aerocarreira.contracts import AirportCatalog
+        self.app.airport_catalog=Mock(wraps=AirportCatalog(locations=AIRPORTS),locations=AIRPORTS)
+        self.app.airport_catalog.nearest.return_value=AIRPORTS['SBRF']
+        for _ in range(5):self.presenter.snapshot()
+        self.app.airport_catalog.nearest.assert_called_once()
+
     def test_frozen_bonus_is_reported(self):
         self.pilot();self.app.career.accept(MISSIONS[0]);self.app.tracker.phase=Phase.AIRBORNE;self.app.realism_frozen=.18
         s=self.presenter.snapshot();self.assertEqual(s['bonus']['bonus_fraction'],.18);self.assertTrue(s['bonus']['frozen'])

@@ -37,6 +37,9 @@ class DashboardPresenter:
         self.avatar_key=None
         self.avatar=None
         self.country_cache={}
+        self.position_lookup=None
+        self.position_center=None
+        self.position_lookup_at=0.0
 
     def country(self, home):
         if home in self.country_cache:return self.country_cache[home]
@@ -56,7 +59,14 @@ class DashboardPresenter:
             self.offers={};self.center=None;return
         if app.airport_catalog is None:app.airport_catalog=AirportCatalog()
         cat=app.airport_catalog;s=app.last_sample
-        center=cat.nearest(s.latitude,s.longitude,6) if s and app.connected else None
+        center=None
+        if s and app.connected:
+            position=(s.latitude,s.longitude)
+            moved=self.position_lookup is None or abs(position[0]-self.position_lookup[0])>.02 or abs(position[1]-self.position_lookup[1])>.02
+            if force or self.position_lookup is None or (moved and time()-self.position_lookup_at>=10):
+                self.position_center=cat.nearest(*position,6)
+                self.position_lookup=position;self.position_lookup_at=time()
+            center=self.position_center
         center=center or cat.locations.get(pilot['home_icao'])
         self.center=center
         if not center:self.offers={};return
