@@ -2,3 +2,7 @@
 SimConnect>=0.4.20,<0.5
 # Catálogo mundial de aeroportos (MIT); propostas são geradas SOMENTE na região do piloto.
 airportsdata==2026.8.2
+
+# Midnight Ops native Edge WebView2 host and local avatar normalization
+pywebview>=5.3,<7
+Pillow>=10.4,<13

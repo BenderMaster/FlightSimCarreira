@@ -129,6 +129,10 @@ class Application:
             self._show_mission()
         self.root.after(200, self._poll)
         self.root.protocol("WM_DELETE_WINDOW", self._close)
+        self.dashboard = None
+        if os.getenv("FLIGHTSIM_CLASSIC") != "1":
+            from .dashboard_controller import DashboardController
+            self.dashboard = DashboardController(self)
 
     def label(self, parent, text, size=10, color=FG, bold=False, bg=None):
         return Label(parent, text=text, bg=bg or parent.cget("bg"), fg=color,
@@ -1525,7 +1529,10 @@ class Application:
             messagebox.showerror("Análise interrompida",str(exc))
 
     def _close(self):
+        if getattr(self,"_closing",False):return
+        self._closing=True
         self._checkpoint(force=True)
+        if getattr(self,"dashboard",None):self.dashboard.stop()
         self.bridge.stop()
         if self.sim:
             self.sim.stop()
