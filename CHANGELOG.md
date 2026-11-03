@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.2-alpha.1 — Midnight Ops / Dashboard Fase 1 (03/11/2026)
+- Nova interface principal com cabeçalho, sidebar, mercado local, resumo da carreira, contrato, mapa esquemático, telemetria, METAR indisponível sinalizado, checklist de despacho, log e painel de aeronave.
+- Preservadas funcionalidades e janelas existentes; módulos do menu lateral abrem as telas legadas.
+- Combustível apenas no painel do avião; botão real de alternar modo, abastecer e revisar com validações preexistentes.
+- Foto do C152 nesta versão é arte ilustrativa; fonte real/licenciada por modelo pendente.
+- Não foi implementado mapa satélite, METAR remoto, toolbar compilada nem troca automática de aeronave.
+- Sem migração SQLite; 119 testes automatizados e smoke da interface Windows/Xvfb.
+
+
 ## 0.6.1-alpha.1 — localizador e combustível em SimConnect (03/11/2026)
 - Starter C152, aeronaves compradas e alugadas agora têm aeroporto atualizado no pouso (inclusive voo sem contrato), sem movimentar avião de freelancer/companhia.
 - Backfill controlado e único do último pouso conhecido do starter, sem alterar dinheiro/XP. Backup SQLite pré-v0.6.1.

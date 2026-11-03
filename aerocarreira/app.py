@@ -175,6 +175,24 @@ class Application:
         return f
 
     def _build(self):
+        """Interface Midnight Ops; o painel clássico permanece como fallback."""
+        from .dashboard_ui import DashboardUI
+        self.ui = DashboardUI(self)
+        self.ui.build()
+        self.root.after(1500, self._dashboard_refresh)
+
+    def _dashboard_refresh(self):
+        try:
+            self.ui.refresh()
+        except Exception as exc:
+            # Um erro de apresentação não pode encerrar o monitoramento do MSFS.
+            if getattr(self,'_dashboard_last_error',None) != str(exc):
+                self._dashboard_last_error=str(exc)
+                self._log('AVISO dashboard: '+str(exc))
+        if self.root.winfo_exists():
+            self.root.after(1500, self._dashboard_refresh)
+
+    def _build_classic(self):
         header = Frame(self.root, bg=BG, padx=22, pady=14)
         header.pack(fill="x")
         self.label(header, "AERO", 20, FG, True).pack(side="left")

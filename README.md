@@ -1,4 +1,22 @@
-# FlightSimCarreira — v0.6.0 Alpha.1 | Frota e Planejamento de Voo
+# FlightSimCarreira — v0.6.2 Alpha.1 (Dashboard Midnight Ops)
+
+**Novidade:** nova tela principal com sidebar, três colunas, contrato e rota central, ofertas regionais, telemetria, resumo da carreira, bônus e painel de aeronave. Visual inspirado no mockup aprovado; **somente interface e dados já implementados**. Mantidos saldo, banco, SimConnect, contratos e funcionalidades anteriores.
+
+- Abrir normalmente pelos arquivos `.bat`. A janela principal agora tem layout Midnight Ops; se a tela for menor, role verticalmente para alcançar os detalhes inferiores.
+- Mercado: cinco ofertas elegíveis próximas, com botão para abrir todas.
+- Configurações: conexão, demo e diagnóstico; para testar a demo aceite o contrato de teste por **Configurações → Aceitar contrato da demo**.
+- Planejamento: bônus editáveis na janela **Preparar voo / Despacho** enquanto em solo. A tela principal apenas reflete a escolha salva.
+- Frota: opção de combustível, abastecimento e revisão com as validações financeiras existentes. O combustível aparece **somente no painel da aeronave**, não nos cards de telemetria.
+- Mapa: **esquemático e não aeronáutico**, sem imagens satélite nem dados certificados. **METAR ainda não integrado.**
+- A foto da aeronave no tema novo ainda é arte ilustrativa do Cessna 152, não foto licenciada de cada modelo.
+- [Escopo e testes da Fase 1](docs/BLOCO_6_DASHBOARD_MIDNIGHT.md).
+
+### Instalar
+
+Termine o voo atual, feche a versão anterior, extraia o ZIP em **pasta nova** e execute `instalar_windows.bat` e depois `iniciar_windows.bat`. **Não apague** `%APPDATA%\AeroCarreira-Lab`. A migração desta fase não altera a estrutura do banco.
+
+---
+
 
 **Instalação Windows:** termine o voo, feche o addon anterior, extraia o novo ZIP em pasta nova e execute `instalar_windows.bat` e `iniciar_windows.bat`. **Não apague `%APPDATA%\AeroCarreira-Lab`**: a carreira, a XP e os pagamentos ficam lá. A versão cria automaticamente `carreira.pre_v060.backup.db` antes da migração. Recomendamos ainda um backup externo do banco, sempre com o app fechado.
 
