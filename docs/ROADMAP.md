@@ -113,3 +113,13 @@ Consulte [Bloco 3](BLOCO_3_CARREIRAS.md).
 - [ ] Concluir cobertura de sinistros, abastecimento/serviços no MSFS, depreciação, aluguel e economia por aeroporto.
 - [ ] Injetor de falhas opcional (configuração persistida; funcionalidade ainda não implementada).
 - [ ] Painel integrado in-game MSFS 2020 sem Alt+Tab (requisito central mantido).
+
+## v0.6.1 — hotfix localização + combustível (em validação física)
+- [x] Corrigir posição de starter, aeronaves alugadas e voos livres; reconstituir último destino conhecido com critério conservador.
+- [x] Inventário de combustível SQLite por aeronave, monitoramento de consumo e comandos de escrita SimConnect limitados aos tanques reconhecidos.
+- [x] Abastecimento comprado em R$, sem custo de combustível duplicado no pouso sob controle do addon.
+- [x] Toggle combustível controlado (padrão ON); OFF penaliza 30% recompensa e XP, decisão congelada no início do voo.
+- [x] Regressões e testes de lógica SimConnect simulada; testes de interface.
+- [ ] Validar escrita de tanques do Cessna 152 **no MSFS Steam real**, inclusive menu de combustível e desligamento do controle.
+- [ ] Validar retroposição SBRF → SNAE no banco existente do piloto e persistência em Windows real.
+- [ ] Ampliar suporte a complexos sistemas de combustível de addons sem injetar dados em tanques não identificados.

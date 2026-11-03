@@ -7,6 +7,8 @@ from queue import Queue, Empty
 from threading import Thread, Event
 from time import time
 from .domain import FlightSample
+from .contracts import aircraft_model
+from .fuel import TANK_QUANTITY, TANK_CAPACITY
 
 # SimVars sem as quais NÃO é seguro produzir uma amostra de posição/solo.
 REQUIRED = {
@@ -22,7 +24,7 @@ SOFT = {"groundspeed_kt": "GROUND_VELOCITY", "vs_fpm": "VERTICAL_SPEED"}
 OPTIONAL = {"stall_warning": "STALL_WARNING", "fuel_gallons": "FUEL_TOTAL_QUANTITY",
             "total_weight_lbs": "TOTAL_WEIGHT", "max_gross_weight_lbs": "MAX_GROSS_WEIGHT",
             "wind_kt": "AMBIENT_WIND_VELOCITY", "ambient_temperature_c": "AMBIENT_TEMPERATURE",
-            "sim_rate": "SIMULATION_RATE"}
+            "sim_rate": "SIMULATION_RATE", "unlimited_fuel":"UNLIMITED_FUEL"}
 
 
 class SampleReader:
@@ -33,6 +35,7 @@ class SampleReader:
         self.last = None
         self.last_groundspeed_time = None
         self.soft_missing = set()
+        self.last_tank_scan = -1e15
 
     def _get(self, simvar):
         try:
@@ -49,6 +52,32 @@ class SampleReader:
             return value.strip() if isinstance(value, str) and value.strip() else None
         except (ValueError, TypeError, KeyError, OSError, RuntimeError):
             return None
+
+    def _tank_snapshot(self, title, now):
+        """Máximo 1 consulta a cada 3 segundos; ausências nunca são inventadas."""
+        if now-self.last_tank_scan < 3.0:
+            return None,None
+        self.last_tank_scan=now
+        model=aircraft_model(title)
+        tank_sets={
+            'c152':('LEFT_MAIN','RIGHT_MAIN'),
+            'c172':('LEFT_MAIN','RIGHT_MAIN'),
+            'g58':('LEFT_MAIN','RIGHT_MAIN','LEFT_AUX','RIGHT_AUX'),
+            'kingair':('LEFT_MAIN','RIGHT_MAIN','CENTER','LEFT_AUX','RIGHT_AUX'),
+            'cj4':('LEFT_MAIN','RIGHT_MAIN','CENTER'),
+        }
+        names=tank_sets.get(model,())
+        if not names:
+            return None,None
+        tanks={}
+        caps={}
+        for name in names:
+            q=self._get(TANK_QUANTITY[name]); cap=self._get(TANK_CAPACITY[name])
+            if q is None or cap is None or cap <= 0:
+                continue
+            tanks[name]=q
+            caps[name]=cap
+        return (tanks or None),(caps or None)
 
     def read(self):
         values = {key: self._get(var) for key, var in REQUIRED.items()}
@@ -75,18 +104,22 @@ class SampleReader:
             vs = self.last.vs_fpm if self.last and now - self.last.timestamp < 5 else 0.0
         stall = self._get(OPTIONAL["stall_warning"])
         fuel = self._get(OPTIONAL["fuel_gallons"])
+        title = self._title()
+        tanks,cap = self._tank_snapshot(title,now)
         s = FlightSample(timestamp=now,
             latitude=values["latitude"], longitude=values["longitude"],
             altitude_ft=values["altitude_ft"], agl_ft=values["agl_ft"],
             ias_kt=values["ias_kt"], groundspeed_kt=gs,
             vs_fpm=vs, on_ground=values["on_ground"] >= 0.5,
             fuel_gallons=fuel, stall_warning=None if stall is None else stall >= 0.5,
-            groundspeed_estimated=estimated, aircraft_title=self._title(),
+            groundspeed_estimated=estimated, aircraft_title=title,
             total_weight_lbs=self._get(OPTIONAL['total_weight_lbs']),
             max_gross_weight_lbs=self._get(OPTIONAL['max_gross_weight_lbs']),
             wind_kt=self._get(OPTIONAL['wind_kt']),
             ambient_temperature_c=self._get(OPTIONAL['ambient_temperature_c']),
-            sim_rate=self._get(OPTIONAL['sim_rate']))
+            sim_rate=self._get(OPTIONAL['sim_rate']),
+            fuel_tanks=tanks, fuel_tank_capacities=cap,
+            unlimited_fuel=(None if (limit:=self._get(OPTIONAL['unlimited_fuel'])) is None else limit >= .5))
         self.last = s
         return s, []
 
@@ -120,6 +153,12 @@ class SimConnectWorker:
         """Somente sob clique explícito e com o simulador conectado."""
         self.actions.put(("load_pln", str(path)))
 
+    def request_fuel_restore(self, tanks: dict[str,float]):
+        """Comando gerado por FuelManager; não recebe SimVar arbitrária."""
+        if not tanks or any(k not in TANK_QUANTITY for k in tanks):
+            raise ValueError('Tanque inválido')
+        self.actions.put(('fuel_restore',dict(tanks)))
+
     def stop(self):
         self.stop_event.set()
 
@@ -143,6 +182,19 @@ class SimConnectWorker:
                     try:
                         while True:
                             action, path = self.actions.get_nowait()
+                            if action == 'fuel_restore':
+                                # Ações de escrita somente pela thread SimConnect.
+                                # Settable: quantidades individuais; total é read-only.
+                                try:
+                                    for tank, amount in path.items():
+                                        if tank not in TANK_QUANTITY or not (0 <= amount <= 20000):
+                                            raise ValueError('Quantidade de tanque inválida')
+                                        result=aq.set(TANK_QUANTITY[tank],float(amount))
+                                        if result is False:
+                                            raise ValueError('SimConnect recusou escrita em '+tank)
+                                    self._send('fuel_sent','Correção dos tanques enviada; aguardando confirmação da leitura.')
+                                except (AttributeError,OSError,ValueError,RuntimeError) as exc:
+                                    self._send('fuel_error',str(exc))
                             if action == 'load_pln':
                                 from pathlib import Path
                                 file = Path(path)

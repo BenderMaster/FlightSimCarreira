@@ -79,6 +79,9 @@ class FlightSample:
     wind_kt: float | None = None
     ambient_temperature_c: float | None = None
     sim_rate: float | None = None
+    fuel_tanks: dict[str, float] | None = None
+    fuel_tank_capacities: dict[str, float] | None = None
+    unlimited_fuel: bool | None = None
 
 
 class Phase(str, Enum):

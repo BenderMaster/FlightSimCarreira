@@ -20,6 +20,8 @@ from .employment import (EMPLOYER_BY_CODE, vacancies, weekly_period,
     employment_eligibility, generate_employer_routes, OWN_MIN_LEVEL, OWN_INVESTMENT)
 from .flightplan import export_vfr_plan
 from .finance import AIRCRAFT_ECONOMY, brl, estimated_minutes
+from .contracts import aircraft_model
+from .fuel import FuelManager
 from .fleet import used_market, resale_price
 from .planning import Preflight, inspect_preflight, aircraft_title_matches
 from .aircraft_catalog import scan_installed_aircraft, detect_package_roots
@@ -55,6 +57,13 @@ class Application:
         self.sim = None
         self.tracker = FlightTracker()
         self.storage = Storage(state_dir() / "carreira.db")
+        self.location_recovered=self.storage.recover_legacy_location()
+        self.fuel_manager=FuelManager(self.storage)
+        self.fuel_penalty_frozen=0.0
+        self.fuel_ref_frozen=None
+        self.fuel_mode_at_takeoff=False
+        self.fuel_warning_at=0.0
+        self.fuel_company_guard=None
         self.career = Career(int(self.storage.get_setting("balance") or 0))
         self.recovered = False
         self.restore_error = None
@@ -68,6 +77,11 @@ class Application:
                 if self.tracker.phase == Phase.AIRBORNE and self.career.mission:
                     self.realism_frozen = float(checkpoint.get('realism_frozen',0.0))
                     self.realism_mission = checkpoint.get('realism_mission')
+                self.fuel_company_guard=checkpoint.get('fuel_company_guard')
+                if self.tracker.phase == Phase.AIRBORNE:
+                    self.fuel_penalty_frozen=float(checkpoint.get('fuel_penalty_frozen',0.0))
+                    self.fuel_mode_at_takeoff=bool(checkpoint.get('fuel_mode_at_takeoff',False))
+                    self.fuel_ref_frozen=checkpoint.get('fuel_ref_frozen')
                 self.recovered = self.tracker.phase == Phase.AIRBORNE or self.career.mission is not None
         except (KeyError, ValueError, TypeError) as exc:
             self.restore_error = str(exc)
@@ -103,6 +117,8 @@ class Application:
         self._build()
         if self.restore_error:
             self._log(f"ALERTA: checkpoint não restaurado: {self.restore_error}")
+        if self.location_recovered:
+            self._log('Localização do Cessna inicial recuperada do último pouso: '+self.location_recovered)
         if self.bridge_error:
             self._log(f'Painel local indisponível: {self.bridge_error}')
         else:
@@ -837,6 +853,7 @@ class Application:
         self.storage.set_setting('preflight_v1','')
         self.realism_frozen=0.0
         self.realism_mission=None
+        self.fuel_company_guard=None
         self._show_mission()
         self._checkpoint(force=True)
         self._log("Contrato cancelado. Não houve pagamento.")
@@ -851,7 +868,11 @@ class Application:
         return {"version": 1, "career": self.career.snapshot(),
                 "tracker": (tracker or self.tracker).snapshot(),
                 'realism_frozen':self.realism_frozen,
-                'realism_mission':self.realism_mission}
+                'realism_mission':self.realism_mission,
+                'fuel_penalty_frozen':self.fuel_penalty_frozen,
+                'fuel_mode_at_takeoff':self.fuel_mode_at_takeoff,
+                'fuel_ref_frozen':self.fuel_ref_frozen,
+                'fuel_company_guard':self.fuel_company_guard}
 
     def _checkpoint(self, force=False):
         # Demo mantém o banco de carreira; checkpoint do voo é para modo MSFS.
@@ -873,8 +894,63 @@ class Application:
         self._log(f"Log salvo em {path}")
         messagebox.showinfo("Diagnóstico salvo", f"Arquivo local:\n{path}\n\nPode conter localização do voo; revise antes de compartilhar.")
 
+    def _fuel_ref_for_sample(self,s):
+        model=aircraft_model(s.aircraft_title)
+        if not model:
+            return None,None
+        if self.career.mission and (self.career.mission.freelance or self.career.mission.company_code):
+            self.fuel_company_guard=s.aircraft_title
+            return 'contract:'+self.career.mission.id,model
+        if self.career.mission:
+            self.fuel_company_guard=None
+        elif self.fuel_company_guard:
+            if s.aircraft_title==self.fuel_company_guard:
+                return None,None  # não injetar combustível próprio em avião do empregador
+            self.fuel_company_guard=None
+        fm=self.storage.fleet_manager()
+        selected=fm.selected()
+        if selected:
+            if selected['code']!=model:
+                return None,None  # nunca controlar combustível de outro modelo
+            return selected['ref'],model
+        if any(x['code']==model for x in self.storage.owned_fleet()):
+            return 'legacy:'+model,model
+        return None,None
+
+    def _sync_fuel(self,s):
+        if self.mode!='MSFS' or s.fuel_tanks is None:
+            return
+        if s.unlimited_fuel:
+            if time()-self.fuel_warning_at>30:
+                self._log('Combustível ilimitado está ativo no MSFS: desative essa assistência para controlar o consumo.')
+                self.fuel_warning_at=time()
+            return
+        ref,model=self._fuel_ref_for_sample(s)
+        if not ref:
+            return
+        enabled=self.storage.get_setting('fuel_control_enabled')=='1'
+        try:
+            status,correction=self.fuel_manager.observe(ref,model,s.fuel_tanks,s.fuel_gallons,
+                s.on_ground,s.fuel_tank_capacities,enabled)
+        except (ValueError, TypeError, OSError) as exc:
+            if time()-self.fuel_warning_at>=30:
+                self._log('Combustível: monitoramento indisponível: '+str(exc))
+                self.fuel_warning_at=time()
+            return
+        if correction and self.sim and self.connected:
+            self.sim.request_fuel_restore(correction)
+            if time()-self.fuel_warning_at>=12:
+                self._log(f'COMBUSTÍVEL: correção solicitada para {ref} ({sum(correction.values()):.1f} gal).')
+                self.fuel_warning_at=time()
+        elif status in ('unsupported','mismatch','uninitialized','write_not_confirmed','read_only') and time()-self.fuel_warning_at>=35:
+            self._log('COMBUSTÍVEL: sincronização indisponível para esta aeronave/leitura. Sem escrita de tanques.')
+            self.fuel_warning_at=time()
+        elif status=='calibrated':
+            self._log(f'COMBUSTÍVEL: {sum(s.fuel_tanks.values()):.1f} gal registrados no addon ({ref}).')
+
     def _process_sample(self,s):
         self.last_sample=s
+        self._sync_fuel(s)
         fmt=lambda n: f"{n:,.0f}"
         for key,val in {
             "ias":fmt(s.ias_kt),"gs":fmt(s.groundspeed_kt) + ("~" if s.groundspeed_estimated else ""),
@@ -895,6 +971,12 @@ class Application:
                 self._log("DECOLAGEM detectada. Diário iniciado e salvo para recuperação.")
                 self.realism_frozen=0.0
                 self.realism_mission=None
+                self.fuel_penalty_frozen=(.3 if self.storage.get_setting('fuel_control_enabled')=='0' else 0.0)
+                ref,model=self._fuel_ref_for_sample(s)
+                self.fuel_ref_frozen=ref
+                self.fuel_mode_at_takeoff=bool(self.fuel_penalty_frozen==0 and ref and self.fuel_manager.get(ref))
+                if self.fuel_penalty_frozen:
+                    self._log('Combustível sob controle do MSFS: penalidade -30% sobre R$ e XP deste voo.')
                 plan=self._saved_preflight()
                 if plan and self.career.mission:
                     try:
@@ -931,8 +1013,18 @@ class Application:
                 checkpoint_after = self._checkpoint_data(tracker=next_tracker)
                 checkpoint_after['realism_frozen']=0.0
                 checkpoint_after['realism_mission']=None
+                checkpoint_after['fuel_penalty_frozen']=0.0
+                checkpoint_after['fuel_mode_at_takeoff']=False
+                checkpoint_after['fuel_ref_frozen']=None
                 realism_fraction=(self.realism_frozen if payment and
                                   self.realism_mission==payment['mission'] else 0.0)
+                # Detecta aeródromo realmente alcançado mesmo em voo sem contrato.
+                if self.airport_catalog is None:
+                    from .contracts import AirportCatalog
+                    self.airport_catalog=AirportCatalog()
+                located=self.airport_catalog.nearest(s.latitude,s.longitude,3)
+                landing_icao=located.icao if located else (
+                    mission_before.destination if payment and mission_before else None)
                 try:
                     inserted = self.storage.finalize_flight(start, e, v, self.tracker.stalls,
                                         payment["mission"] if payment else None,
@@ -942,7 +1034,9 @@ class Application:
                                                     if self.tracker.takeoff_sample else None),
                                         fuel_end=s.fuel_gallons,
                                         realism_fraction=realism_fraction,
-                                        destination=mission_before.destination if payment and mission_before else None)
+                                        destination=landing_icao,
+                                        fuel_penalty_fraction=self.fuel_penalty_frozen,
+                                        fuel_prepaid=self.fuel_mode_at_takeoff)
                 except Exception as exc:
                     self._log(f"FALHA AO SALVAR pouso: {exc}. Não feche antes de exportar log.")
                     self.status_var.set("Erro ao salvar voo")
@@ -954,13 +1048,19 @@ class Application:
                 self.tracker = next_tracker
                 self.realism_frozen=0.0
                 self.realism_mission=None
+                self.fuel_penalty_frozen=0.0
+                self.fuel_mode_at_takeoff=False
+                self.fuel_ref_frozen=None
                 self.career.balance = int(self.storage.get_setting("balance") or 0)
                 summary = self.storage.flight_finance(start)
                 actual_credit = self.career.balance - old_balance
                 if inserted and self.storage.get_pilot() is not None:
                     base_xp=flight_xp(payment['reward'] if payment else 0)
                     bonus_xp=round(base_xp*realism_fraction) if payment else 0
-                    self._log(f"PROGRESSO DO PILOTO: +{base_xp+bonus_xp} XP ({bonus_xp} do despacho realista).")
+                    # valor congelado antes de limpar o estado
+                    earned=self.storage.conn.execute('SELECT xp FROM pilot_xp_ledger WHERE flight_key=?',
+                        (f"takeoff:{float(start['timestamp']):.6f}:{float(start['lat']):.7f}:{float(start['lon']):.7f}",)).fetchone()
+                    self._log(f"PROGRESSO DO PILOTO: +{earned[0] if earned else 0} XP ({bonus_xp} potencial do despacho).")
                     self._refresh_pilot_summary()
                 if not inserted:
                     self._log("Pouso já salvo anteriormente: pagamento duplicado bloqueado.")
@@ -1035,6 +1135,10 @@ class Application:
                 elif kind=='plan_loaded':
                     self._log(item)
                     messagebox.showinfo('SimConnect / plano VFR',item)
+                elif kind=='fuel_sent':
+                    self._log('Combustível: solicitação enviada ao MSFS; leitura posterior confirmará.')
+                elif kind=='fuel_error':
+                    self._log('ALERTA combustível: escrita recusada: '+item)
                 elif kind=='plan_error':
                     self._log('PLANO VFR: '+item)
                     messagebox.showwarning('Plano VFR',item)
@@ -1132,6 +1236,20 @@ class Application:
         Checkbutton(opts,text='Permitir falhas (preparação; ainda não injeta)',variable=fault_var,
                     command=lambda:save_option('simulated_failures_enabled',fault_var),bg=BG,fg=FG,
                     selectcolor=PANEL,activebackground=BG,activeforeground=FG).pack(side='left')
+        fuel_opts=Frame(main,bg=BG);fuel_opts.pack(fill='x',pady=(5,0))
+        fuel_var=IntVar(value=int(self.storage.get_setting('fuel_control_enabled') or '0'))
+        def change_fuel_mode():
+            if self.tracker.phase==Phase.AIRBORNE:
+                messagebox.showwarning('Combustível','Altere apenas em solo; o modo fica congelado na decolagem.',parent=window)
+                fuel_var.set(int(self.storage.get_setting('fuel_control_enabled') or '0'))
+                return
+            self.storage.set_setting('fuel_control_enabled',str(int(fuel_var.get())))
+            self._log('Controle combustível '+('ATIVO' if fuel_var.get() else 'DESLIGADO: -30% R$/XP nos próximos voos'))
+        Checkbutton(fuel_opts,text='Combustível controlado pelo FlightSimCarreira',variable=fuel_var,
+                    command=change_fuel_mode,bg=BG,fg=FG,selectcolor=PANEL,
+                    activebackground=BG,activeforeground=FG).pack(side='left',padx=(0,12))
+        self.label(fuel_opts,'Desligado: -30% dinheiro e XP. Com controle ativo, abasteça pela Frota avançada.',
+                   9,GOLD).pack(side='left')
 
         def redraw():
             balance_text.set(f"Saldo: {brl(int(self.storage.get_setting('balance') or 0))}    •    "
@@ -1300,6 +1418,21 @@ class Application:
         self.button(buttons,'Alugar 24h',lambda:op(lambda:fm.rent(code(),at_home()))).pack(side='left',padx=(0,6))
         self.button(buttons,'Vender escolhida',lambda:op(lambda:fm.sell(chosen())) if messagebox.askyesno('Vender','Vender aeronave selecionada? Valor de revenda abaixo do preço de compra.',parent=window) else None).pack(side='left',padx=(0,6))
         self.button(buttons,'Revisar escolhida',lambda:op(lambda:fm.service(chosen()))).pack(side='left')
+        def refuel():
+            if not (self.mode=='MSFS' and self.connected and self.last_sample
+                    and self.last_sample.on_ground and time()-self.last_sample.timestamp<10):
+                messagebox.showwarning('Combustível','Conecte o MSFS com a aeronave no solo.',parent=window);return
+            ref=chosen()
+            if not ref or not fm.get(ref):
+                messagebox.showwarning('Combustível','Selecione uma aeronave própria/alugada.',parent=window);return
+            model=aircraft_model(self.last_sample.aircraft_title)
+            if fm.get(ref)['code']!=model:
+                messagebox.showwarning('Combustível','O modelo selecionado deve estar carregado no MSFS.',parent=window);return
+            if not messagebox.askyesno('Abastecimento','Completar os tanques registrados, cobrando em R$ da carreira?',parent=window):return
+            result=op(lambda:self.fuel_manager.refuel_full(ref))
+            if result:
+                self._log(f"ABASTECIMENTO: +{result['added_gal']:.1f} gal por {brl(result['cost_brl'])}.")
+        self.button(buttons,'Abastecer',refuel,accent=True).pack(side='left',padx=(6,0))
         market=self.section(main,'MERCADO DE SEGUNDA MÃO (ATUALIZA SEMANALMENTE)')
         market.pack(fill='both',expand=True)
         second=ttk.Treeview(market,columns=('title','cond','hours','price'),show='headings',height=5)

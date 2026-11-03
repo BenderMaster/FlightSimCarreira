@@ -82,7 +82,7 @@ class FleetManager:
         old=self.db.owned_fleet()
         result=[{'ref':'legacy:'+p['code'],'code':p['code'],'title':p['name'],
                  'kind':'starter' if p['code']=='c152' and self.db.get_setting('starter_claimed')=='1' else 'legacy',
-                 'price_paid':0,'condition':p['condition'],'hours':p['hours'],'airport':self.db.get_setting('fleet_home') or 'SBRF',
+                 'price_paid':0,'condition':p['condition'],'hours':p['hours'],'airport':self.db.get_setting('fleet_location:legacy:'+p['code']) or self.db.get_setting('fleet_home') or 'SBRF',
                  'insured':p['insured'],'expires':None} for p in old]
         rows=self.conn.execute('''SELECT id,code,aircraft_title,kind,price_paid,condition,
                                       flight_hours,airport,insured FROM fleet_units ORDER BY id''').fetchall()
@@ -173,6 +173,21 @@ class FleetManager:
         return price
 
     def ensure_location(self, ref: str, airport: str):
-        if not airport or not ref.startswith('unit:'):return
+        """Registra pouso para exemplar próprio, starter legado ou aluguel ativo."""
+        if not airport or len(airport)!=4 or not airport.isalnum():
+            return False
+        if not self.get(ref):
+            return False
         with self.conn:
-            self.conn.execute('UPDATE fleet_units SET airport=? WHERE id=?',(airport,int(ref[5:])))
+            if ref.startswith('unit:'):
+                return bool(self.conn.execute('UPDATE fleet_units SET airport=? WHERE id=?',
+                    (airport,int(ref[5:]))).rowcount)
+            if ref.startswith('rent:'):
+                return bool(self.conn.execute('UPDATE rented_aircraft SET airport=? WHERE id=?',
+                    (airport,int(ref[5:]))).rowcount)
+            if ref.startswith('legacy:'):
+                self.conn.execute("INSERT INTO settings(key,value) VALUES(?,?) "
+                                  "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                                  ('fleet_location:'+ref,airport))
+                return True
+        return False

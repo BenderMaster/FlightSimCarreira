@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.1-alpha.1 — localizador e combustível em SimConnect (03/11/2026)
+- Starter C152, aeronaves compradas e alugadas agora têm aeroporto atualizado no pouso (inclusive voo sem contrato), sem movimentar avião de freelancer/companhia.
+- Backfill controlado e único do último pouso conhecido do starter, sem alterar dinheiro/XP. Backup SQLite pré-v0.6.1.
+- Inventário de combustível por aeronave (`fleet_fuel`) com primeira calibração no solo e consumo acompanhado por tanques individuais.
+- Detecção de reabastecimento manual no MSFS e restauração pelo SimConnect, somente quando o modelo, a capacidade e a telemetria forem compatíveis. Três tentativas máximas sem confirmação.
+- Abastecimento no Hangar contra pagamento em R$, sem dupla cobrança de consumo ao concluir voo gerenciado.
+- Toggle de controle de combustível, ligado por padrão; desligado congela penalidade de 30% na decolagem sobre recompensa e XP, com lançamento em extrato e idempotência.
+- Guardas para combustível ilimitado, aeronaves de terceiros e leitura parcial; não afirma sucesso da escrita sem prova física do MSFS.
+- Testes automatizados de localização, consumo, calibração, correção e restauração, além de regressão integral; suporte experimental ao MSFS 2020 ainda precisa ser validado em PC real.
+
+
 ## 0.6.0-alpha.1 — frota individual, despacho e ponte de painel local
 
 - Frota avançada com novas/usadas (instâncias próprias, registro individual), aluguel, revenda, mercado semanal local, serviços e localização; preserva frota legada.

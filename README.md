@@ -219,6 +219,62 @@ A interface in-game permanece no [roadmap](docs/ARQUITETURA_IN_GAME.md).
 
 A interface Windows é transitória: o requisito prioritário é operar todo o gameplay pelo painel in-game na toolbar do MSFS 2020. O mapa VFR e o multiplayer precisam de prova de conceito técnica; não afirmamos que o SDK permita reaproveitar o mapa nativo ou ler jogadores online diretamente. Veja [arquitetura](docs/ARQUITETURA_IN_GAME.md) e [escopo](docs/ESCOPO_CARREIRA.md).
 
+
+## v0.6.1 Alpha.1 — Localização de frota e combustível comandado pelo addon
+
+**Localização de aeronaves:** o pouso dentro de 3 NM de um aeródromo conhecido
+atualiza o local do exemplar ativo, inclusive o Cessna inicial (`legacy:c152`),
+aeronaves compradas e alugadas, mesmo em voo sem contrato. Não altera a localização
+do avião privado quando a missão for freelancer/emprego. Na primeira execução,
+recupera uma única vez o último pouso conhecido do Cessna legado (sem refazer
+pagamento nem acrescentar voo). Cria backup SQLite `carreira.pre_v061.backup.db`.
+
+**Controle de combustível:** em **Finanças / Hangar**, marque
+`Combustível controlado pelo FlightSimCarreira` (ligado por padrão). A primeira
+calibração com um modelo suportado ocorre **no solo**. Depois, o inventário do
+addon acompanha consumo gradual e impede que combustível inserido no menu do MSFS
+seja acrescentado gratuitamente: restaura os níveis **dos tanques individuais**.
+O combustível total é apenas leitura. A sincronização tenta no máximo três
+vezes se não conseguir confirmação da leitura. *Com tanques desconhecidos,
+sem capacidade, combustível ilimitado ativo ou modelo incompatível, o addon
+não escreve quantidades arbitrárias.*
+
+**Abastecer:** em `Frota avançada`, selecione uma aeronave e clique `Abastecer`
+com o simulador conectado, no solo e no mesmo modelo. Enche os tanques
+identificados e desconta o valor em R$ no extrato. A despesa de consumo **não**
+é cobrada novamente no pouso se o voo partiu usando combustível previamente
+controlado pelo addon. O saldo e combustíveis de voos anteriores não são
+recalculados. Não há abastecimento automático gratuito.
+
+**Desligar controle:** a opção pode ser alterada **somente em solo**.
+Com o controle desligado, o MSFS gerencia os tanques e o addon aplica
+**-30% ao ganho bruto do contrato (inclusive bônus) e -30% ao XP do voo**.
+A escolha fica congelada na decolagem e é recuperada ao reabrir o aplicativo.
+Custos operacionais e impostos não recebem desconto pela penalidade. O extrato
+registra a redução em separado e protege contra repetições.
+
+**Validação física ainda necessária:** MSFS 2020/Steam e `Python-SimConnect` podem
+recusar alterações de tanque em algumas aeronaves e add-ons complexos; nessa
+situação o programa deve avisar e não forçar sincronização. Recomenda-se testar
+no Cessna 152 **em solo** antes de iniciar um voo, e confirmar o indicador do
+combustível no cockpit e na interface do MSFS após adicionar combustível pelo menu.
+Se os tanques não forem sincronizados, **não** trate o controle como aprovado.
+
+### Roteiro seguro de teste
+
+1. Feche MSFS e FlightSimCarreira antes de trocar arquivos. Copie o banco da carreira antes da primeira migração, se desejar redundância; os backups automáticos também são criados.
+2. Abra `Finanças / Hangar`: confirme que o controle de combustível está ligado.
+3. Abra `Frota avançada`: confirme que o Cessna inicial voltou ao aeródromo do último pouso. Selecione o exemplar.
+4. Carregue o Cessna 152 no simulador **no solo**, conecte o addon e aguarde `Combustível registrado` no log.
+5. Acrescente alguns galões no menu de combustível do MSFS, volte e espere a leitura: o addon deve solicitar correção e a quantidade do cockpit deve retornar à registrada. Se aparecer `escrita recusada`, não prossiga com esse teste.
+6. Experimente `Abastecer` dentro da Frota e confira o novo valor dos tanques no simulador e o desconto em R$ no extrato.
+7. Em outro voo curto, desligue o controle ainda no solo e verifique que o dinheiro e XP do contrato foram reduzidos em 30% no pouso; retorne à opção ligada para os próximos voos.
+
+**Atenção:** o inventário de combustível real é experimental. Não use no voo real;
+não tenta interferir na aeronave se as SimVars forem insuficientes. Certifique-se
+de ter combustível e reservas adequados antes de decolar. O FlightSimCarreira não
+substitui o planejamento de combustível do MSFS.
+
 ## Onde os dados são salvos
 
 `%APPDATA%\AeroCarreira-Lab\carreira.db`: banco **nosso**, separado da instalação NeoFly. O saldo inicial desta carreira é **R$ 5.000 fictícios**; não reproduz o saldo real do NeoFly, que ainda não foi importado.
