@@ -1,8 +1,16 @@
 # Changelog
 
-## 0.4.0-alpha.2 — correção de backup no Windows (02/11/2026)
-- Fechamento explícito do handle da conexão SQLite de backup após a cópia, evitando `WinError 32` no runner Windows.
-- Sem alterações de funcionalidade no domínio; mantém Bloco 3 e a interface da Alpha.1.
+## 0.5.0-alpha.1 — Mercado/Finanças/Manutenção (03/11/2026)
+- BRL fictício com migração 1:1 do valor nominal, sem cambial; UI financeira e mercado em R$.
+- Rebalanceamento de propostas regionais e freelancer com piso e cálculo por tempo estimado; rotas mais curtas para nível baixo.
+- Cache de propostas invalidado apenas uma vez, sem reescrever contratos aceitos.
+- Ledger financeiro com receitas, combustível, taxas, impostos opcionais, compra, seguro, manutenção e empréstimos.
+- Hangar com aeronave inicial Cessna 152 resgatável uma vez, registro de frota, desgaste e revisão.
+- Combustível real medido no simulador quando disponível, senão estimado, cobrado apenas no livro da carreira.
+- Financiamento 8% fixo e pagamento parcial; seguro registrado, mas sinistros ainda pendentes.
+- Pouso/crédito/XP/despesas/desgaste numa transação; proteção contra eventos duplicados.
+- Backup independente da v0.5 e migração aditiva da base; sem custos retroativos.
+- Testes de compatibilidade e de finanças. [Detalhes](docs/BLOCO_4_FINANCAS.md).
 
 ## 0.4.0-alpha.1 — modalidades de carreira e plano VFR (02/11/2026)
 - Nova modalidade `autonomo` por padrão, `empregado` após seleção semanal, e `empresario` como registro inicial de companhia no endgame.

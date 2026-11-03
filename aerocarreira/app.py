@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 from queue import Queue, Empty
-from tkinter import Tk, Toplevel, Frame, Label, Button, Entry, StringVar, filedialog, messagebox, Text, END
+from tkinter import Tk, Toplevel, Frame, Label, Button, Entry, StringVar, IntVar, Checkbutton, filedialog, messagebox, Text, END
 from tkinter import ttk
 from time import strftime, localtime, time
 from .domain import FlightTracker, Career, MISSIONS, AIRPORTS, distance_nm, Phase
@@ -18,6 +18,7 @@ from .contracts import (AirportCatalog, TYPES, TYPE_BY_CODE, PLANE_BY_CODE,
 from .employment import (EMPLOYER_BY_CODE, vacancies, weekly_period,
     employment_eligibility, generate_employer_routes, OWN_MIN_LEVEL, OWN_INVESTMENT)
 from .flightplan import export_vfr_plan
+from .finance import AIRCRAFT_ECONOMY, brl, estimated_minutes
 from . import __version__
 
 BG = "#08111c"
@@ -49,7 +50,7 @@ class Application:
         self.sim = None
         self.tracker = FlightTracker()
         self.storage = Storage(state_dir() / "carreira.db")
-        self.career = Career(int(self.storage.get_setting("balance") or 5000))
+        self.career = Career(int(self.storage.get_setting("balance") or 0))
         self.recovered = False
         self.restore_error = None
         try:
@@ -66,12 +67,13 @@ class Application:
         self.demo_index = 0
         self.connected = False
         self.mode = "Desconectado"
-        self.balance_var = StringVar(value=f"$ {self.career.balance:,}")
+        self.balance_var = StringVar(value=brl(self.career.balance))
         self.status_var = StringVar(value="Sem conexão • Demo disponível")
         self.pilot_var = StringVar(value="PILOTO • não cadastrado")
         self.pilot_dialog = None
         self.market_dialog = None
         self.employment_dialog = None
+        self.finance_dialog = None
         self.airport_catalog = None
         self._refresh_pilot_summary()
         self.info_var = StringVar(value="Sem telemetria")
@@ -124,7 +126,8 @@ class Application:
         self.button(bar, "Avançar demo", self._demo_next).pack(side="left", padx=(0,8))
         self.button(bar, "Desconectar", self._stop).pack(side="left", padx=(0,8))
         self.button(bar, "Salvar log", self._save_log).pack(side="left", padx=(0,8))
-        self.button(bar, "Meu piloto / Habilitações", self._pilot_window, accent=True).pack(side="left")
+        self.button(bar, "Meu piloto / Habilitações", self._pilot_window, accent=True).pack(side="left", padx=(0,7))
+        self.button(bar, "Finanças / Hangar", self._finance_window, accent=True).pack(side="left")
         Label(bar, textvariable=self.status_var, bg=PANEL, fg=CYAN,
               font=(FONT, 9)).pack(side="right")
 
@@ -160,7 +163,7 @@ class Application:
         self.button(missions,"Mercado regional / Freelancer",self._market_window,accent=True).pack(fill="x",pady=(0,7))
         self.label(missions,"CONTRATOS FIXOS DE TESTE (legados)",8,MUTED,True).pack(anchor="w")
         self.mission_select = ttk.Combobox(missions, state="readonly", width=38, values=[
-            f"{m.origin} → {m.destination}  |  ${m.reward}  | {m.title}" for m in MISSIONS])
+            f"{m.origin} → {m.destination}  |  {brl(m.reward)}  | {m.title}" for m in MISSIONS])
         self.mission_select.current(0)
         self.mission_select.pack(fill="x",pady=6)
         self.button(missions,"Aceitar contrato",self._accept,accent=True).pack(fill="x",pady=5)
@@ -177,7 +180,7 @@ class Application:
                            wrap="word",state="disabled")
         self.log_text.pack(fill="both",expand=True)
         self._log("Bem-vindo. Inicie uma demonstração ou conecte ao MSFS 2020.")
-        self._log("O saldo começa em $5.000 em carreira NOVA. Nenhum dado NeoFly foi importado.")
+        self._log("O saldo começa em R$ 5.000 em carreira NOVA. Nenhum dado NeoFly foi importado.")
 
         rightcol = Frame(main,bg=BG)
         rightcol.grid(row=1,column=1,sticky="nsew")
@@ -214,7 +217,7 @@ class Application:
         for id,start,end,touch,stalls,mission,reward in rows:
             self.history_text.insert(END,f"#{id:03}  {int((end-start)/60)} min  "
                 f"{('%.0f' % touch) if touch is not None else '—'} ft/min\n"
-                f"      {mission or 'Voo livre'}  +${reward}  avisos estol: {stalls}\n")
+                f"      {mission or 'Voo livre'}  +{brl(reward)} bruto  avisos estol: {stalls}\n")
         self.history_text.configure(state="disabled")
 
     def _refresh_pilot_summary(self):
@@ -462,11 +465,11 @@ class Application:
         self.label(wrapper,f"PILOTO NÍVEL {stats['level']}  •  {stats['xp']} XP  •  "
                    f"{stats['hours']:.1f} h  •  Habilitações: {', '.join(sorted(stats['qualifications']))}",
                    10,GREEN,True).pack(anchor="w",pady=(0,8))
-        columns = ("kind", "origin", "destination", "pay", "plane")
+        columns = ("kind", "origin", "destination", "pay", "minutes", "plane")
         table = ttk.Treeview(wrapper,columns=columns,show="headings",height=13,selectmode="browse")
         for key,title,width in [("kind","TIPO",240),("origin","SAÍDA",85),
-                                 ("destination","DESTINO",100),("pay","PAGAMENTO",110),
-                                 ("plane","AVIÃO CONTRATANTE",260)]:
+                                 ("destination","DESTINO",100),("pay","PAGAMENTO",135),
+                                 ("minutes","PREV. MIN",105),("plane","AVIÃO CONTRATANTE",200)]:
             table.heading(key,text=title)
             table.column(key,width=width,stretch=key in ("kind","plane"))
         table.pack(fill="both",expand=True)
@@ -515,7 +518,8 @@ class Application:
                 offers_by_id[m.id]=m
                 table.insert("", "end", iid=m.id, values=(TYPE_BY_CODE[m.category].title +
                     ("  •  FREELANCER" if m.freelance else ""),m.origin,m.destination,
-                    f"${m.reward:,}",PLANE_BY_CODE[m.employer_plane].name if m.freelance else "—"))
+                    brl(m.reward), f"~{estimated_minutes(distance_nm(m.origin_lat,m.origin_lon,m.destination_lat,m.destination_lon))}",
+                    PLANE_BY_CODE[m.employer_plane].name if m.freelance else "—"))
             if not offers_by_id:
                 details.set("Sem propostas disponíveis nesta região/nível. "
                     "Confira XP e habilitações ou tente outra base.")
@@ -617,7 +621,7 @@ class Application:
                 options[v.id]=v
                 co=EMPLOYER_BY_CODE[v.company]
                 table.insert('', 'end',iid=v.id,values=(co.name,str(v.min_level),
-                    ','.join(v.qualifications),v.plane,f'${v.salary:,}/sem',
+                    ','.join(v.qualifications),v.plane,f'{brl(v.salary)}/sem',
                     'APTO' if ok else reason[:68]))
             latest=self.storage.list_applications()
             if latest:
@@ -666,17 +670,17 @@ class Application:
         self.button(actions,'Pedir demissão',resign).pack(side='left')
         panel=self.section(wrapper,'ENDGAME • MINHA COMPANHIA AÉREA')
         panel.pack(fill='x')
-        self.label(panel,f'A partir do nível {OWN_MIN_LEVEL}, 25 h, PLA e ${OWN_INVESTMENT:,} de capital.',9,MUTED).pack(anchor='w')
+        self.label(panel,f'A partir do nível {OWN_MIN_LEVEL}, 25 h, PLA e {brl(OWN_INVESTMENT)} de capital.',9,MUTED).pack(anchor='w')
         comp_name=StringVar(value='')
         entry=Entry(panel,textvariable=comp_name,font=(FONT,10),bg=PANEL2,fg=FG,insertbackground=FG,relief='flat')
         entry.pack(side='left',fill='x',expand=True,padx=(0,10),pady=5,ipady=7)
         def create_company():
             if not guard():return
-            if not messagebox.askyesno('Criar companhia',f'Investir ${OWN_INVESTMENT:,} para registrar a companhia virtual?',parent=window):return
+            if not messagebox.askyesno('Criar companhia',f'Investir {brl(OWN_INVESTMENT)} para registrar a companhia virtual?',parent=window):return
             try:
                 result=self.storage.found_company(comp_name.get(),time())
                 self.career.balance=int(self.storage.get_setting('balance'))
-                self.balance_var.set(f'$ {self.career.balance:,}')
+                self.balance_var.set(brl(self.career.balance))
                 self._log(f"COMPANHIA PRÓPRIA REGISTRADA: {result['owner_company']}")
                 redraw()
             except ValueError as exc:
@@ -694,7 +698,7 @@ class Application:
 
     def _show_mission(self):
         m = self.career.mission
-        self.mission_var.set((f"ATIVA  {m.origin} → {m.destination}  |  ${m.reward}"
+        self.mission_var.set((f"ATIVA  {m.origin} → {m.destination}  |  {brl(m.reward)}"
             + (f"  •  FREELANCER: {PLANE_BY_CODE[m.employer_plane].name}" if m.freelance else ""))
             if m else "Nenhum contrato ativo")
 
@@ -759,7 +763,10 @@ class Application:
                     inserted = self.storage.finalize_flight(start, e, v, self.tracker.stalls,
                                         payment["mission"] if payment else None,
                                         payment["reward"] if payment else 0, checkpoint_after,
-                                        aircraft_title=s.aircraft_title)
+                                        aircraft_title=s.aircraft_title,
+                                        fuel_start=(self.tracker.takeoff_sample.fuel_gallons
+                                                    if self.tracker.takeoff_sample else None),
+                                        fuel_end=s.fuel_gallons)
                 except Exception as exc:
                     self._log(f"FALHA AO SALVAR pouso: {exc}. Não feche antes de exportar log.")
                     self.status_var.set("Erro ao salvar voo")
@@ -769,23 +776,24 @@ class Application:
                     # o app poderá confirmar novamente o pouso em solo.
                     return
                 self.tracker = next_tracker
-                self.career.balance = int(self.storage.get_setting("balance") or 5000)
-                actual_credit = int(self.storage.get_setting("balance") or 5000) - old_balance
+                self.career.balance = int(self.storage.get_setting("balance") or 0)
+                summary = self.storage.flight_finance(start)
+                actual_credit = self.career.balance - old_balance
                 if inserted and self.storage.get_pilot() is not None:
-                    self._log(f"PROGRESSO DO PILOTO: +{flight_xp(actual_credit)} XP pelo voo concluído.")
+                    self._log(f"PROGRESSO DO PILOTO: +{flight_xp(summary['gross'])} XP pelo voo concluído.")
                     self._refresh_pilot_summary()
                 if not inserted:
                     self._log("Pouso já salvo anteriormente: pagamento duplicado bloqueado.")
                     saved = self.storage.get_checkpoint()
                     if saved:
                         self.career.restore(saved.get("career", {}))
-                elif payment and actual_credit > 0:
-                    self._log(f"CONTRATO CONCLUÍDO: +${actual_credit} em nossa carreira.")
+                elif payment and summary['gross'] > 0:
+                    self._log(f"CONTRATO CONCLUÍDO: {brl(summary['gross'])} bruto; {brl(summary['expenses'])} de custos; líquido {brl(summary['net'])}.")
                 elif payment:
                     self._log("Contrato já pago anteriormente. Novo crédito bloqueado.")
                 else:
                     self._log("Voo registrado; contrato não concluído (confira origem e destino).")
-                self.balance_var.set(f"$ {self.career.balance:,}")
+                self.balance_var.set(brl(self.career.balance))
                 self._show_mission()
                 self.phase_var.set(self.tracker.phase.value.upper())
                 self._refresh_history()
@@ -827,6 +835,109 @@ class Application:
         except Empty:
             pass
         self.root.after(200,self._poll)
+
+    def _finance_window(self):
+        """Operações financeiras opcionais, 100% no banco do addon.
+
+        Não abastece nem repara fisicamente o avião no MSFS, nem injeta falhas.
+        """
+        if self.finance_dialog is not None and self.finance_dialog.winfo_exists():
+            self.finance_dialog.lift()
+            return
+        window = Toplevel(self.root)
+        self.finance_dialog = window
+        window.title("FlightSimCarreira • Finanças, frota e manutenção")
+        window.geometry("980x730")
+        window.minsize(800,650)
+        window.configure(bg=BG)
+        window.transient(self.root)
+        window.protocol("WM_DELETE_WINDOW", lambda: (setattr(self, "finance_dialog", None), window.destroy()))
+
+        main=Frame(window,bg=BG,padx=20,pady=16)
+        main.pack(fill="both",expand=True)
+        self.label(main,"FINANÇAS E HANGAR / BLOCO 04",17,CYAN,True).pack(anchor="w")
+        balance_text=StringVar()
+        self.label(main,"CUSTOS VIRTUAIS — combustível do jogo não altera tanques do MSFS.",9,MUTED).pack(anchor="w",pady=(3,9))
+        Label(main,textvariable=balance_text,bg=BG,fg=GREEN,font=(FONT,14,"bold"),anchor="w").pack(fill="x")
+        fleet_panel=self.section(main,"AERONAVES PRÓPRIAS E MANUTENÇÃO")
+        fleet_panel.pack(fill="x",pady=(10,10))
+        fleet_info=StringVar(value="")
+        Label(fleet_panel,textvariable=fleet_info,justify="left",anchor="w",bg=PANEL,fg=FG,
+              font=(FONT,10),wraplength=895).pack(fill="x",pady=(2,8))
+        bar=Frame(fleet_panel,bg=PANEL)
+        bar.pack(fill="x",pady=(0,8))
+        plane_var=StringVar(value="c152")
+        choices=ttk.Combobox(bar,textvariable=plane_var,state="readonly",width=28,
+                values=[f'{code} | {model.title}' for code,model in AIRCRAFT_ECONOMY.items()])
+        choices.current(0)
+        choices.pack(side="left",padx=(0,8))
+        def code(): return plane_var.get().split(' | ',1)[0]
+        plane_price_var=StringVar()
+        def update_price(*_):
+            plane_price_var.set('Valor no jogo: '+brl(AIRCRAFT_ECONOMY[code()].purchase_price))
+        choices.bind('<<ComboboxSelected>>',update_price)
+        Label(bar,textvariable=plane_price_var,bg=PANEL,fg=GOLD,font=(FONT,9)).pack(side='left')
+        update_price()
+        def transact(operation):
+            if self.tracker.phase == Phase.AIRBORNE:
+                messagebox.showwarning('Finanças','Faça operações de hangar somente em solo.',parent=window)
+                return
+            try:
+                result=operation()
+                self.career.balance=int(self.storage.get_setting('balance') or 0)
+                self.balance_var.set(brl(self.career.balance))
+                redraw()
+                if result is False:
+                    messagebox.showinfo('Finanças','Aeronave inicial já resgatada.',parent=window)
+            except (ValueError, KeyError) as exc:
+                messagebox.showwarning('Finanças',str(exc),parent=window)
+        actions=Frame(fleet_panel,bg=PANEL)
+        actions.pack(fill="x")
+        self.button(actions,'Resgatar C152 inicial',lambda:transact(self.storage.claim_starter),accent=True).pack(side="left",padx=(0,7))
+        self.button(actions,'Comprar modelo',lambda:transact(lambda:self.storage.buy_aircraft(code())) if messagebox.askyesno('Comprar aeronave', f'Comprar {AIRCRAFT_ECONOMY[code()].title} por {brl(AIRCRAFT_ECONOMY[code()].purchase_price)}?',parent=window) else None).pack(side="left",padx=(0,7))
+        self.button(actions,'Revisão completa',lambda:transact(lambda:self.storage.service_aircraft(code()))).pack(side="left",padx=(0,7))
+        self.button(actions,'Alternar seguro',lambda:transact(lambda:self.storage.set_insurance(code(),
+            not next((p['insured'] for p in self.storage.owned_fleet() if p['code']==code()),False)))).pack(side="left")
+        finances=self.section(main,"FINANCIAMENTO E EXTRATO")
+        finances.pack(fill="both",expand=True)
+        top=Frame(finances,bg=PANEL)
+        top.pack(fill="x",pady=(0,8))
+        self.button(top,'Crédito de R$ 10.000',lambda:transact(lambda:self.storage.take_loan(10000)) if messagebox.askyesno('Financiamento', 'Receber R$ 10.000 e assumir dívida total de R$ 10.800?',parent=window) else None).pack(side="left",padx=(0,8))
+        self.button(top,'Pagar parcela R$ 1.000',lambda:transact(lambda:self.storage.repay_loan(
+            min(1000,self.storage.outstanding_loan())))).pack(side="left",padx=(0,8))
+        self.label(top,'Taxa fixa 8% por operação; sem juros recorrentes nesta versão.',9,MUTED).pack(side="left")
+        history=Text(finances,bg=PANEL2,fg=FG,insertbackground=CYAN,font=("Consolas",10),height=12,
+                 relief="flat",state="disabled",wrap="word")
+        history.pack(fill="both",expand=True)
+        opts=Frame(main,bg=BG)
+        opts.pack(fill='x',pady=(9,0))
+        tax_var=IntVar(value=int(self.storage.get_setting('income_tax_enabled') or '0'))
+        fault_var=IntVar(value=int(self.storage.get_setting('simulated_failures_enabled') or '0'))
+        def save_option(key,var):
+            self.storage.set_setting(key, str(int(var.get())))
+        Checkbutton(opts,text='Taxa virtual de 4% sobre contratos',variable=tax_var,
+                    command=lambda:save_option('income_tax_enabled',tax_var),bg=BG,fg=FG,
+                    selectcolor=PANEL,activebackground=BG,activeforeground=FG).pack(side='left',padx=(0,12))
+        Checkbutton(opts,text='Permitir falhas (preparação; ainda não injeta)',variable=fault_var,
+                    command=lambda:save_option('simulated_failures_enabled',fault_var),bg=BG,fg=FG,
+                    selectcolor=PANEL,activebackground=BG,activeforeground=FG).pack(side='left')
+
+        def redraw():
+            balance_text.set(f"Saldo: {brl(int(self.storage.get_setting('balance') or 0))}    •    "
+                             f"Dívida: {brl(self.storage.outstanding_loan())}")
+            fleet=self.storage.owned_fleet()
+            fleet_info.set('   |   '.join(f"{p['name']}: {p['condition']:.1f}% • {p['hours']:.1f} h • "
+                         f"{'segurado' if p['insured'] else 'sem seguro'}" for p in fleet)
+                         if fleet else 'Nenhuma aeronave própria cadastrada. Resgate seu Cessna 152 inicial.')
+            history.configure(state='normal')
+            history.delete('1.0',END)
+            for e in self.storage.finance_history():
+                history.insert(END,f"{strftime('%d/%m %H:%M',localtime(e['occurred_utc']))}  "
+                               f"{brl(e['amount']):>12}  {e['description']}\n")
+            if not self.storage.finance_history():
+                history.insert(END,'Sem movimentos novos. Voos anteriores à v0.5.0 não foram cobrados.\n')
+            history.configure(state='disabled')
+        redraw()
 
     def _locate_neofly(self):
         paths = discover_neofly_databases()

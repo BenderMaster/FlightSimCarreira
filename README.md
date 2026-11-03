@@ -1,8 +1,22 @@
-# FlightSimCarreira — v0.3.0 Alpha.1 (Bloco 2: contratos e freelancer)
+# FlightSimCarreira — v0.5.0 Alpha.1 (Bloco 4: finanças e manutenção)
+
+## v0.5.0 Alpha.1 — Mercado equilibrado, reais e Finanças / Hangar
+
+- **Moeda agora é R$ fictício** em todo o addon, sem câmbio: saldo R$ 7.130 é mantido numericamente a partir de 7.130 unidades anteriores. O saldo real pode ter mudado conforme voos posteriores.
+- **Contratos regionais e freelancer recalculados**: cerca de R$ 1.500 brutos por frete de 20 minutos (planejamento, não tempo garantido), com distâncias máximas menores nos primeiros níveis.
+- **Nova tela Finanças / Hangar**: resgatar C152 inicial uma vez, comprar modelos, consultar extrato, usar crédito e quitar parcelas, revisar desgaste e contratar seguro virtual.
+- Combustível (estimado quando falta dado do SimConnect), taxa de pouso, desgaste por voo e tributação opcional. **Custos só entram em novos voos**, após possuir uma aeronave no addon. Voos com avião da empresa não pagam essas despesas.
+- **Falhas do addon continuam desativadas;** a opção já é armazenada, mas injeção de falhas/sinistros NÃO está pronta.
+- **Seguro já tem prêmio e cadastro, porém sinistros/cobertura automática ainda NÃO estão implementados.**
+- Backup antes da migração em `carreira.pre_v050.backup.db`; preserva saldo, XP, voos e contratos aceitos, mas atualiza os preços de propostas ainda não aceitas.
+- [Regras e limitações detalhadas](docs/BLOCO_4_FINANCAS.md).
+
+**Teste no Windows**: termine o voo antes de atualizar, feche o addon, extraia o ZIP em pasta separada, rode `instalar_windows.bat` e `iniciar_windows.bat`. Cadastre o piloto, abra Finanças / Hangar e resgate o Cessna 152 inicial (apenas uma vez). Faça um frete curto pelo Mercado regional e confirme no extrato receita bruta, combustível/taxa, lucro líquido e condição do C152. Os custos são dados de carreira, não alteram os tanques do avião no MSFS.
+
 
 **Nome provisório.** Aplicativo de carreira **original** para Microsoft Flight Simulator 2020, feito em Python 3.11 com interface Windows Tkinter e base de dados SQLite própria.
 
-## Bloco 2 — Mercado regional e freelancer (NOVO)
+## Histórico: Bloco 2 — Mercado regional e freelancer
 
 O botão **Mercado regional / Freelancer** abre contratos gerados perto da posição atual do piloto (ou de sua base cadastrada se o MSFS estiver fechado). Uma nova lista é gerada por dia UTC e por origem, **sem gerar contratos para todos os aeroportos globais**. A lista atual tem no máximo **10 contratos regionais e 3 freelancers**. Contratos já concluídos não podem ser pagos novamente, mesmo depois de reiniciar. Cada novo voo continua registrado em SQLite.
 
@@ -14,7 +28,7 @@ O botão **Mercado regional / Freelancer** abre contratos gerados perto da posi�
 
 **Como testar (voo curto):** abra MSFS 2020, coloque o Cessna 152 em **SIPE** no solo, abra o app e conecte SimConnect; cadastre o piloto em **Meu piloto / Habilitações**; clique **Mercado regional / Freelancer** e escolha uma proposta para SIFC. Missões regionais exigem decolagem na origem e pouso dentro de 3 NM do destino; freelancing exige também o modelo designado. Se um contrato antigo estiver ativo, cancele antes de aceitar outro. A demo fixa continua separada, com a rota SBRF→SIPE.
 
-**O que ainda não está pronto:** estas são categorias de contrato com geração, progressão, aeronave e pagamento. Mecânicas específicas (busca de vítimas, embarque de passageiros, objetivos turísticos, urgência médica, reputação e carga/peso) virão nos próximos subblocos. O addon ainda não altera a aeronave no MSFS, não usa inventário próprio de frota e não tem interface in-game nesta versão. As opções independentes de provas e falhas estão aprovadas no escopo, mas seus controles de configuração ainda serão implementados.
+**Limitações do Bloco 2 original:** estas são categorias de contrato com geração, progressão, aeronave e pagamento. Mecânicas específicas (busca de vítimas, embarque de passageiros, objetivos turísticos, urgência médica, reputação e carga/peso) virão nos próximos subblocos. O addon ainda não altera a aeronave no MSFS nem possui interface in-game. A frota virtual foi adicionada na v0.5.0. As opções independentes de provas e falhas estão aprovadas no escopo, mas seus controles de configuração ainda serão implementados.
 
 Mais detalhes: [Bloco 2](docs/BLOCO_2_CONTRATOS.md) e [Escopo aprovado](docs/ESCOPO_CARREIRA.md).
 
@@ -33,7 +47,7 @@ Dois objetivos em paralelo:
 
 Não é uma modificação do NeoFly; não copia sua implementação nem reproduz o código proprietário. Não é software aeronáutico para voo real.
 
-## v0.4.0 Alpha.2 — Bloco 3: modalidades de carreira e plano VFR
+## v0.4.0 Alpha.1 — Bloco 3: modalidades de carreira e plano VFR
 
 - Todos começam **autônomos**. Novo botão **Vagas e companhias** na tela principal e no mercado.
 - São geradas no máximo quatro **vagas semanais fictícias**, com empresas de referência AeroNordeste, Azul, GOL e LATAM. As oportunidades **não são vagas reais**, e as empresas não são afiliadas ao projeto.
@@ -162,7 +176,7 @@ A interface Windows é transitória: o requisito prioritário é operar todo o g
 
 ## Onde os dados são salvos
 
-`%APPDATA%\AeroCarreira-Lab\carreira.db`: banco **nosso**, separado da instalação NeoFly. O saldo inicial desta carreira é **$5.000 fictícios**; não reproduz o saldo real do NeoFly, que ainda não foi importado.
+`%APPDATA%\AeroCarreira-Lab\carreira.db`: banco **nosso**, separado da instalação NeoFly. O saldo inicial desta carreira é **R$ 5.000 fictícios**; não reproduz o saldo real do NeoFly, que ainda não foi importado.
 
 ## Testes
 

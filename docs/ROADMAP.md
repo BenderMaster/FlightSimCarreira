@@ -80,3 +80,15 @@ Escopo completo em [ESCOPO_CARREIRA.md](ESCOPO_CARREIRA.md).
 - [ ] Gestão completa da própria empresa: frota, pilotos IA, bases, manutenção, rotas e lucro.
 
 Consulte [Bloco 3](BLOCO_3_CARREIRAS.md).
+
+## v0.5.0 Alpha.1 — economia/finanças/manutenção
+- [x] Moeda do jogo em R$, conservando numericamente as unidades legadas e saldo atual.
+- [x] Oferta regional e freelancer rebalanceada, distância compatível com nível inicial e remuneração ~R$1.500 por 20 min.
+- [x] Extrato persistente, custos futuros de combustível e operação, imposto fictício opcional.
+- [x] Hangar: C152 inicial uma vez, compra, desgaste, manutenção e seguro virtual.
+- [x] Financiamento fictício com custo fixo de 8%, parcelas e proteção contra saldo insuficiente.
+- [x] Migração/backups, pagamentos idempotentes e regressão automatizada.
+- [ ] Validar v0.5 no MSFS 2020 real, principalmente identificação do C152 e leitura do combustível.
+- [ ] Concluir cobertura de sinistros, abastecimento/serviços no MSFS, depreciação, aluguel e economia por aeroporto.
+- [ ] Injetor de falhas opcional (configuração persistida; funcionalidade ainda não implementada).
+- [ ] Painel integrado in-game MSFS 2020 sem Alt+Tab (requisito central mantido).

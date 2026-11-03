@@ -10,6 +10,7 @@ from math import isfinite
 from random import Random
 import hashlib
 from .domain import Airport, AIRPORTS, Mission, distance_nm
+from .finance import market_reward, mission_radius_by_level
 
 
 @dataclass(frozen=True)
@@ -185,7 +186,7 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
     Não consulta serviços externos nem cria ofertas para cada aeroporto mundial.
     Propostas não persistem até Storage.refresh_offers() confirmar a gravação.
     """
-    choices = catalog.around(origin, 190)
+    choices = catalog.around(origin, mission_radius_by_level(int(stats.get("level", pilot_level(int(stats.get("xp", 0)))))))
     if not choices:
         return []
     seed = int.from_bytes(hashlib.sha256(f"{origin.icao}:{period}:v1".encode()).digest()[:8], 'big')
@@ -208,7 +209,7 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
             continue
         target, dist = found
         seen.add((kind.code,target.icao,False))
-        reward = int(round((140 + dist*11) * kind.pay_factor / 10)*10)
+        reward = market_reward(dist, kind.pay_factor)
         offers.append(Mission(f"REG-{origin.icao}-{period}-{slot:02}",origin.icao,target.icao,
             f"{kind.title} • {target.name[:24]}",reward,category=kind.code,
             origin_lat=origin.latitude,origin_lon=origin.longitude,
@@ -230,7 +231,7 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
         if not choices_for_type:
             continue
         target,dist = rng.choice(choices_for_type[:min(len(choices_for_type), 35)])
-        salary = int(round((90 + dist*4.5) * (1 + kind.min_level*.09) / 10)*10)
+        salary = market_reward(dist, 1 + kind.min_level*.09, freelance=True)
         offers.append(Mission(f"FREE-{origin.icao}-{period}-{slot:02}",origin.icao,target.icao,
             f"Freelancer • {kind.title} • {plane.name}",salary,category=kind.code,freelance=True,
             employer_plane=plane.code,origin_lat=origin.latitude,origin_lon=origin.longitude,

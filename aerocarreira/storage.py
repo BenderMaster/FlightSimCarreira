@@ -1,10 +1,11 @@
 """Base própria SQLite: nunca lê/escreve NeoFly."""
 import json
 import sqlite3
-from time import time
+from time import time, time_ns
 from .pilot import validate_pilot, qualification_eligibility, QUAL_BY_CODE, flight_xp
 from .contracts import aircraft_family, aircraft_model, pilot_level, next_level_xp
 from .domain import Mission
+from .finance import AIRCRAFT_ECONOMY, brl, flight_operating_cost
 from .employment import (Vacancy, EMPLOYER_BY_CODE, vacancies, weekly_period,
     employment_eligibility, selection_result, OWN_MIN_LEVEL, OWN_MIN_HOURS,
     OWN_INVESTMENT, valid_company_name)
@@ -32,6 +33,15 @@ class Storage:
                     # Context manager de sqlite3 NÃO fecha handle no Windows.
                     # Fechar explicitamente evita WinError 32 em pasta temporária.
                     backup_conn.close()
+        # Segunda migração, backup separado; sem tocar no NeoFly.
+        if existing:
+            safety = self.path.with_name(self.path.stem + '.pre_v050.backup.db')
+            if not safety.exists():
+                backup = sqlite3.connect(safety)
+                try:
+                    self.conn.backup(backup)
+                finally:
+                    backup.close()
         self.conn.execute("PRAGMA busy_timeout=3000")
         self.conn.executescript("""
             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -83,9 +93,37 @@ class Storage:
                 decided_utc REAL);
             CREATE INDEX IF NOT EXISTS idx_job_status ON job_applications(status);
         """)
+        self.conn.executescript("""
+            CREATE TABLE IF NOT EXISTS finance_ledger (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_key TEXT NOT NULL UNIQUE, kind TEXT NOT NULL,
+                amount INTEGER NOT NULL, balance_after INTEGER NOT NULL,
+                description TEXT NOT NULL, occurred_utc REAL NOT NULL);
+            CREATE TABLE IF NOT EXISTS owned_aircraft (
+                code TEXT PRIMARY KEY, condition REAL NOT NULL DEFAULT 100,
+                hours REAL NOT NULL DEFAULT 0,
+                insured INTEGER NOT NULL DEFAULT 0,
+                purchased_utc REAL NOT NULL,
+                CHECK(condition BETWEEN 0 AND 100), CHECK(hours >= 0));
+            CREATE TABLE IF NOT EXISTS loans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                principal INTEGER NOT NULL, debt INTEGER NOT NULL,
+                created_utc REAL NOT NULL, CHECK(debt >= 0));
+        """)
         self.conn.commit()
         if self.get_setting("balance") is None:
             self.set_setting("balance", "5000")
+        # Novo balanceamento: invalida só o CACHE de ofertas. Contrato aceito
+        # sobrevive no checkpoint e preserva a recompensa contratada.
+        if self.get_setting('market_pricing_v05') != '1':
+            with self.conn:
+                self.conn.execute('DELETE FROM contract_offers')
+                self.conn.execute("INSERT INTO settings(key,value) VALUES('market_pricing_v05','1') "
+                                  "ON CONFLICT(key) DO UPDATE SET value='1'")
+        if self.get_setting('income_tax_enabled') is None:
+            self.set_setting('income_tax_enabled','0')
+        if self.get_setting('simulated_failures_enabled') is None:
+            self.set_setting('simulated_failures_enabled','0')
 
     def get_setting(self, key: str) -> Optional[str]:
         row = self.conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
@@ -110,7 +148,8 @@ class Storage:
 
     def finalize_flight(self, start: dict, end: dict, touchdown_fpm_est, stalls: int,
                         mission_id: str | None, reward: int, checkpoint: dict,
-                        aircraft_title: str | None = None) -> bool:
+                        aircraft_title: str | None = None,
+                        fuel_start: float | None = None, fuel_end: float | None = None) -> bool:
         """Pouso+crédito+estado em UMA transação; repetição não duplica dinheiro.
 
         A identidade é determinada pela decolagem original e sobrevive a reinícios.
@@ -138,8 +177,42 @@ class Storage:
                  mission_id, actual_reward, flight_key, aircraft_title))
             inserted = cursor.rowcount == 1
             if inserted:
-                old_balance = int(self.get_setting("balance") or 5000)
-                new_balance = old_balance + actual_reward
+                old_balance = int(self.get_setting("balance") or 0)
+                # Custos de operação: somente aeronave que o jogador possui.
+                from .contracts import aircraft_model
+                model = aircraft_model(aircraft_title)
+                owned = self.conn.execute(
+                    "SELECT condition, hours, insured FROM owned_aircraft WHERE code=?", (model,)
+                ).fetchone() if model else None
+                # Contratante fornece aeronave/combustível em voos FREE/EMP.
+                # Sem missão: apenas voos de treinamento monitorados, sem cobrança.
+                company_plane = bool(mission_id and mission_id.startswith(('FREE-', 'EMP-')))
+                charged = bool(owned and mission_id and not company_plane)
+                costs = flight_operating_cost(model, end['timestamp'] - start['timestamp'],
+                    fuel_start, fuel_end, bool(owned and owned[2])) if charged else {}
+                tax = round(actual_reward * .04) if (actual_reward > 0 and
+                    self.get_setting('income_tax_enabled') == '1') else 0
+                total_expenses = tax + sum(costs.get(k, 0) for k in ('fuel_brl', 'airport_brl', 'insurance_brl'))
+                # Voo pode ficar negativo: o ledger reflete custo, inclusive se ultrapassar o saldo.
+                new_balance = old_balance + actual_reward - total_expenses
+                if actual_reward:
+                    self._ledger_in_transaction(f'{flight_key}:income', 'contrato', actual_reward,
+                        old_balance + actual_reward, f'Contrato {mission_id}')
+                if tax:
+                    self._ledger_in_transaction(f'{flight_key}:tax', 'taxa_simulada', -tax,
+                                                old_balance+actual_reward-tax,
+                                                'Tributação opcional de carreira (fictícia)')
+                if charged:
+                    self.conn.execute('UPDATE owned_aircraft SET condition=max(0,condition-?), hours=hours+? WHERE code=?',
+                        (costs['wear'], max(0,(end['timestamp']-start['timestamp'])/3600), model))
+                    running = old_balance + actual_reward - tax
+                    for key, kind, desc in (
+                        ('fuel_brl','combustivel','Combustível utilizado em voo'),
+                        ('airport_brl','taxa_aeroporto','Taxa de operação no destino')):
+                        amount = int(costs.get(key,0))
+                        if amount:
+                            running -= amount
+                            self._ledger_in_transaction(f'{flight_key}:{kind}',kind,-amount,running,desc)
                 if self.get_pilot() is not None:
                     self.conn.execute("INSERT OR IGNORE INTO pilot_xp_ledger(flight_key,xp,awarded_utc) VALUES(?,?,?)",
                                       (flight_key, flight_xp(actual_reward), time()))
@@ -149,6 +222,113 @@ class Storage:
                                   "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                                   (json.dumps(checkpoint, ensure_ascii=False),))
         return inserted
+
+    def _ledger_in_transaction(self, key: str, kind: str, amount: int,
+                               balance_after: int, description: str) -> None:
+        self.conn.execute("""INSERT OR IGNORE INTO finance_ledger
+            (event_key,kind,amount,balance_after,description,occurred_utc)
+            VALUES(?,?,?,?,?,?)""",(key,kind,int(amount),int(balance_after),description,time()))
+
+    def _money_movement(self, key: str, kind: str, amount: int, description: str) -> int:
+        # Chamadores usam `with self.conn:` para preservar atomicidade de
+        # movimento + mutação do bem, inclusive em caso de falha posterior.
+        if self.conn.execute('SELECT 1 FROM finance_ledger WHERE event_key=?',(key,)).fetchone():
+            raise ValueError('Movimento já registrado.')
+        old = int(self.get_setting('balance') or 0)
+        if amount < 0 and old < -amount:
+            raise ValueError(f'Saldo insuficiente: {brl(old)}. Use financiamento ou ganhe contratos.')
+        new = old + amount
+        self._ledger_in_transaction(key,kind,amount,new,description)
+        self.conn.execute("INSERT INTO settings(key,value) VALUES('balance',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(str(new),))
+        return new
+
+    def finance_history(self, limit: int = 30) -> list[dict]:
+        rows=self.conn.execute('SELECT kind,amount,balance_after,description,occurred_utc FROM finance_ledger ORDER BY id DESC LIMIT ?', (max(1,min(300,limit)),)).fetchall()
+        return [dict(zip(('kind','amount','balance_after','description','occurred_utc'),r)) for r in rows]
+
+    def flight_finance(self, start: dict) -> dict:
+        flight_key = f"takeoff:{float(start['timestamp']):.6f}:{float(start['lat']):.7f}:{float(start['lon']):.7f}"
+        rows=self.conn.execute('SELECT kind,amount FROM finance_ledger WHERE event_key LIKE ?', (flight_key+':%',)).fetchall()
+        gross=sum(amount for kind,amount in rows if kind=='contrato')
+        costs=-sum(amount for kind,amount in rows if kind in ('combustivel','taxa_aeroporto','taxa_simulada'))
+        return {'gross':gross,'expenses':costs,'net':gross-costs}
+
+    def claim_starter(self) -> bool:
+        """Uma aeronave inicial, concedida apenas uma vez à carreira por opção explícita."""
+        if self.get_pilot() is None:
+            raise ValueError('Cadastre o piloto primeiro.')
+        with self.conn:
+            if self.get_setting('starter_claimed') == '1':
+                return False
+            self.conn.execute("INSERT OR IGNORE INTO owned_aircraft(code,purchased_utc) VALUES('c152',?)",(time(),))
+            self.conn.execute("INSERT INTO settings(key,value) VALUES('starter_claimed','1') ON CONFLICT(key) DO UPDATE SET value='1'")
+            return True
+
+    def owned_fleet(self) -> list[dict]:
+        rows=self.conn.execute('SELECT code,condition,hours,insured FROM owned_aircraft ORDER BY code').fetchall()
+        return [{'code':r[0], 'name':AIRCRAFT_ECONOMY[r[0]].title if r[0] in AIRCRAFT_ECONOMY else r[0],
+                 'condition':r[1], 'hours':r[2], 'insured':bool(r[3])} for r in rows]
+
+    def buy_aircraft(self, code: str) -> int:
+        plane=AIRCRAFT_ECONOMY.get(code)
+        if plane is None: raise ValueError('Modelo desconhecido.')
+        if self.get_pilot() is None: raise ValueError('Cadastre o piloto primeiro.')
+        if self.conn.execute('SELECT 1 FROM owned_aircraft WHERE code=?',(code,)).fetchone():
+            raise ValueError('Modelo já está na sua frota.')
+        with self.conn:
+            balance=self._money_movement(f'purchase:{code}', 'compra_aviao', -plane.purchase_price,
+                                         'Compra de '+plane.title)
+            self.conn.execute('INSERT INTO owned_aircraft(code,purchased_utc) VALUES(?,?)',(code,time()))
+            return balance
+
+    def service_aircraft(self, code: str) -> int:
+        plane=AIRCRAFT_ECONOMY.get(code)
+        row=self.conn.execute('SELECT condition FROM owned_aircraft WHERE code=?',(code,)).fetchone()
+        if plane is None or row is None: raise ValueError('Aeronave não pertence à frota.')
+        if row[0] >= 99.9: raise ValueError('Aeronave já está revisada.')
+        price=plane.service_cost + round((100-row[0])*60)
+        with self.conn:
+            balance=self._money_movement(f'service:{code}:{time_ns()}', 'manutencao', -price,
+                                         'Revisão de '+plane.title)
+            self.conn.execute('UPDATE owned_aircraft SET condition=100 WHERE code=?',(code,))
+            return balance
+
+    def set_insurance(self, code: str, enabled: bool) -> int:
+        plane=AIRCRAFT_ECONOMY.get(code)
+        row=self.conn.execute('SELECT insured FROM owned_aircraft WHERE code=?',(code,)).fetchone()
+        if plane is None or row is None: raise ValueError('Aeronave não pertence à frota.')
+        if bool(row[0]) == bool(enabled): raise ValueError('Seguro já está neste estado.')
+        with self.conn:
+            if enabled:
+                balance=self._money_movement(f'insurance:{code}:{time_ns()}', 'seguro', -plane.insurance_price,
+                                             'Apólice virtual para '+plane.title)
+            else:
+                balance=int(self.get_setting('balance') or 0)
+            self.conn.execute('UPDATE owned_aircraft SET insured=? WHERE code=?',(1 if enabled else 0,code))
+            return balance
+
+    def take_loan(self, principal: int) -> int:
+        if not isinstance(principal,int) or principal < 1000 or principal > 30000:
+            raise ValueError('Financiamento permitido: R$ 1.000 a R$ 30.000.')
+        if self.conn.execute('SELECT 1 FROM loans WHERE debt>0').fetchone():
+            raise ValueError('Quite o financiamento anterior primeiro.')
+        with self.conn:
+            cursor=self.conn.execute('INSERT INTO loans(principal,debt,created_utc) VALUES(?,?,?)',
+                                      (principal,round(principal*1.08),time()))
+            return self._money_movement(f'loan:{cursor.lastrowid}','financiamento',principal,'Crédito de financiamento virtual')
+
+    def outstanding_loan(self) -> int:
+        return int(self.conn.execute('SELECT COALESCE(SUM(debt),0) FROM loans').fetchone()[0])
+
+    def repay_loan(self, amount: int) -> int:
+        row=self.conn.execute('SELECT id,debt FROM loans WHERE debt>0 ORDER BY id LIMIT 1').fetchone()
+        if row is None: raise ValueError('Sem empréstimo em aberto.')
+        if not isinstance(amount,int) or amount<=0 or amount>row[1]:
+            raise ValueError(f'Parcela deve ser de R$ 1 até {brl(row[1])}.')
+        with self.conn:
+            balance=self._money_movement(f'loan-repay:{row[0]}:{time_ns()}', 'parcela',-amount,'Pagamento financiamento')
+            self.conn.execute('UPDATE loans SET debt=debt-? WHERE id=?',(amount,row[0]))
+            return balance
 
     def list_flights(self):
         return self.conn.execute("SELECT id, started_utc, ended_utc, touchdown_fpm_est, stall_warnings, mission_id, reward FROM flights ORDER BY id DESC LIMIT 100").fetchall()
@@ -341,8 +521,9 @@ class Storage:
             row=self.conn.execute("SELECT value FROM settings WHERE key='balance'").fetchone()
             balance=int(row[0]) if row else 0
             if balance < OWN_INVESTMENT:
-                raise ValueError(f'Investimento mínimo: ${OWN_INVESTMENT:,}.')
-            self.conn.execute("UPDATE settings SET value=? WHERE key='balance'",(str(balance-OWN_INVESTMENT),))
+                raise ValueError(f'Investimento mínimo: {brl(OWN_INVESTMENT)}.')
+            self._money_movement(f'company:{company_name}:{time_ns()}', 'fundacao', -OWN_INVESTMENT,
+                                 'Registro da companhia própria')
             self.conn.execute('UPDATE career_status SET mode=?,employer_code=NULL,owner_company=?,updated_utc=? WHERE id=1',
                               ('empresario',company_name,now))
         return self.employment_state()
