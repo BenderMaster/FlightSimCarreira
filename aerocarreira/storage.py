@@ -5,7 +5,11 @@ from time import time
 from .pilot import validate_pilot, qualification_eligibility, QUAL_BY_CODE, flight_xp
 from .contracts import aircraft_family, aircraft_model, pilot_level, next_level_xp
 from .domain import Mission
+from .employment import (Vacancy, EMPLOYER_BY_CODE, vacancies, weekly_period,
+    employment_eligibility, selection_result, OWN_MIN_LEVEL, OWN_MIN_HOURS,
+    OWN_INVESTMENT, valid_company_name)
 from pathlib import Path
+from dataclasses import asdict
 from typing import Optional
 
 
@@ -13,8 +17,16 @@ class Storage:
     def __init__(self, path: Path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        existing = self.path.is_file() and self.path.stat().st_size > 0
         self.conn = sqlite3.connect(self.path)
         self.conn.execute("PRAGMA journal_mode=WAL")
+        # Backup transacional antes da migração: snapshot SQLite inclui o WAL.
+        # Nunca substituir backup anterior ao abrir o aplicativo novamente.
+        if existing:
+            backup_path = self.path.with_name(self.path.stem + '.pre_v040.backup.db')
+            if not backup_path.exists():
+                with sqlite3.connect(backup_path) as backup_conn:
+                    self.conn.backup(backup_conn)
         self.conn.execute("PRAGMA busy_timeout=3000")
         self.conn.executescript("""
             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -51,6 +63,20 @@ class Storage:
             CREATE INDEX IF NOT EXISTS idx_contract_origin ON contract_offers(origin,expires_utc);
             CREATE TABLE IF NOT EXISTS completed_contracts (
                 contract_id TEXT PRIMARY KEY, flight_key TEXT NOT NULL, completed_utc REAL NOT NULL);
+        """)
+        self.conn.executescript("""
+            CREATE TABLE IF NOT EXISTS career_status (
+                id INTEGER PRIMARY KEY CHECK(id=1),
+                mode TEXT NOT NULL DEFAULT 'autonomo',
+                employer_code TEXT, owner_company TEXT,
+                updated_utc REAL NOT NULL);
+            INSERT OR IGNORE INTO career_status(id,mode,updated_utc) VALUES(1,'autonomo',0);
+            CREATE TABLE IF NOT EXISTS job_applications (
+                vacancy_id TEXT PRIMARY KEY, company_code TEXT NOT NULL,
+                data_json TEXT NOT NULL, applied_utc REAL NOT NULL,
+                status TEXT NOT NULL CHECK(status IN ('pending','hired','rejected')),
+                decided_utc REAL);
+            CREATE INDEX IF NOT EXISTS idx_job_status ON job_applications(status);
         """)
         self.conn.commit()
         if self.get_setting("balance") is None:
@@ -92,7 +118,7 @@ class Storage:
             # Um contrato gerado pode ser pago apenas UMA vez por ID; isso
             # bloqueia exploração do mercado após reiniciar o aplicativo.
             actual_reward = reward
-            if mission_id and (mission_id.startswith("REG-") or mission_id.startswith("FREE-")):
+            if mission_id and (mission_id.startswith("REG-") or mission_id.startswith("FREE-") or mission_id.startswith("EMP-")):
                 claim = self.conn.execute(
                     "INSERT OR IGNORE INTO completed_contracts(contract_id,flight_key,completed_utc) VALUES(?,?,?)",
                     (mission_id, flight_key, time()))
@@ -169,6 +195,11 @@ class Storage:
                 counts[model] = counts.get(model, 0) + 1
         return counts
 
+    def invalidate_market(self):
+        """Após contratar/demitir, atualizar somente o cache de ofertas local."""
+        with self.conn:
+            self.conn.execute('DELETE FROM contract_offers')
+
     def contract_completed(self, contract_id: str) -> bool:
         return self.conn.execute("SELECT 1 FROM completed_contracts WHERE contract_id=?", (contract_id,)).fetchone() is not None
 
@@ -215,6 +246,101 @@ class Storage:
             result = self.conn.execute(
                 "INSERT OR IGNORE INTO pilot_qualifications(code,awarded_utc) VALUES(?,?)", (code, time()))
             return result.rowcount == 1
+
+
+    # Bloco 3 — modalidades de carreira (dados simulados, independentes do NeoFly).
+    def employment_state(self) -> dict:
+        row=self.conn.execute('SELECT mode, employer_code, owner_company FROM career_status WHERE id=1').fetchone()
+        return dict(zip(('mode','employer_code','owner_company'),row))
+
+    def list_applications(self) -> list[dict]:
+        rows=self.conn.execute('SELECT vacancy_id,company_code,status,applied_utc,decided_utc FROM job_applications ORDER BY applied_utc DESC LIMIT 30').fetchall()
+        return [dict(zip(('vacancy_id','company_code','status','applied_utc','decided_utc'),r)) for r in rows]
+
+    def apply_vacancy(self, vacancy: Vacancy, now: float) -> None:
+        if self.get_pilot() is None:
+            raise ValueError('Cadastre seu piloto primeiro.')
+        if self.employment_state()['mode'] != 'autonomo':
+            raise ValueError('Para se candidatar, retorne primeiro à carreira autônoma.')
+        period=weekly_period(now)
+        if vacancy.opens_period!=period or vacancy not in vacancies(period,vacancy.airport):
+            raise ValueError('Vaga expirada ou não pertence ao mercado deste período.')
+        if self.conn.execute('SELECT 1 FROM job_applications WHERE status=?',('pending',)).fetchone():
+            raise ValueError('Já existe uma candidatura em análise.')
+        if self.conn.execute('SELECT 1 FROM job_applications WHERE vacancy_id=?',(vacancy.id,)).fetchone():
+            raise ValueError('Esta vaga já recebeu uma candidatura tua.')
+        # Uma candidatura por período impede reroll artificial depois de rejeição.
+        if self.conn.execute('SELECT 1 FROM job_applications WHERE applied_utc>=? AND applied_utc<?',
+            (period*7*86400,(period+1)*7*86400)).fetchone():
+            raise ValueError('Limite: uma candidatura por semana.')
+        ok,reason=employment_eligibility(vacancy,self.pilot_stats(),self.owned_qualifications())
+        if not ok:
+            raise ValueError(reason)
+        profile=self.get_pilot()
+        application={'vacancy':asdict(vacancy), 'callsign':profile['callsign'],
+                     'stats':{'level':self.pilot_stats()['level'], 'hours':self.pilot_stats()['hours']}}
+        with self.conn:
+            self.conn.execute('INSERT INTO job_applications VALUES(?,?,?,?,?,NULL)',
+                (vacancy.id,vacancy.company,json.dumps(application,ensure_ascii=False),now,'pending'))
+
+    def review_applications(self, now: float) -> list[dict]:
+        """Resolve candidaturas somente depois do encerramento do período.
+
+        Não paga salários nem concede vaga de empresas reais; empregos são fictícios.
+        """
+        updates=[]
+        current_period=weekly_period(now)
+        applications=self.conn.execute("SELECT vacancy_id,data_json FROM job_applications WHERE status='pending'").fetchall()
+        for vacancy_id,raw in applications:
+            try:
+                app=json.loads(raw)
+                vacancy=Vacancy(**(app['vacancy'] if 'vacancy' in app else app))
+            except (ValueError,TypeError,KeyError):
+                continue
+            if current_period < vacancy.closes_period:
+                continue
+            pilot=self.get_pilot()
+            if pilot is None:
+                continue
+            application_key=app.get('callsign',pilot['callsign'])
+            stored_stats=app.get('stats',self.pilot_stats())
+            result='hired' if (self.employment_state()['mode']=='autonomo' and
+                selection_result(vacancy,stored_stats,application_key)) else 'rejected'
+            with self.conn:
+                cursor=self.conn.execute("UPDATE job_applications SET status=?,decided_utc=? WHERE vacancy_id=? AND status='pending'",
+                                         (result,now,vacancy_id))
+                if cursor.rowcount:
+                    if result=='hired':
+                        self.conn.execute('UPDATE career_status SET mode=?,employer_code=?,owner_company=NULL,updated_utc=? WHERE id=1',
+                                          ('empregado',vacancy.company,now))
+                    updates.append({'vacancy_id':vacancy_id,'result':result,'company':vacancy.company})
+        return updates
+
+    def resign_employment(self, now: float) -> None:
+        if self.employment_state()['mode'] != 'empregado':
+            raise ValueError('Não há emprego ativo para encerrar.')
+        with self.conn:
+            self.conn.execute('UPDATE career_status SET mode=?,employer_code=NULL,updated_utc=? WHERE id=1',('autonomo',now))
+
+    def found_company(self, company_name: str, now: float) -> dict:
+        company_name=valid_company_name(company_name)
+        if self.get_pilot() is None:
+            raise ValueError('Cadastre um piloto primeiro.')
+        if self.employment_state()['mode'] != 'autonomo':
+            raise ValueError('Encerre o vínculo empregatício antes de fundar sua companhia.')
+        stats=self.pilot_stats()
+        if (stats['level']<OWN_MIN_LEVEL or stats['hours']<OWN_MIN_HOURS
+                or 'PLA' not in stats['qualifications']):
+            raise ValueError(f'Endgame: nível {OWN_MIN_LEVEL}, {OWN_MIN_HOURS:g} h e PLA obrigatórios.')
+        with self.conn:
+            row=self.conn.execute("SELECT value FROM settings WHERE key='balance'").fetchone()
+            balance=int(row[0]) if row else 0
+            if balance < OWN_INVESTMENT:
+                raise ValueError(f'Investimento mínimo: ${OWN_INVESTMENT:,}.')
+            self.conn.execute("UPDATE settings SET value=? WHERE key='balance'",(str(balance-OWN_INVESTMENT),))
+            self.conn.execute('UPDATE career_status SET mode=?,employer_code=NULL,owner_company=?,updated_utc=? WHERE id=1',
+                              ('empresario',company_name,now))
+        return self.employment_state()
 
     def close(self):
         self.conn.close()

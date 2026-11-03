@@ -66,3 +66,17 @@
 - [ ] Ponte local testada e package Community. Veja [arquitetura in-game](ARQUITETURA_IN_GAME.md).
 
 Escopo completo em [ESCOPO_CARREIRA.md](ESCOPO_CARREIRA.md).
+
+## v0.4.0 Alpha.1 — Bloco 3: carreiras e companhias
+- [x] Modalidade autônomo por padrão, com migração de banco sem alterar dados.
+- [x] Vagas semanais simuladas, requisitos e candidaturas com resultado estável após semana seguinte.
+- [x] Emprego, demissão e trechos exclusivos da companhia, com confirmação de modelo em decolagem/pouso.
+- [x] Registro de companhia própria no endgame (gestão de frota IA futura).
+- [x] Exportar plano VFR XML .PLN com opção de solicitar carga SimConnect em solo.
+- [ ] Testar voo/planejamento `.PLN` e atualização visual do mapa VFR no MSFS 2020 real.
+- [ ] Troca segura da aeronave por voo salvo/template autorizado, sem alterar voos em andamento.
+- [ ] Ler modelos/liveries instalados localmente; gerenciar frota IA com identidade das companhias.
+- [ ] Integrar interface na toolbar sem Alt+Tab e implantar sistema trabalhista/folha/salário realista.
+- [ ] Gestão completa da própria empresa: frota, pilotos IA, bases, manutenção, rotas e lucro.
+
+Consulte [Bloco 3](BLOCO_3_CARREIRAS.md).

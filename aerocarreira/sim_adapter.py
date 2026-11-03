@@ -3,7 +3,7 @@
 Dependência opcional importada no worker; não modifica o simulador.
 """
 from __future__ import annotations
-from queue import Queue
+from queue import Queue, Empty
 from threading import Thread, Event
 from time import time
 from .domain import FlightSample
@@ -94,6 +94,7 @@ class SimConnectWorker:
         self.interval = interval
         self.generation = generation
         self.reconnect_delay = reconnect_delay
+        self.actions = Queue()
         self.stop_event = Event()
         self.thread = None
 
@@ -106,6 +107,10 @@ class SimConnectWorker:
         self.stop_event.clear()
         self.thread = Thread(target=self._run, name="simconnect-reader", daemon=True)
         self.thread.start()
+
+    def request_plan_load(self, path):
+        """Somente sob clique explícito e com o simulador conectado."""
+        self.actions.put(("load_pln", str(path)))
 
     def stop(self):
         self.stop_event.set()
@@ -127,6 +132,26 @@ class SimConnectWorker:
                 missing_runs = 0
                 last_warning = 0.0
                 while not self.stop_event.is_set():
+                    try:
+                        while True:
+                            action, path = self.actions.get_nowait()
+                            if action == 'load_pln':
+                                from pathlib import Path
+                                file = Path(path)
+                                if not file.is_file() or file.suffix.lower() != '.pln':
+                                    self._send('plan_error', 'Plano VFR inválido ou inexistente.')
+                                else:
+                                    try:
+                                        # O adaptador Python-SimConnect implementa esta API do SDK.
+                                        accepted = sm.load_flight_plan(str(file))
+                                        if accepted:
+                                            self._send('plan_loaded', f'Comando de carga enviado: {file.name}. Verifique o mapa VFR/GPS.')
+                                        else:
+                                            self._send('plan_error', 'SimConnect recusou a solicitação de plano VFR.')
+                                    except (OSError, AttributeError, ValueError, RuntimeError) as exc:
+                                        self._send('plan_error', f'Falha ao solicitar plano VFR: {exc}')
+                    except Empty:
+                        pass
                     if getattr(sm, "quit", False):
                         raise ConnectionError("O simulador encerrou a sessão SimConnect")
                     sample, missing = reader.read()

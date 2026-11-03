@@ -15,6 +15,9 @@ from .neo_inspect import inspect_neofly, discover_neofly_databases
 from .pilot import QUALIFICATIONS, qualification_eligibility, flight_xp
 from .contracts import (AirportCatalog, TYPES, TYPE_BY_CODE, PLANE_BY_CODE,
                         generate_offers, eligibility, matches_aircraft)
+from .employment import (EMPLOYER_BY_CODE, vacancies, weekly_period,
+    employment_eligibility, generate_employer_routes, OWN_MIN_LEVEL, OWN_INVESTMENT)
+from .flightplan import export_vfr_plan
 from . import __version__
 
 BG = "#08111c"
@@ -68,6 +71,7 @@ class Application:
         self.pilot_var = StringVar(value="PILOTO • não cadastrado")
         self.pilot_dialog = None
         self.market_dialog = None
+        self.employment_dialog = None
         self.airport_catalog = None
         self._refresh_pilot_summary()
         self.info_var = StringVar(value="Sem telemetria")
@@ -163,6 +167,8 @@ class Application:
         Label(missions,textvariable=self.mission_var,bg=PANEL,fg=GOLD,
               font=(FONT,10),wraplength=320,justify="left").pack(anchor="w",pady=8)
         self.button(missions,"Cancelar contrato",self._cancel).pack(fill="x")
+        self.button(missions,"Preparar plano VFR da missão",self._prepare_active_plan).pack(fill="x",pady=(7,0))
+        self.button(missions,"Vagas e companhias",self._employment_window).pack(fill="x",pady=(7,0))
 
         logp = self.section(main, "03  /  REGISTRO DE VOO")
         logp.grid(row=1,column=0,sticky="nsew",padx=(0,10))
@@ -391,6 +397,10 @@ class Application:
             if not allowed:
                 messagebox.showwarning("Contrato bloqueado", reason)
                 return False
+            if m.company_code and (self.storage.employment_state()['mode']!='empregado' or
+                                   self.storage.employment_state()['employer_code']!=m.company_code):
+                messagebox.showwarning('Contrato', 'Trecho exclusivo da companhia empregadora.')
+                return False
             if self.storage.contract_completed(m.id):
                 messagebox.showwarning("Contrato", "Este contrato já foi concluído. Aguarde nova oferta.")
                 return False
@@ -408,6 +418,7 @@ class Application:
                         f"Contrato aceito. Avião designado: {plane.name}\n\n"
                         "Antes de decolar, selecione essa aeronave no MSFS. "
                         "O SimConnect deve reconhecer o modelo para validar o pagamento.")
+            self._log('Pode gerar e carregar o plano VFR pelo botão Preparar plano da missão.')
             return True
         except ValueError as exc:
             messagebox.showwarning("Contrato",str(exc))
@@ -486,9 +497,17 @@ class Application:
                 # Uma geração por dia/região; clicando atualizar não cria infinitos contratos.
                 offers=generate_offers(center,catalog,self.storage.pilot_stats(),
                             self.storage.owned_qualifications(),self.storage.family_experience(),day)
+                emp_state=self.storage.employment_state()
+                if emp_state['mode']=='empregado':
+                    offers += generate_employer_routes(emp_state['employer_code'],center,catalog,
+                        self.storage.pilot_stats(),self.storage.owned_qualifications(),
+                        self.storage.family_experience(),day)
                 self.storage.save_offers(center.icao, offers, now=now,
                                          valid_s=(day+1)*86400-now)
             for m in self.storage.active_offers(center.icao,now):
+                if m.company_code and (self.storage.employment_state()['mode']!='empregado'
+                    or self.storage.employment_state()['employer_code']!=m.company_code):
+                    continue
                 allowed,_=eligibility(m,self.storage.pilot_stats(),self.storage.owned_qualifications(),
                                       self.storage.family_experience())
                 if not allowed:
@@ -516,8 +535,156 @@ class Application:
                 self.market_dialog=None
         self.button(buttons,"Aceitar missão selecionada",accept_selection,accent=True).pack(side="left",padx=(0,9))
         self.button(buttons,"Atualizar lista",lambda:populate(True)).pack(side="left")
+        self.button(buttons,"Vagas e companhias",self._employment_window).pack(side="left",padx=(8,0))
         self.label(buttons,"Apenas ofertas regionais; máximo 13 armazenadas.",9,MUTED).pack(side="right")
         populate()
+
+    def _prepare_active_plan(self):
+        m=self.career.mission
+        if m is None:
+            messagebox.showinfo('Plano VFR','Aceite primeiro um contrato.')
+            return
+        try:
+            path=export_vfr_plan(m,state_dir()/'planos_vfr')
+        except (OSError,ValueError) as exc:
+            messagebox.showerror('Plano VFR',str(exc))
+            return
+        self._log(f'Plano VFR exportado: {path}')
+        if not messagebox.askyesno('Plano VFR criado',
+            f'Plano salvo em:\n{path}\n\nSolicitar carregamento no MSFS agora?\n'
+            'Isso altera a rota do simulador, mas NÃO troca a aeronave nem a posição.\n'
+            'O GPS/mapa VFR pode exigir confirmação manual.'):
+            return
+        if not (self.mode=='MSFS' and self.connected and self.sim and self.last_sample
+                and self.last_sample.on_ground and time()-self.last_sample.timestamp < 10):
+            messagebox.showwarning('Plano VFR','Para carregar automaticamente, conecte o MSFS e mantenha o avião em solo. '
+                'O arquivo .PLN já foi salvo e pode ser importado manualmente.')
+            return
+        self.sim.request_plan_load(path)
+        self._log('Solicitação de carga do plano VFR enviada ao SimConnect. Aguardando retorno da API.')
+
+    def _employment_window(self):
+        if self.employment_dialog and self.employment_dialog.winfo_exists():
+            self.employment_dialog.lift()
+            return
+        if self.storage.get_pilot() is None:
+            messagebox.showwarning('Companhias','Cadastre teu piloto antes de concorrer a vagas.')
+            return
+        window=Toplevel(self.root)
+        self.employment_dialog=window
+        window.title('FlightSimCarreira • Modalidades de carreira e vagas')
+        window.geometry('1050x720')
+        window.minsize(850,610)
+        window.configure(bg=BG)
+        window.transient(self.root)
+        window.protocol('WM_DELETE_WINDOW',lambda:(setattr(self,'employment_dialog',None),window.destroy()))
+        wrapper=Frame(window,bg=BG,padx=20,pady=16)
+        wrapper.pack(fill='both',expand=True)
+        self.label(wrapper,'CARREIRA / EMPREGOS / COMPANHIA PRÓPRIA',16,CYAN,True).pack(anchor='w')
+        self.label(wrapper,'Vagas geradas pelo jogo. GOL, Azul e LATAM não são parceiras nem anunciam vagas reais aqui.',
+                   9,MUTED).pack(anchor='w',pady=(2,10))
+        mode_text=StringVar()
+        Label(wrapper,textvariable=mode_text,bg=BG,fg=GREEN,font=(FONT,12,'bold'),anchor='w').pack(fill='x')
+        columns=('company','level','qualification','plane','salary','status')
+        table=ttk.Treeview(wrapper,columns=columns,show='headings',height=8,selectmode='browse')
+        for key,title,width in [('company','COMPANHIA',195),('level','NÍVEL',65),
+                                ('qualification','HABILITAÇÕES',130),('plane','AVIÃO',120),
+                                ('salary','REF. SALÁRIO',110),('status','REQUISITOS',260)]:
+            table.heading(key,text=title)
+            table.column(key,width=width,stretch=key in ('company','status'))
+        table.pack(fill='both',expand=True,pady=(10,5))
+        status=StringVar(value='Uma candidatura por semana. Resultado após virar o ciclo semanal UTC.')
+        Label(wrapper,textvariable=status,bg=BG,fg=GOLD,font=(FONT,9),anchor='w',wraplength=980,
+              justify='left').pack(fill='x',pady=6)
+        options={}
+        def redraw():
+            now=time()
+            period=weekly_period(now)
+            state=self.storage.employment_state()
+            label={'autonomo':'PILOTO AUTÔNOMO','empregado':'PILOTO CONTRATADO','empresario':'DONO DE COMPANHIA'}[state['mode']]
+            suffix=(f" • {EMPLOYER_BY_CODE[state['employer_code']].name}" if state['employer_code'] in EMPLOYER_BY_CODE
+                    else f" • {state['owner_company']}" if state['owner_company'] else '')
+            mode_text.set(f'MODALIDADE ATUAL: {label}{suffix}')
+            for item in table.get_children():
+                table.delete(item)
+            options.clear()
+            region=(self.airport_catalog.nearest(self.last_sample.latitude,self.last_sample.longitude,6).icao
+                    if self.airport_catalog and self.last_sample and
+                    self.airport_catalog.nearest(self.last_sample.latitude,self.last_sample.longitude,6)
+                    else self.storage.get_pilot()['home_icao'])
+            for v in vacancies(period,region):
+                ok,reason=employment_eligibility(v,self.storage.pilot_stats(),self.storage.owned_qualifications())
+                options[v.id]=v
+                co=EMPLOYER_BY_CODE[v.company]
+                table.insert('', 'end',iid=v.id,values=(co.name,str(v.min_level),
+                    ','.join(v.qualifications),v.plane,f'${v.salary:,}/sem',
+                    'APTO' if ok else reason[:68]))
+            latest=self.storage.list_applications()
+            if latest:
+                last=latest[0]
+                status.set(f"Última candidatura: {last['company_code']} • {last['status']} • {last['vacancy_id']}. "
+                           'Sem contratação real. As vagas são reiniciadas semanalmente.')
+        def guard():
+            if self.career.mission or self.tracker.phase==Phase.AIRBORNE:
+                messagebox.showwarning('Carreira','Conclua/cancele o contrato e permaneça em solo antes de alterar vínculos.',parent=window)
+                return False
+            return True
+        def apply():
+            sel=table.selection()
+            if not sel or not guard():
+                return
+            v=options[sel[0]]
+            try:
+                self.storage.apply_vacancy(v,time())
+                self._log(f'INSCRIÇÃO: {EMPLOYER_BY_CODE[v.company].name}; resultado no fim da semana.')
+                redraw()
+            except ValueError as exc:
+                messagebox.showwarning('Candidatura',str(exc),parent=window)
+        def review():
+            if not guard(): return
+            results=self.storage.review_applications(time())
+            if results:
+                self.storage.invalidate_market()
+            for result in results:
+                self._log(f"SELEÇÃO DE EMPREGO: {result['company']} • {result['result']}")
+            redraw()
+            messagebox.showinfo('Recrutamento', 'Resultados atualizados. ' + (str(results) if results else 'Ainda aguardando fim do ciclo.'),parent=window)
+        def resign():
+            if not guard(): return
+            if not messagebox.askyesno('Encerrar vínculo','Encerrar o vínculo e voltar a atuar como autônomo?',parent=window):return
+            try:
+                self.storage.resign_employment(time())
+                self.storage.invalidate_market()
+                self._log('Vínculo encerrado. Piloto voltou à modalidade autônoma.')
+                redraw()
+            except ValueError as exc:
+                messagebox.showwarning('Companhias',str(exc),parent=window)
+        actions=Frame(wrapper,bg=BG)
+        actions.pack(fill='x',pady=(5,13))
+        self.button(actions,'Candidatar-se',apply,accent=True).pack(side='left',padx=(0,6))
+        self.button(actions,'Ver resultado / atualizar',review).pack(side='left',padx=(0,6))
+        self.button(actions,'Pedir demissão',resign).pack(side='left')
+        panel=self.section(wrapper,'ENDGAME • MINHA COMPANHIA AÉREA')
+        panel.pack(fill='x')
+        self.label(panel,f'A partir do nível {OWN_MIN_LEVEL}, 25 h, PLA e ${OWN_INVESTMENT:,} de capital.',9,MUTED).pack(anchor='w')
+        comp_name=StringVar(value='')
+        entry=Entry(panel,textvariable=comp_name,font=(FONT,10),bg=PANEL2,fg=FG,insertbackground=FG,relief='flat')
+        entry.pack(side='left',fill='x',expand=True,padx=(0,10),pady=5,ipady=7)
+        def create_company():
+            if not guard():return
+            if not messagebox.askyesno('Criar companhia',f'Investir ${OWN_INVESTMENT:,} para registrar a companhia virtual?',parent=window):return
+            try:
+                result=self.storage.found_company(comp_name.get(),time())
+                self.career.balance=int(self.storage.get_setting('balance'))
+                self.balance_var.set(f'$ {self.career.balance:,}')
+                self._log(f"COMPANHIA PRÓPRIA REGISTRADA: {result['owner_company']}")
+                redraw()
+            except ValueError as exc:
+                messagebox.showwarning('Companhia',str(exc),parent=window)
+        self.button(panel,'Fundar companhia',create_company,accent=True).pack(side='right')
+        self.label(wrapper,'Registro inicial da companhia implementado; frota IA, pinturas, gestores e rotas empresariais são blocos futuros.',
+                   9,MUTED).pack(anchor='w',pady=(8,0))
+        redraw()
 
     def _cancel(self):
         self.career.cancel()
@@ -648,6 +815,12 @@ class Application:
                 elif kind=="warning":
                     self.status_var.set("Monitorando / recuperação")
                     self._log(item)
+                elif kind=='plan_loaded':
+                    self._log(item)
+                    messagebox.showinfo('SimConnect / plano VFR',item)
+                elif kind=='plan_error':
+                    self._log('PLANO VFR: '+item)
+                    messagebox.showwarning('Plano VFR',item)
                 elif kind=="disconnected":
                     self.connected=False
                     self.status_var.set(item)

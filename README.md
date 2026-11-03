@@ -33,6 +33,25 @@ Dois objetivos em paralelo:
 
 Não é uma modificação do NeoFly; não copia sua implementação nem reproduz o código proprietário. Não é software aeronáutico para voo real.
 
+## v0.4.0 Alpha.1 — Bloco 3: modalidades de carreira e plano VFR
+
+- Todos começam **autônomos**. Novo botão **Vagas e companhias** na tela principal e no mercado.
+- São geradas no máximo quatro **vagas semanais fictícias**, com empresas de referência AeroNordeste, Azul, GOL e LATAM. As oportunidades **não são vagas reais**, e as empresas não são afiliadas ao projeto.
+- Candidatura limitada a **uma por semana**: acompanha os requisitos de nível, horas e habilitações. O resultado só é revelado a partir da semana seguinte, quando clicar **Ver resultado / atualizar**. Resultado estável, sem reroll por reinício.
+- Se contratado, o piloto pode acessar **até dois trechos da empresa por dia no mercado regional**, usando o avião designado (selecionado manualmente no simulador). Pode pedir demissão e voltar ao autônomo. Nenhum salário periódico é pago automaticamente; os valores apresentados são referências, com pagamentos por trechos concluídos.
+- **Endgame:** registro inicial de companhia aérea própria a partir do nível 18, 25 h, PLA e $100.000 de investimento. **Ainda não** existe gestão de frota, IA e lucro corporativo.
+- **Plano VFR:** aceitar contrato e clicar **Preparar plano VFR da missão**. Gera `.PLN` em `%APPDATA%\AeroCarreira-Lab\planos_vfr`. Com avião **em solo** e MSFS conectado, podes solicitar o carregamento pela API `SimConnect_FlightPlanLoad` com confirmação. Isso **não muda automaticamente o avião ou posição**, e a atualização do VFR/GPS precisa ser validada no MSFS 2020 real. Não clicar em pleno voo.
+- O banco próprio passa por migração aditiva, preservando saldos, voos, XP, ofertas e checkpoint. **Se estiver voando na versão anterior, termina o voo antes de atualizar.**
+- Consulte [Bloco 3 — documentação técnica](docs/BLOCO_3_CARREIRAS.md) e [roadmap](docs/ROADMAP.md).
+
+### Testar sem perder progresso
+
+1. Fecha o aplicativo antigo depois de pousar e concluir a missão; **não apagues** `%APPDATA%\AeroCarreira-Lab\carreira.db`.
+2. Extrai o ZIP em pasta nova, executa `instalar_windows.bat` e `iniciar_windows.bat`.
+3. Confere teu piloto, saldo e histórico. Abre **Vagas e companhias**. Vagas de níveis altos aparecem bloqueadas por requisitos, mas são apenas simulação.
+4. Para testar `.PLN`, aceita contrato local, usa **Preparar plano VFR da missão**, confirma a carga **somente em solo**, abre o mapa VFR e vê se a rota apareceu. Se não aparecer, anota o log e verifica se a importação manual do `.PLN` funciona.
+5. Para contratar, é necessário cumprir os requisitos e aguardar o próximo período semanal do simulador de carreira. Não antecipar relógio do sistema apenas para testar.
+
 ## Rodar no Windows (primeiro a demo)
 
 Requisitos: **Windows 10/11**, **Python 3.11 de 64 bits** instalado, com Tkinter (Python oficial inclui Tkinter). MSFS 2020 é necessário apenas para conectar telemetria.

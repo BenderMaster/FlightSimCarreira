@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0-alpha.1 — modalidades de carreira e plano VFR (02/11/2026)
+- Nova modalidade `autonomo` por padrão, `empregado` após seleção semanal, e `empresario` como registro inicial de companhia no endgame.
+- Catálogo limitado de quatro vagas semanais **fictícias**, com empresas de referência e validação de nível/horas/habilitações; uma candidatura por semana, resultado após o ciclo, sem duplicidades.
+- Trechos regionais para piloto contratado, com modelo obrigatório e pagamento único; não existe pagamento periódico de salário sem voar nesta Alpha.
+- Acesso ao registro de empresa própria no endgame, com dedução única e sem gestão operacional nesta versão.
+- Exportação de `.PLN` VFR e comando explícito para carregar no MSFS 2020 em solo pela biblioteca SimConnect; não troca aeronave. Integração ainda depende de teste no MSFS real.
+- Migração SQLite aditiva, testes de regressão e documentação de futura frota IA/liveries.
+
+
 ## 0.3.0-alpha.1 — Bloco 2: contratos regionais e freelancer (02/11/2026)
 - 9 categorias de missão com níveis de desbloqueio, horas e qualificações (PPA/PCA/IFR/MLTE/PLA); progressão XP → nível sem perda de dados anteriores.
 - Catálogo mundial opcional fornecido pela dependência MIT `airportsdata==2026.8.2`, com fallback local. Não gerar ofertas do mundo inteiro: no máximo 13 contratos perto da origem atual.

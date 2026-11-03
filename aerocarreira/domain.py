@@ -47,6 +47,7 @@ class Mission:
     origin_lon: float | None = None
     destination_lat: float | None = None
     destination_lon: float | None = None
+    company_code: str | None = None
 
 
 MISSIONS = (
