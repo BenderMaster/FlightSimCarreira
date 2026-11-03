@@ -42,7 +42,9 @@ jobs:
           python-version: '3.11'
       - run: pip install -r requirements-windows.txt pyinstaller
       - name: Build standalone Windows folder
-        run: python -m PyInstaller --noconfirm --clean --onedir --name FlightSimCarreira --collect-all webview --collect-all SimConnect --add-data "aerocarreira/midnight;aerocarreira/midnight" --add-data "in_game;in_game" launch_midnight.py
+        run: python -m PyInstaller --noconfirm --clean --onedir --name FlightSimCarreira --collect-all webview --collect-all SimConnect --collect-all airportsdata --add-data "aerocarreira/midnight;aerocarreira/midnight" --add-data "in_game;in_game" launch_midnight.py
+      - name: Validate packaged airport catalog and UI assets
+        run: python -c "from pathlib import Path; p=Path('dist/FlightSimCarreira/_internal'); assert any((p/'airportsdata').rglob('*.csv')), 'Airport data missing'; assert (p/'aerocarreira/midnight/index.html').is_file(); assert (p/'SimConnect/SimConnect.dll').is_file()"
       - name: Executable version smoke test
         run: .\dist\FlightSimCarreira\FlightSimCarreira.exe --version
       - uses: actions/upload-artifact@v4
