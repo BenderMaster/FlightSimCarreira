@@ -10,12 +10,16 @@ from .contracts import aircraft_model
 from .finance import brl
 from .dashboard import DashboardPresenter
 from .midnight_server import DashboardServer
+from .fleet_photos import normalize_photo, save_photo, delete_photo, photo_bytes, owned_fleet
 
 class DashboardController:
     def __init__(self,app):
         self.app=app;self.closed=False;self.process=None;self.fallback=False
         self.presenter=DashboardPresenter(app)
-        self.server=DashboardServer();self.server.publish(self.presenter.snapshot());self.server.start()
+        self.server=DashboardServer()
+        self.presenter.photo_url_for=self.server.photo_url
+        self.server.set_photos(photo_bytes(app.storage))
+        self.server.publish(self.presenter.snapshot());self.server.start()
         self.tick_id=app.root.after(500,self.tick)
         if os.getenv('FLIGHTSIM_HEADLESS')!='1':
             args=([sys.executable,'--webview-host',self.server.url] if getattr(sys,'frozen',False) else [sys.executable,'-m','aerocarreira.webview_host',self.server.url])
@@ -79,6 +83,50 @@ class DashboardController:
             self.presenter.avatar_key=None
         except (OSError,ValueError,Image.DecompressionBombError) as exc:messagebox.showerror('Foto',str(exc))
 
+    def _owned_ref(self,ref):
+        if not isinstance(ref,str) or len(ref)>80:
+            raise ValueError('Identificador de aeronave inválido.')
+        plane=next((p for p in owned_fleet(self.app.storage) if p['ref']==ref),None)
+        if plane is None:raise ValueError('Aeronave não pertence à frota adquirida.')
+        return plane
+
+    def _fleet_photo_upload(self,ref):
+        from .app import state_dir
+        self._owned_ref(ref)
+        path=filedialog.askopenfilename(
+            parent=self.app.root,
+            title='Fotografia da aeronave no FlightSimCarreira',
+            filetypes=[('Imagens','*.png *.jpg *.jpeg *.webp *.bmp'),('Todos os arquivos','*.*')])
+        if not path:return
+        try:
+            jpeg=normalize_photo(path)
+            save_photo(self.app.storage,ref,jpeg)
+            self.server.set_photo(ref,jpeg)
+            self.app._log('FROTA: fotografia personalizada salva no SQLite para '+ref)
+        except (OSError,ValueError) as exc:
+            messagebox.showerror('Fotografia da frota',str(exc),parent=self.app.root)
+
+    def _fleet_service(self,ref):
+        app=self.app
+        plane=self._owned_ref(ref)
+        if app.tracker.phase==Phase.AIRBORNE:
+            app._log('MANUTENÇÃO: proibida durante voo.')
+            return
+        if not messagebox.askyesno('Revisar aeronave',
+                'Executar manutenção de '+plane['title']+'? O custo será descontado da carreira.',
+                parent=app.root):
+            return
+        try:
+            if ref.startswith('legacy:'):
+                app.storage.service_aircraft(plane['code'])
+            else:
+                app.storage.fleet_manager().service(ref)
+            app.career.balance=int(app.storage.get_setting('balance') or 0)
+            app.balance_var.set(brl(app.career.balance))
+            app._log('FROTA: manutenção executada em '+plane['title'])
+        except (ValueError,KeyError) as exc:
+            app._log('MANUTENÇÃO: '+str(exc))
+
     def dispatch(self,cmd):
         app=self.app;action=cmd['action']
         mapping={'pilot':app._pilot_window,'market':app._market_window,'fleet':app._fleet_window,
@@ -93,6 +141,25 @@ class DashboardController:
             if not self.closed:
                 for child in app.root.winfo_children():
                     if isinstance(child,Toplevel):child.lift();child.focus_force()
+        elif action in ('fleet_select','fleet_photo','fleet_photo_clear','fleet_service'):
+            try:
+                ref=cmd.get('id')
+                plane=self._owned_ref(ref)
+                if action=='fleet_select':
+                    if app.tracker.phase==Phase.AIRBORNE:
+                        raise ValueError('Não altere a aeronave ativa durante um voo.')
+                    app.storage.fleet_manager().select(ref)
+                    app._log('FROTA: aeronave selecionada: '+plane['title']+' ('+ref+')')
+                elif action=='fleet_photo':
+                    self._fleet_photo_upload(ref)
+                elif action=='fleet_photo_clear':
+                    if delete_photo(app.storage,ref):
+                        self.server.remove_photo(ref)
+                        app._log('FROTA: fotografia personalizada removida para '+ref)
+                elif action=='fleet_service':
+                    self._fleet_service(ref)
+            except ValueError as exc:
+                app._log('FROTA: '+str(exc))
         elif action=='prepare':
             if not app.career.mission:
                 app._log('DESPACHO: aceite um contrato antes de preparar plano e carga.');return
