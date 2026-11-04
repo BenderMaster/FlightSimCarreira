@@ -7,7 +7,7 @@ from pathlib import Path
 from queue import Queue, Full
 
 ACTIONS={'pilot','market','fleet','planning','finance','employment','history','reports','settings','connect','disconnect',
-         'demo','demo_next','legacy','cancel','plan','fuel','refuel','service','avatar','refresh','offer','close','save_log','installed','analyze','locate','local_panel','maps_key'}
+         'demo','demo_next','legacy','cancel','plan','fuel','refuel','service','avatar','refresh','offer','close','save_log','installed','analyze','locate','local_panel'}
 ASSETS=Path(__file__).with_name('midnight')
 class DashboardServer:
     def __init__(self):
@@ -22,7 +22,7 @@ class DashboardServer:
                 self.send_header('Content-Type',mime)
                 self.send_header('Cache-Control','no-store')
                 self.send_header('X-Content-Type-Options','nosniff')
-                self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com https://*.ggpht.com; connect-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com; font-src 'self' https://fonts.gstatic.com; frame-src https://*.google.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'")
+                self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self' https://cdn.jsdelivr.net blob:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https://tiles.openfreemap.org https://tiles.maps.eox.at https://cdn.jsdelivr.net; connect-src 'self' https://tiles.openfreemap.org https://tiles.maps.eox.at https://cdn.jsdelivr.net; font-src 'self' https://tiles.openfreemap.org https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'")
                 self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
             def valid_host(self):return self.headers.get('Host')==owner.host
             def authorized(self):return self.valid_host() and secrets.compare_digest(self.headers.get('X-Flight-Token',''),owner.token)
@@ -30,7 +30,7 @@ class DashboardServer:
                 if not self.valid_host():self.reply(403,b'{}');return
                 if self.path=='/state':
                     self.reply(200,owner.state) if self.authorized() else self.reply(403,b'{}');return
-                paths={'/scenery.jpg':('scenery.jpg','image/jpeg'),'/c152.jpg':('c152.jpg','image/jpeg'),'/':('index.html','text/html; charset=utf-8'),'/style.css':('style.css','text/css'),'/app.js':('app.js','text/javascript'),'/google-map.js':('google-map.js','text/javascript'),'/scenery.svg':('scenery.svg','image/svg+xml'),'/fonts/BarlowSemiCondensed-Regular.ttf':('fonts/BarlowSemiCondensed-Regular.ttf','font/ttf'),'/fonts/BarlowSemiCondensed-SemiBold.ttf':('fonts/BarlowSemiCondensed-SemiBold.ttf','font/ttf')}
+                paths={'/scenery.jpg':('scenery.jpg','image/jpeg'),'/c152.jpg':('c152.jpg','image/jpeg'),'/':('index.html','text/html; charset=utf-8'),'/style.css':('style.css','text/css'),'/app.js':('app.js','text/javascript'),'/free-map.js':('free-map.js','text/javascript'),'/vendor/maplibre-gl.js':('vendor/maplibre-gl.js','text/javascript'),'/vendor/maplibre-gl.css':('vendor/maplibre-gl.css','text/css'),'/scenery.svg':('scenery.svg','image/svg+xml'),'/fonts/BarlowSemiCondensed-Regular.ttf':('fonts/BarlowSemiCondensed-Regular.ttf','font/ttf'),'/fonts/BarlowSemiCondensed-SemiBold.ttf':('fonts/BarlowSemiCondensed-SemiBold.ttf','font/ttf')}
                 if self.path not in paths:self.reply(404,b'{}');return
                 name,mime=paths[self.path];self.reply(200,(ASSETS/name).read_bytes(),mime)
             def do_POST(self):

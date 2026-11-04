@@ -149,8 +149,7 @@ class DashboardPresenter:
                      source_note='SimConnect lê condições na aeronave; não o METAR integral do aeroporto.')
         telemetry=None if s is None else dict(ias=s.ias_kt,gs=s.groundspeed_kt,alt=s.altitude_ft,agl=s.agl_ft,vs=s.vs_fpm,
             lat=s.latitude,lon=s.longitude,stale=app.mode!='Demo' and (not app.connected or time()-s.timestamp>10))
-        return dict(google_maps_key=(db.get_setting('google_maps_api_key_v1') or os.environ.get('FLIGHTSIM_GOOGLE_MAPS_API_KEY','')),
-            pilot=pilot,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
+        return dict(pilot=pilot,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
             status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,mission=mission_data(m) if m else None,

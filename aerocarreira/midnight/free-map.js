@@ -107,7 +107,7 @@ function start(){
  if(map||!window.maplibregl)return;
  try{
   if(typeof maplibregl.supported==='function'&&!maplibregl.supported())return;
-  map=new maplibregl.Map({container:'google-map',style:BASE,center:[-34.92,-8.12],zoom:9,
+  map=new maplibregl.Map({container:'free-map',style:BASE,center:[-34.92,-8.12],zoom:9,
    scrollZoom:true,dragPan:true,touchZoomRotate:true,keyboard:true,
    pitchWithRotate:false,dragRotate:false,maxPitch:0,attributionControl:false,fadeDuration:0});
   map.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-left');
@@ -123,7 +123,7 @@ function start(){
   map.on('error',e=>{if(e?.error)console.warn('FreeMap: tile/style',e.error.message||e.error)});
   active=true;
   document.querySelector('.map-area')?.classList.add('free-active');
-  const mapNode=elem('google-map');if(mapNode)mapNode.style.display='block';
+  const mapNode=elem('free-map');if(mapNode)mapNode.style.display='block';
  }catch(error){console.warn('FreeMap: WebGL indisponível',error);map=null;active=false}
 }
 function render(s){

@@ -93,14 +93,6 @@ class DashboardController:
             if not self.closed:
                 for child in app.root.winfo_children():
                     if isinstance(child,Toplevel):child.lift();child.focus_force()
-        elif action=='maps_key':
-            # Chave local para o SDK oficial no WebView. Nunca registrar o valor em log.
-            key=cmd.get('id','')
-            if not isinstance(key,str) or len(key)>120 or (key and (len(key)<16 or
-                    any(not (c.isalnum() and c.isascii()) and c not in '_-' for c in key))):
-                messagebox.showwarning('Mapa Google','Chave inválida. Confira o Google Cloud Console.');return
-            app.storage.set_setting('google_maps_api_key_v1',key)
-            app._log('Google Satélite: configuração '+('atualizada.' if key else 'desativada.'))
         elif action=='refresh':self.presenter.refresh_market(True)
         elif action=='history':self.show_text('Diário de bordo',app.history_text.get('1.0','end'))
         elif action=='reports':self.show_text('Análise e relatórios','Módulo de análise avançada em desenvolvimento.\n\nREGISTRO DA SESSÃO\n\n'+app.log_text.get('1.0','end'))
