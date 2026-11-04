@@ -11,6 +11,7 @@ from random import Random
 import hashlib
 from .domain import Airport, AIRPORTS, Mission, distance_nm
 from .finance import market_reward, mission_radius_by_level, AIRCRAFT_ECONOMY
+from .manifest import mission_manifest
 
 
 @dataclass(frozen=True)
@@ -272,4 +273,4 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
             f"Freelancer • {kind.title} • {plane.name}",salary,category=kind.code,freelance=True,
             employer_plane=plane.code,origin_lat=origin.latitude,origin_lon=origin.longitude,
             destination_lat=target.latitude,destination_lon=target.longitude))
-    return offers
+    return [mission_manifest(m) for m in offers]
