@@ -1478,13 +1478,14 @@ class Application:
         self.label(body,'CHECKLIST: confirme somente o que realmente foi configurado/conferido no MSFS.',9,MUTED).pack(anchor='w',pady=(9,7))
         items=[('runway_checked','Pista e iluminação revisadas (declaração manual)'),
             ('route_checked','Rota e altitude revisadas no mapa VFR/GPS'),
-            ('fuel_checked','Combustível e reserva conferidos'),
-            ('payload_checked','Peso e balanceamento verificados')]
+            ('fuel_checked','Combustível e reserva conferidos')]
         flags={key:IntVar(value=int(bool(getattr(saved,key,False)))) for key,_ in items}
         for key,caption in items:
             Checkbutton(body,text=caption,variable=flags[key],bg=BG,fg=FG,
                 selectcolor=PANEL2,activebackground=BG,activeforeground=FG,
                 font=(FONT,10)).pack(anchor='w',pady=1)
+        self.label(body,'Peso/MTOW (+2,5%): verificação AUTOMÁTICA, somente após confirmação da carga no MSFS.',
+                   9,CYAN).pack(anchor='w',pady=(5,0))
         altitude=StringVar(value=str(saved.altitude_ft if saved else 2500))
         self.label(body,'Altitude de cruzeiro (ft)',9,MUTED).pack(anchor='w',pady=(11,2))
         Entry(body,textvariable=altitude,width=14,bg=PANEL2,fg=FG,insertbackground=FG).pack(anchor='w')
@@ -1506,7 +1507,12 @@ class Application:
                 messagebox.showwarning('Despacho','Conclua o voo antes de mudar os critérios do contrato.',parent=window);return
             try:
                 plan=build()
-                details=inspect_preflight(m,plan)
+                actual=self.last_sample
+                payload_ok=bool(actual and self.mode=='MSFS' and
+                    self.payload_confirmed==m.id and
+                    actual.total_weight_lbs is not None and actual.max_gross_weight_lbs is not None
+                    and 0<actual.total_weight_lbs<=actual.max_gross_weight_lbs)
+                details=inspect_preflight(m,plan,verified={'payload':payload_ok})
                 if save:
                     self.storage.set_setting('preflight_v1',json.dumps(plan.snapshot(),ensure_ascii=False))
                     self._log(f'Despacho salvo para {m.origin} → {m.destination}; componentes automáticos serão verificados na decolagem.')
