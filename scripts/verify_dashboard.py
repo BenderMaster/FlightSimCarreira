@@ -93,7 +93,7 @@ with tempfile.TemporaryDirectory() as temp:
             }""")
             assert heading['before'] and 'rotate(-30)' in heading['before'],heading
             assert heading['after'] and 'rotate(90)' in heading['after'],heading
-            page.evaluate("""() => renderMap({...state,telemetry:{
+            page.evaluate("""() => renderMap({...state,mode:'MSFS',telemetry:{
                 lat:-8.12,lon:-34.92,heading_deg:301,heading_magnetic_deg:322,stale:false}})""")
             assert '322° MAG' in page.locator('#map-mode').inner_text()
             assert '301° TRUE' in page.locator('#map-mode').inner_text()
