@@ -16,7 +16,7 @@ class DashboardController:
         self.app=app;self.closed=False;self.process=None;self.fallback=False
         self.presenter=DashboardPresenter(app)
         self.server=DashboardServer();self.server.publish(self.presenter.snapshot());self.server.start()
-        self.tick_id=app.root.after(250,self.tick)
+        self.tick_id=app.root.after(500,self.tick)
         if os.getenv('FLIGHTSIM_HEADLESS')!='1':
             args=([sys.executable,'--webview-host',self.server.url] if getattr(sys,'frozen',False) else [sys.executable,'-m','aerocarreira.webview_host',self.server.url])
             self.process=subprocess.Popen(args)
@@ -40,7 +40,7 @@ class DashboardController:
                 else:self.app._close();return
         except Exception as exc:
             self.app._log('Dashboard: '+str(exc))
-        self.tick_id=self.app.root.after(250,self.tick)
+        self.tick_id=self.app.root.after(500,self.tick)
 
     def show_text(self,title,text):
         w=Toplevel(self.app.root);w.title(title);w.geometry('900x580');w.configure(bg='#081421')
