@@ -96,7 +96,8 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#detail-manifest-name').inner_text()
             assert 'kg' in page.locator('#detail-payload').inner_text()
             assert page.locator('#detail-nav-source').inner_text()
-            assert 'R            page.locator('#dialog-close').click()
+            assert 'R$' in page.locator('#detail-reward').inner_text()
+            page.locator('#dialog-close').click()
             assert page.locator('.center-column .map-card #free-map').count()==1
             assert page.locator('#market-page').is_visible()
             assert page.locator('.nav-item').count()==10
