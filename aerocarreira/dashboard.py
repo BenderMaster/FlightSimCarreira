@@ -134,7 +134,7 @@ class DashboardPresenter:
         rows=db.conn.execute("SELECT kind, SUM(amount) FROM finance_ledger GROUP BY kind").fetchall()
         ledger=dict(rows)
         # Only flight revenues/expenses, excluding starting cash, loans, purchases and sales.
-        flight_kinds=('contrato','bonus_realismo','penalidade_combustivel','combustivel','taxa_aeroporto','taxa_simulada','seguro','abastecimento','manutencao','aluguel')
+        flight_kinds=('contrato','bonus_realismo','penalidade_combustivel','combustivel','taxa_aeroporto','taxa_simulada','seguro','abastecimento','devolucao_combustivel','manutencao','aluguel')
         # O Dashboard consulta a cada 250 ms: recalcular apenas quando entra voo novo.
         flight_stamp=db.conn.execute('SELECT COALESCE(MAX(id),0),COUNT(*) FROM flights').fetchone()
         if self.reputation_stamp!=flight_stamp:
