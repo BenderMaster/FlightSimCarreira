@@ -22,16 +22,22 @@ def decode_airport_packet(raw: bytes) -> tuple[dict, list[tuple[str,float,float]
     size,version,event_id,request_id,count,entry_number,total_packets=struct.unpack_from('<7I',raw,0)
     if size!=len(raw) or count>10000 or total_packets>10000 or total_packets==0:
         raise ValueError('Tamanho do pacote/contadores inválidos')
-    needed=28+count*33
-    if needed>len(raw):
-        raise ValueError('Pacote de aeroportos truncado')
+    payload_size=len(raw)-28
+    if count and payload_size%count==0:
+        stride=payload_size//count
+    else:
+        stride=33
+    # SDK 2020 costuma empacotar 33 bytes, enquanto alguns wrappers
+    # alocados com alinhamento natural representam cada entrada em 40 bytes.
+    if stride not in (33,40) or 28+count*stride>len(raw):
+        raise ValueError('Pacote de aeroportos truncado ou layout incompatível')
     airports=[]
     for i in range(count):
-        at=28+i*33
+        at=28+i*stride
         icao=bytes(raw[at:at+6]).split(b'\0',1)[0].decode('ascii','ignore').upper()
         if not re.fullmatch(r'[A-Z0-9]{4}',icao):
             continue
-        lat,lon,_height=struct.unpack_from('<ddd',raw,at+9)
+        lat,lon,_height=struct.unpack_from('<ddd',raw,at+(9 if stride==33 else 16))
         if -20.0<=lat<=1.0 and -51.0<=lon<=-33.0:
             airports.append((icao,round(lat,8),round(lon,8)))
     return dict(request_id=request_id,packet=entry_number,total=total_packets),airports
