@@ -46,6 +46,31 @@ class StrictMsfsTests(unittest.TestCase):
         self.assertEqual(set(complete),{'SNRU','SIRF'})
         self.assertTrue(len(complete)==2)
 
+    def test_real_msfs_packet_20587_bytes_and_622_airports(self):
+        # Medição real MSFS 2020: pacote=20587 e dwArraySize=622.
+        # rgData[1] ocupa mais 33 bytes no dwSize, mas NÃO é aeroporto.
+        airports=[('S'+str(i).zfill(3),-8.0-i*.002,-34.0-i*.002)
+                  for i in range(622)]
+        raw=bytearray(packet(0,1,airports))
+        raw.extend(b'SNBJ\\x00\\x00BR\\x00'+struct.pack('<ddd',-9.,-36.,90.))
+        struct.pack_into('<I',raw,0,len(raw))
+        self.assertEqual(len(raw),20587)
+        part,total,decoded=decode_airport_list_packet(bytes(raw))
+        self.assertEqual((part,total),(0,1))
+        self.assertEqual(len(decoded),622)
+        self.assertIn('S000',decoded)
+        self.assertIn('S621',decoded)
+        self.assertNotIn('SNBJ',decoded)
+        self.assertAlmostEqual(decoded['S621'][0],-8.0-621*.002)
+
+    def test_more_than_one_trailing_record_is_rejected(self):
+        raw=bytearray(packet(0,1,[('SBRF',-8.126,-34.922),
+                                  ('SNRU',-8.285,-36.0)]))
+        raw.extend(b'\\0'*66)
+        struct.pack_into('<I',raw,0,len(raw))
+        with self.assertRaises(ValueError):
+            decode_airport_list_packet(bytes(raw))
+
     def test_msfs_native_padding_before_airport_array(self):
         # Bug real da v0.7.8: tamanho = 32 + N*36, mas leitor
         # anterior subtraía sempre 28 e rejeitava por contagem.
