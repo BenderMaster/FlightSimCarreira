@@ -1,3 +1,21 @@
+# FlightSimCarreira v0.7.7 Alpha.1 — Persistência, despacho e navdata MSFS
+
+- **Combustível por aeronave:** inventário continua no SQLite da carreira e é restaurado no primeiro sample de solo após reinício, sem fingir consumo durante vários dias offline. Desgaste/condição já é persistido por exemplar.
+- Abastecimento na Dashboard abre popup de **litros finais desejados**, capacidade, compra ou devolução. Reembolso somente de combustível pago e ainda não consumido nesta versão (sem converter tanque inicial gratuito em dinheiro). Bloqueio por MTOW. Alterações financeiras são revertidas se a escrita não for confirmada.
+- **Alertas de combustível e condição ≤20%** no painel e log, por aeronave, sem mensagens in-game nesta versão.
+- **Manifestos únicos e determinísticos:** passageiros fictícios identificados por nome ou cargas específicas com peso em kg, persistidos com oferta/contrato.
+- **Carregar automático ao aceitar:** tenta .PLN VFR e carga nas estações de payload do MSFS ao clicar Aceitar, sem mensagem de confirmação adicional. Só marca peso como verificado após leitura de retorno e MTOW válido; aeronave incompatível, falta de telemetria ou carga acima de MTOW deixam preparação pendente, sem mentir sobre sucesso.
+- **Bônus:** peso automaticamente confirmado e dentro do MTOW dá +5 XP no mesmo registro de pouso, uma vez, além de 2,5% sobre pagamento e XP pelo componente de peso no despacho (limite total de realismo antigo mantido).
+- **Clima:** destino usa NOAA sozinho se disponível, ou condições MSFS como fallback. Preferência para exibir ambos fica em chave persistente, futura página de configurações.
+- **Aeródromos MSFS:** cliente SimConnect consulta por ICAO a API Facilities; coordenadas confirmadas são persistidas com proveniência. O sistema só rotula a rota como MSFS quando **origem e destino** forem resolvidos. Sem resposta de navdata, a importação automática do .PLN permanece pendente para não carregar coordenadas erradas; exportação manual com catálogo externo continua disponível, identificada como tal.
+- Ícone de aplicativo **somente como proposta visual para aprovação**, ainda não substituído; o ícone de decolagem foi transformado em símbolo vetorial no botão de despacho.
+
+**Ainda exige homologação física em MSFS 2020/Windows**: facilities por ICAO, estações de payload de cada avião, sincronização e alteração de combustível e UI WebView2. O pipeline CI não substitui o teste físico. Não apague os dados em `%APPDATA%\AeroCarreira-Lab`, faça backup do SQLite com o aplicativo fechado.
+
+Especificações e cenários: [v0.7.7](docs/V077_PERSISTENCIA_CARGA_NAVDATA.md).
+
+---
+
 # FlightSimCarreira v0.7.6 Midnight Ops Alpha.1 — Mapa em contratos, proa e taxiamento
 
 - Menu lateral **Mercado** único; abas internas **Aeronave particular / Serviços freelancer**, preservando as ofertas Nordeste da v0.7.5.

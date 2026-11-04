@@ -1,3 +1,16 @@
+## v0.7.7 Midnight Ops Alpha.1 — Combustível, peso, manifesto e facilities
+
+- Corrigida persistência de combustível em reaberturas após dias sem uso, sem reset de desgaste individual.
+- Popup de reabastecimento por litros, custo/reembolso e crédito rastreado, bloqueio MTOW e estorno automático em falha de escrita confirmada.
+- Avisos de estado crítico (combustível e condição ≤20%) no painel e log.
+- Manifestos ficcionais de cargas/passageiros com massa por contrato e persistência.
+- Auto despacho após aceitar: exportação e pedido de carregamento de rota e peso pelo MSFS com estado pendente/confirmado.
+- XP extra +5 e bônus de peso do checklist confirmado somente se payload foi carregado e está dentro de MTOW.
+- Preferência NOAA na meteorologia; MSFS somente fallback salvo escolha futura.
+- Nova leitura de coordenadas do MSFS via API SimConnect Facilities por ICAO, cache por origem e destino; fonte externa continua como fallback rotulado.
+- Redesenhado ícone do despacho; ícone principal permanece candidato à aprovação.
+- CI unitário e navegação atualizados; homologação em simulador real pendente.
+
 ## v0.7.6 Midnight Ops Alpha.1 — Proa magnética, mapa de missão e autoconexão
 
 - Mapa MapLibre da Dashboard reutilizado na página de detalhes, com rota real do contrato selecionado, tempo estimado pelo modelo da aeronave e apresentação em cartões.
