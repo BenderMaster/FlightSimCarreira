@@ -274,8 +274,12 @@ class SimConnectWorker:
                 aq = AircraftRequests(sm, _time=200)
                 reader = SampleReader(aq)
                 self._send("connected", "SimConnect conectado")
-                if not getattr(sm,'request_airport_catalog',lambda:False)():
-                    self._send('airport_catalog_error','Aguardando suporte à API de aeroportos do MSFS; mercado bloqueado.')
+                # Consulta mundial de aeroportos é potencialmente custosa.
+                # Não pedir enquanto o MSFS ainda está carregando o voo,
+                # nem em pleno voo. Fazer no máximo UMA solicitação por sessão,
+                # após 3 s de amostras estáveis com aeronave em solo.
+                catalog_attempted = False
+                ground_since = None
                 missing_runs = 0
                 last_warning = 0.0
                 while not self.stop_event.is_set():
@@ -283,10 +287,10 @@ class SimConnectWorker:
                         while True:
                             action, path = self.actions.get_nowait()
                             if action=='airports':
-                                # Nova consulta explícita apenas se o primeiro
-                                # pedido não conseguiu ser iniciado.
-                                if hasattr(sm,'request_airport_catalog'):
-                                    sm.request_airport_catalog()
+                                # Pedido pendente é atendido quando o MSFS
+                                # estiver carregado e a aeronave em solo.
+                                # Nunca pedir múltiplos catálogos mundiais.
+                                pass
                             if action == 'fuel_restore':
                                 # Ações de escrita somente pela thread SimConnect.
                                 # Settable: quantidades individuais; total é read-only.
@@ -340,6 +344,16 @@ class SimConnectWorker:
                             raise ConnectionError("Sem dados críticos por 30 ciclos; recriando conexão")
                     else:
                         missing_runs = 0
+                        if sample.on_ground:
+                            if ground_since is None:
+                                ground_since = now
+                            if not catalog_attempted and now-ground_since>=3.0:
+                                catalog_attempted=True
+                                if not getattr(sm,'request_airport_catalog',lambda:False)():
+                                    self._send('airport_catalog_error',
+                                        'Consulta MSFS indisponível. Nenhum aeroporto externo será usado.')
+                        else:
+                            ground_since = None
                         self._send("sample", sample)
                         if reader.soft_missing and now - last_warning >= 15:
                             self._send("warning", "SimVar intermitente: " + ", ".join(sorted(reader.soft_missing)) + "; monitoramento continua")
