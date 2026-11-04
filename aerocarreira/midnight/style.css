@@ -229,3 +229,7 @@
 .detail-manifest strong{color:#f0faff}
 .manifest-preview{color:#90c9d9}
 .takeoff-symbol{width:2em!important;height:2em!important;fill:currentColor}
+
+/* v0.7.8.2: logomarca aprovada na barra de título interna, sem o antigo símbolo de linhas cruzadas. */
+.header .brand .logo{width:clamp(40px,4.3vw,76px);height:clamp(40px,4.3vw,76px);border:0;border-radius:18%;box-shadow:none;transform:none;overflow:visible;flex-shrink:0}
+.header .brand .logo img{width:100%;height:100%;display:block;object-fit:contain;border-radius:18%;filter:drop-shadow(0 0 4px #00ddff55)}
