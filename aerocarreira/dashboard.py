@@ -178,8 +178,8 @@ class DashboardPresenter:
             capacity=capacity,
             refundable_liters=app.fuel_manager.refundable_liters(plane['ref']) if plane else 0.0,
             live=s.fuel_gallons if s else None),telemetry=telemetry,phase=app.phase_var.get(),bonus=bonus,
-            payload=dict(confirmed=app.payload_confirmed==m.id if m else False,
-                         pending=bool(app.payload_pending) if m else False,
+            payload=dict(confirmed=getattr(app,'payload_confirmed',None)==m.id if m else False,
+                         pending=bool(getattr(app,'payload_pending',None)) if m else False,
                          kg=m.payload_kg if m else 0,manifest=m.manifest if m else ''),
             alerts=([dict(kind='fuel',message=f'Combustível em {quantity/capacity:.0%}. Abasteça em breve.')
                      for _ in [0] if capacity and quantity is not None and quantity/capacity<=.20] +
