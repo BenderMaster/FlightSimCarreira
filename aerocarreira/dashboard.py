@@ -10,6 +10,7 @@ from .pilot import level_progress
 from .domain import AIRPORTS, Phase, distance_nm
 from .planning import inspect_preflight
 from .finance import estimated_minutes
+from .reputation import pilot_reputation
 
 
 def coordinates(m):
@@ -106,7 +107,8 @@ class DashboardPresenter:
         ledger=dict(rows)
         # Only flight revenues/expenses, excluding starting cash, loans, purchases and sales.
         flight_kinds=('contrato','bonus_realismo','penalidade_combustivel','combustivel','taxa_aeroporto','taxa_simulada','seguro','abastecimento','manutencao','aluguel')
-        summary=dict(stats,net=sum(ledger.get(k,0) for k in flight_kinds),bonus=ledger.get('bonus_realismo',0))
+        summary=dict(stats,net=sum(ledger.get(k,0) for k in flight_kinds),bonus=ledger.get('bonus_realismo',0),
+                     reputation=pilot_reputation(db.conn))
         offers=[]
         for offer in self.offers.values():
             allowed,reason=eligibility(offer,stats,db.owned_qualifications(),db.family_experience())
