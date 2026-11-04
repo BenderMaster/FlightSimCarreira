@@ -64,6 +64,7 @@ class Application:
         self.dispatch_state={'mission_id':None,'plan':'idle','payload':'idle','target_lbs':None,
                              'requested_at':0,'message':''}
         self._alerted=set()
+        self.facilities_session_current=False
         self.refuel_feedback={'status':None,'message':''}
         self.storage = Storage(state_dir() / "carreira.db")
         self.location_recovered=self.storage.recover_legacy_location()
@@ -736,6 +737,7 @@ class Application:
         if self.airport_catalog is None:self.airport_catalog=AirportCatalog()
         count=self.airport_catalog.merge_msfs_airports(airports)
         if not count:return
+        self.facilities_session_current=True
         # A lista validada tem número limitado de ICAOs regionais.
         self.storage.set_setting('msfs_airports_v077',json.dumps(airports))
         if self.dashboard:
@@ -798,7 +800,7 @@ class Application:
                      requested_at=0,message='Preparando missão')
         if force and d.get('plan') in ('requested','error'):
             d['plan']='pending'
-        if self.airport_catalog and official_route_ready(m,self.airport_catalog):
+        if self.facilities_session_current and self.airport_catalog and official_route_ready(m,self.airport_catalog):
             new=resolve_mission_navdata(m,self.airport_catalog)
             if new!=m:
                 self.career.mission=m=new
@@ -1337,6 +1339,9 @@ class Application:
                     continue
                 if kind=="sample": self._process_sample(item)
                 elif kind=="connected":
+                    self.facilities_session_current=False
+                    if self.dispatch_state.get('plan')=='requested':
+                        self.dispatch_state['plan']='pending'
                     self.connected=True
                     self.status_var.set(item)
                     self._log(item)
@@ -1371,11 +1376,18 @@ class Application:
                     self._log('PLANO VFR: '+item)
                 elif kind=="disconnected":
                     self.connected=False
+                    self.facilities_session_current=False
                     self.status_var.set(item)
         except Empty:
             pass
-        self._publish_bridge()
-        self.root.after(200,self._poll)
+        except Exception as exc:
+            # Erro isolado de dado aeroportuário/payload NÃO pode matar a
+            # thread dona do Tk nem impedir o próximo ciclo SimConnect.
+            try:self._log('ALERTA no ciclo SimConnect: '+str(exc)[:250])
+            except Exception:pass
+        finally:
+            self._publish_bridge()
+            self.root.after(200,self._poll)
 
     def _finance_window(self):
         """Operações financeiras opcionais, 100% no banco do addon.
