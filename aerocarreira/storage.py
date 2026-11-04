@@ -7,6 +7,7 @@ from .contracts import aircraft_family, aircraft_model, pilot_level, next_level_
 from .domain import Mission
 from .finance import AIRCRAFT_ECONOMY, brl, flight_operating_cost
 from .fleet import init_fleet, FleetManager
+from .fleet_photos import init_photos
 from .employment import (Vacancy, EMPLOYER_BY_CODE, vacancies, weekly_period,
     employment_eligibility, selection_result, OWN_MIN_LEVEL, OWN_MIN_HOURS,
     OWN_INVESTMENT, valid_company_name)
@@ -129,6 +130,7 @@ class Storage:
                 finally:
                     target.close()
         init_fleet(self.conn)
+        init_photos(self.conn)
         self.conn.execute("""CREATE TABLE IF NOT EXISTS fleet_fuel (
             aircraft_ref TEXT PRIMARY KEY, model TEXT NOT NULL,
             tanks_json TEXT NOT NULL, caps_json TEXT NOT NULL,
