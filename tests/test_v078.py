@@ -20,6 +20,20 @@ def packet(part,parts,airports):
                        REQUEST_ID,len(airports),part,parts)+data
 
 
+def packet_aligned(part, parts, airports, stride=36, array_offset=32):
+    """Reproduz a estrutura de memória SDK (header padding + item alignment)."""
+    latitude_offset={33:9,36:12,40:16}[stride]
+    raw=bytearray(array_offset+stride*len(airports))
+    struct.pack_into("<7I",raw,0,len(raw),0,AIRPORT_LIST_ID,
+                     REQUEST_ID,len(airports),part,parts)
+    for index,(ident,lat,lon) in enumerate(airports):
+        at=array_offset+index*stride
+        raw[at:at+6]=ident.encode('ascii').ljust(6,b'\x00')
+        raw[at+6:at+9]=b'BR\x00'
+        struct.pack_into("<ddd",raw,at+latitude_offset,lat,lon,100.)
+    return bytes(raw)
+
+
 class StrictMsfsTests(unittest.TestCase):
     def test_airport_list_pagination_and_coordinates(self):
         data=packet(0,2,[('SNRU',-8.285,-36.0)])
@@ -31,6 +45,48 @@ class StrictMsfsTests(unittest.TestCase):
         complete=collector.feed(packet(1,2,[('SIRF',-8.89,-35.97)]))
         self.assertEqual(set(complete),{'SNRU','SIRF'})
         self.assertTrue(len(complete)==2)
+
+    def test_msfs_native_padding_before_airport_array(self):
+        # Bug real da v0.7.8: tamanho = 32 + N*36, mas leitor
+        # anterior subtraía sempre 28 e rejeitava por contagem.
+        raw=packet_aligned(0,1,[('SBRF',-8.126,-34.922),
+                                ('SNRU',-8.285,-36.00),
+                                ('SIRF',-8.89,-35.97)],stride=36,array_offset=32)
+        self.assertNotEqual((len(raw)-28)%3,0)
+        part,parts,airports=decode_airport_list_packet(raw)
+        self.assertEqual((part,parts),(0,1))
+        self.assertEqual(set(airports),{'SBRF','SNRU','SIRF'})
+        self.assertAlmostEqual(airports['SNRU'][0],-8.285)
+        self.assertAlmostEqual(airports['SIRF'][1],-35.97)
+
+    def test_supported_native_stride_combinations(self):
+        for header in (28,32):
+            for stride in (33,36,40):
+                with self.subTest(header=header,stride=stride):
+                    raw=packet_aligned(0,1,[('SNRU',-8.285,-36.0),
+                                           ('SBRF',-8.126,-34.922)],
+                                       stride=stride,array_offset=header)
+                    _,_,airports=decode_airport_list_packet(raw)
+                    self.assertEqual(set(airports),{'SNRU','SBRF'})
+                    self.assertAlmostEqual(airports['SNRU'][1],-36.0)
+
+    def test_single_record_ambiguity_is_resolved_using_coordinates(self):
+        # 28+40 e 32+36 têm o mesmo tamanho total quando N=1.
+        raw=packet_aligned(0,1,[('SNRU',-8.285,-36.0)],
+                           stride=36,array_offset=32)
+        self.assertEqual(len(raw),68)
+        self.assertEqual(decode_airport_list_packet(raw)[2]['SNRU'],(-8.285,-36.0))
+
+    def test_padding_does_not_let_invalid_airports_into_market(self):
+        raw=packet_aligned(0,1,[('SNRU',-8.285,-36.0),
+                                ('SNBJ',300.,-36.)],stride=36,array_offset=32)
+        part,parts,airports=decode_airport_list_packet(raw)
+        self.assertIn('SNRU',airports)
+        self.assertNotIn('SNBJ',airports)
+        broken=bytearray(raw)
+        broken[0:4]=struct.pack('<I',len(raw)-1)
+        with self.assertRaises(ValueError):
+            decode_airport_list_packet(bytes(broken))
 
     def test_corrupted_and_wrong_request_packets_fail_closed(self):
         good=packet(0,1,[('SBRF',-8.1,-34.9)])
