@@ -179,6 +179,20 @@ class FuelManager:
             record=self.db.conn.execute(
                 'SELECT paid_liters FROM refundable_fuel_v077 WHERE aircraft_ref=?',(ref,)).fetchone()
             paid=max(0,float(record[0])) if record else 0.0
+            if record is None:
+                # Migração conservadora: compras feitas pela v0.7.6 já
+                # estavam registradas por aeronave no ledger financeiro.
+                # Nunca reembolsar mais que o total comprado ou em tanque.
+                import re
+                earlier=self.db.conn.execute(
+                    "SELECT description FROM finance_ledger WHERE kind='abastecimento'"
+                ).fetchall()
+                bought_gal=0.0
+                for (description,) in earlier:
+                    match=re.fullmatch(r'Abastecimento ([0-9]+(?:\\.[0-9]+)?) gal — '+re.escape(ref),description)
+                    if match:
+                        bought_gal+=float(match.group(1))
+                paid=min(current*LITERS_PER_GALLON,bought_gal*LITERS_PER_GALLON)
             added=max(0,delta_liters)
             removed=max(0,-delta_liters)
             refund_liters=min(removed,paid)
