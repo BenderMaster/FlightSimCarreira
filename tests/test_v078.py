@@ -52,7 +52,7 @@ class StrictMsfsTests(unittest.TestCase):
         airports=[('S'+str(i).zfill(3),-8.0-i*.002,-34.0-i*.002)
                   for i in range(622)]
         raw=bytearray(packet(0,1,airports))
-        raw.extend(b'SNBJ\\x00\\x00BR\\x00'+struct.pack('<ddd',-9.,-36.,90.))
+        raw.extend(b'SNBJ\x00\x00BR\x00'+struct.pack('<ddd',-9.,-36.,90.))
         struct.pack_into('<I',raw,0,len(raw))
         self.assertEqual(len(raw),20587)
         part,total,decoded=decode_airport_list_packet(bytes(raw))
@@ -66,7 +66,7 @@ class StrictMsfsTests(unittest.TestCase):
     def test_more_than_one_trailing_record_is_rejected(self):
         raw=bytearray(packet(0,1,[('SBRF',-8.126,-34.922),
                                   ('SNRU',-8.285,-36.0)]))
-        raw.extend(b'\\0'*66)
+        raw.extend(b'\0'*66)
         struct.pack_into('<I',raw,0,len(raw))
         with self.assertRaises(ValueError):
             decode_airport_list_packet(bytes(raw))
