@@ -172,5 +172,13 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(self.request('/../storage.py')[0],404)
     def test_static_page_contains_no_session_token(self):
         code,body=self.request('/');self.assertEqual(code,200);self.assertNotIn(self.server.token.encode(),body)
+        self.assertIn(b'<img src="/brand-icon.png"',body)
+        self.assertNotIn(b'<span class="logo"><svg>',body)
+
+    def test_approved_brand_icon_served_by_local_app(self):
+        code,body=self.request('/brand-icon.png')
+        self.assertEqual(code,200)
+        self.assertTrue(body.startswith(b'\\x89PNG\\r\\n\\x1a\\n'))
+        self.assertGreater(len(body),100)
 
 if __name__=='__main__':unittest.main()
