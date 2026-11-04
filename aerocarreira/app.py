@@ -791,6 +791,12 @@ class Application:
         if not m or not self.dispatch_state or self.dispatch_state.get('mission_id')!=m.id or not s.on_ground:
             return
         status=self.dispatch_state.get('payload')
+        if status=='verified' and s.payload_station_weights:
+            if not load_confirmed(s.payload_station_weights,self.dispatch_state.get('weights') or {}):
+                self.dispatch_state.update(payload='waiting_weight',
+                    message='Peso alterado ao reabrir MSFS; reaplicando manifesto salvo.')
+                self._log('CARGA: simulação voltou com pesos diferentes; sincronizando novamente.')
+                status='waiting_weight'
         if status=='loading':
             stations=self.dispatch_state.get('weights') or {}
             if (s.payload_station_weights and load_confirmed(s.payload_station_weights,stations)
@@ -1100,6 +1106,12 @@ class Application:
         self.last_sample=s
         self._sync_fuel(s)
         self._verify_payload(s)
+        if (self.career.mission and self.dispatch_state.get('mission_id')==self.career.mission.id
+                and self.dispatch_state.get('route') in ('waiting_sim','waiting_navdata')
+                and s.on_ground and self.mode=='MSFS' and self.connected):
+            if (self.dispatch_state['route']=='waiting_sim' or
+                    self.career.mission.nav_source=='MSFS'):
+                self._prepare_active_plan(automatic=True)
         self._warn_resources(s)
         fmt=lambda n: f"{n:,.0f}"
         for key,val in {
