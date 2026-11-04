@@ -141,6 +141,42 @@ class FuelManager:
         self.db.set_setting('fuel_refundable_liters:'+ref,
             str(round(max(0,self._refundable(ref)-burned_liters),5)))
 
+    def pending(self,ref):
+        raw=self.db.get_setting('fuel_pending_adjustment:'+ref)
+        if not raw:return None
+        try:return json.loads(raw)
+        except (ValueError,TypeError):return None
+
+    def confirm_pending(self,ref):
+        if not self.pending(ref):return False
+        with self.db.conn:
+            self.db.conn.execute("DELETE FROM settings WHERE key=?",('fuel_pending_adjustment:'+ref,))
+        return True
+
+    def rollback_pending(self,ref):
+        """Estorno idempotente quando a DLL recusa o envio ou a leitura falha."""
+        pending=self.pending(ref)
+        if not pending:return None
+        with self.db.conn:
+            amount=-int(pending['amount'])
+            old_balance=int(self.db.get_setting('balance') or 0)
+            balance=old_balance+amount
+            self.db._ledger_in_transaction('refund-failed:'+pending['event_key'],
+                'estorno_abastecimento',amount,balance,
+                'Reversão por falha de escrita no MSFS: '+ref)
+            self.db.conn.execute("""INSERT INTO settings(key,value) VALUES('balance',?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value""",(str(balance),))
+            self.db.conn.execute('UPDATE fleet_fuel SET tanks_json=?,updated_utc=? WHERE aircraft_ref=?',
+                (json.dumps(pending['old_tanks'],sort_keys=True),self.clock(),ref))
+            self.db.conn.execute("""INSERT INTO settings(key,value) VALUES(?,?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value""",
+                ('fuel_refundable_liters:'+ref,str(pending['old_credit'])))
+            self.db.conn.execute("DELETE FROM settings WHERE key=?",('fuel_pending_adjustment:'+ref,))
+        self.awaiting.pop(ref,None)
+        self.restore_attempts.pop(ref,None)
+        self.last_correction.pop(ref,None)
+        return pending['old_tanks']
+
     def change_liters(self, ref, target_liters):
         """Alvo absoluto por aeronave, transação única do inventário e caixa.
 
@@ -149,6 +185,8 @@ class FuelManager:
         """
         if not isinstance(target_liters,(int,float)) or not isfinite(target_liters):
             raise ValueError('Quantidade de litros inválida.')
+        if self.pending(ref):
+            raise ValueError('Abastecimento anterior aguarda confirmação do MSFS.')
         old=self.get(ref)
         if not old or not old['capacities'] or set(old['tanks'])!=set(old['capacities']):
             raise ValueError('Calibre tanques no solo antes de abastecer.')
@@ -173,13 +211,19 @@ class FuelManager:
         amount=(-max(1,round(difference*FUEL_BRL_PER_LITER)) if difference>0
                 else round(refund_liters*FUEL_BRL_PER_LITER))
         next_credit=(paid+max(difference,0)) if difference>0 else max(0,paid-refund_liters)
+        event_key='fuel-adjust:'+ref+':'+str(time_ns())
         with self.db.conn:
             if amount:
-                self.db._money_movement('fuel-adjust:'+ref+':'+str(time_ns()),
+                self.db._money_movement(event_key,
                     'abastecimento' if amount<0 else 'devolucao_combustivel',amount,
                     f'Combustível {difference:+.1f} L — {ref}')
             self.db.conn.execute('UPDATE fleet_fuel SET tanks_json=?,updated_utc=? WHERE aircraft_ref=?',
                 (json.dumps(new,sort_keys=True),self.clock(),ref))
+            self.db.conn.execute("""INSERT INTO settings(key,value) VALUES(?,?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value""",
+                ('fuel_pending_adjustment:'+ref,json.dumps({
+                    'event_key':event_key,'amount':amount,'old_tanks':old['tanks'],
+                    'old_credit':paid,'new_tanks':new})))
             self.db.conn.execute("""INSERT INTO settings(key,value) VALUES(?,?)
                 ON CONFLICT(key) DO UPDATE SET value=excluded.value""",
                 ('fuel_refundable_liters:'+ref,str(round(next_credit,5))))
@@ -188,7 +232,8 @@ class FuelManager:
         self.last_correction.pop(ref,None)
         return {'tanks':new,'delta_liters':round(difference,2),'target_liters':round(target_liters,2),
                 'cost_brl':max(0,-amount),'refund_brl':max(0,amount),
-                'nonrefundable_return_liters':round(max(0,-difference)-refund_liters,2)}
+                'nonrefundable_return_liters':round(max(0,-difference)-refund_liters,2),
+                'event_key':event_key}
 
     def refuel_full(self,ref):
         old=self.get(ref)
