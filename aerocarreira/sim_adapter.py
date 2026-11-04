@@ -69,6 +69,7 @@ class SampleReader:
         self.last_groundspeed_time = None
         self.soft_missing = set()
         self.last_tank_scan = -1e15
+        self.last_payload_scan = -1e15
 
     def _get(self, simvar):
         try:
@@ -112,6 +113,22 @@ class SampleReader:
             caps[name]=cap
         return (tanks or None),(caps or None)
 
+    def _payload_snapshot(self, now):
+        if now-self.last_payload_scan<2.5:
+            return None,None
+        self.last_payload_scan=now
+        count=self._get("PAYLOAD_STATION_COUNT")
+        if count is None or not isfinite(count) or not 2<=count<=15:
+            return None,None
+        n=int(count)
+        values={}
+        for i in range(1,n+1):
+            v=self._get("PAYLOAD_STATION_WEIGHT:"+str(i))
+            if v is None or not isfinite(v) or not 0<=v<=15000:
+                return None,None
+            values[i]=v
+        return n,values
+
     def _optional_bool(self,key):
         value=self._get(OPTIONAL[key])
         return None if value is None or not isfinite(value) else value>=0.5
@@ -143,6 +160,7 @@ class SampleReader:
         fuel = self._get(OPTIONAL["fuel_gallons"])
         title = self._title()
         tanks,cap = self._tank_snapshot(title,now)
+        station_count,station_weights=self._payload_snapshot(now)
         s = FlightSample(timestamp=now,
             latitude=values["latitude"], longitude=values["longitude"],
             altitude_ft=values["altitude_ft"], agl_ft=values["agl_ft"],
@@ -152,6 +170,8 @@ class SampleReader:
             groundspeed_estimated=estimated, aircraft_title=title,
             total_weight_lbs=self._get(OPTIONAL['total_weight_lbs']),
             max_gross_weight_lbs=self._get(OPTIONAL['max_gross_weight_lbs']),
+            payload_station_count=station_count,
+            payload_station_weights=station_weights,
             wind_kt=self._get(OPTIONAL['wind_kt']),
             ambient_temperature_c=self._get(OPTIONAL['ambient_temperature_c']),
             wind_direction_deg=self._get(OPTIONAL['wind_direction_deg']),
@@ -207,6 +227,16 @@ class SimConnectWorker:
         """Somente sob clique explícito e com o simulador conectado."""
         self.actions.put(("load_pln", str(path)))
 
+    def request_payload_set(self, mission_id, stations: dict[int,float]):
+        if not isinstance(mission_id,str) or not mission_id or len(mission_id)>130:
+            raise ValueError('Identificador de missão inválido')
+        if not stations or len(stations)>14 or any(
+                not isinstance(k,int) or not 2<=k<=15 or
+                not isinstance(v,(int,float)) or not isfinite(v) or not 0<=v<=15000
+                for k,v in stations.items()):
+            raise ValueError('Distribuição de peso inválida')
+        self.actions.put(('payload_set',{'mission':mission_id,'stations':dict(stations)}))
+
     def request_fuel_restore(self, tanks: dict[str,float]):
         """Comando gerado por FuelManager; não recebe SimVar arbitrária."""
         if not tanks or any(k not in TANK_QUANTITY for k in tanks):
@@ -249,6 +279,15 @@ class SimConnectWorker:
                                     self._send('fuel_sent','Correção dos tanques enviada; aguardando confirmação da leitura.')
                                 except (AttributeError,OSError,ValueError,RuntimeError) as exc:
                                     self._send('fuel_error',str(exc))
+                            if action=='payload_set':
+                                try:
+                                    for index,pounds in path['stations'].items():
+                                        ok=aq.set('PAYLOAD_STATION_WEIGHT:'+str(index),float(pounds))
+                                        if ok is False:
+                                            raise ValueError('MSFS recusou estação '+str(index))
+                                    self._send('payload_sent',path['mission'])
+                                except (AttributeError,OSError,ValueError,RuntimeError) as exc:
+                                    self._send('payload_error',str(exc))
                             if action == 'load_pln':
                                 from pathlib import Path
                                 file = Path(path)
