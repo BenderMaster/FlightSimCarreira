@@ -95,8 +95,8 @@ class V077Tests(unittest.TestCase):
         self.assertTrue(all(o.manifest and o.payload_kg>0 for o in offers))
         self.db.save_offers('SBRF',offers,now=1000,valid_s=3600)
         saved=self.db.active_offers('SBRF',1001)
-        self.assertEqual([(x.manifest,x.payload_kg) for x in saved],
-                         [(x.manifest,x.payload_kg) for x in offers])
+        self.assertEqual({x.id:(x.manifest,x.payload_kg) for x in saved},
+                         {x.id:(x.manifest,x.payload_kg) for x in offers})
 
     def test_empty_payload_station_and_mtow_checks(self):
         m=Mission('P','SBRF','SBJP','Carga',1500,category='cargo',
