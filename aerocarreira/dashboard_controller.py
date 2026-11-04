@@ -91,7 +91,6 @@ class DashboardController:
         return plane
 
     def _fleet_photo_upload(self,ref):
-        from .app import state_dir
         self._owned_ref(ref)
         path=filedialog.askopenfilename(
             parent=self.app.root,

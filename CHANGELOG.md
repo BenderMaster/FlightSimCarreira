@@ -1,3 +1,12 @@
+## v0.8.0 Midnight Ops Alpha.1 — Bloco 1 Frota / Hangar
+
+- v0.7.8.2 homologada pelo piloto integrada à main, sem alterar o save.
+- Interface Frota dedicada em três colunas, apenas aeronaves adquiridas na carreira; aluguéis e freelancer não aparecem.
+- Seleção visual independente do avião ativo; operações explícitas de ativação, abastecimento e manutenção (legada ou nova).
+- Fotos por exemplar persistidas como JPEG normalizado em `fleet_photos` no SQLite, com mesma foto na Dashboard e no Hangar, proporção preservada e crédito da fotografia padrão do C152.
+- Rota local de imagem com chave opaca HMAC por sessão, sem upload web arbitrário nem exposição do caminho da máquina.
+- Testes de isolamento por exemplar, reinstalação/reabertura SQLite, normalização de retrato e paisagem, navegador e segurança do transporte.
+
 ## v0.7.8.2 Midnight Ops Alpha.3 — correção de 20.587 bytes e ícone interno
 
 - Recebe pacotes de aeroportos MSFS 2020 com tamanho `28 + N×33 + 33`, reconhecendo o bloco adicional do SDK sem criar aeroporto extra.

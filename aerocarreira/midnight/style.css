@@ -289,3 +289,5 @@
 .aircraft-art .aircraft-photo{object-fit:contain!important;object-position:center;background:#071c2d}
 @media(max-width:1150px){.fleet-layout{grid-template-columns:minmax(170px,27%) minmax(300px,1fr)}.fleet-operations{grid-column:1/-1}.fleet-operations-stack{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.fleet-actions-divider{display:none}.fleet-operation-note{margin-top:0}}
 @media(max-width:760px){.fleet-layout{display:flex;flex-direction:column;overflow:auto}.fleet-owned-list{max-height:220px}.fleet-image-frame{height:220px}.fleet-operations-stack{display:flex}.fleet-selected-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.fleet-head-summary{display:none}.fleet-page .page-foot{flex-wrap:wrap}}
+
+.fleet-photo-placeholder[hidden]{display:none!important}
