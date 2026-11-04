@@ -45,9 +45,9 @@ class PlanningTests(unittest.TestCase):
     def test_declared_weather_time_assistances_never_count_as_verified(self):
         p=Preflight(self.m.id,'Cessna 152',True,True,True,True,True,True,True,
                     planned_fuel_gal=12.0,planned_weight_lbs=1500,max_weight_lbs=1670)
-        report=inspect_preflight(self.m,p)
+        report=inspect_preflight(self.m,p,verified={'payload':True})
         self.assertAlmostEqual(report['bonus_fraction'],.09)
-        confirmed=inspect_preflight(self.m,p,verified={'clock':True,'assists':True})
+        confirmed=inspect_preflight(self.m,p,verified={'clock':True,'assists':True,'payload':True})
         self.assertAlmostEqual(confirmed['bonus_fraction'],.15)
         self.assertNotIn('Clima ao vivo (não verificável)',confirmed['components'])
         self.assertNotIn('Clima ao vivo (declaração)',confirmed['components'])
