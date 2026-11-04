@@ -139,6 +139,7 @@ class AirportCatalog:
     """
     def __init__(self, locations: dict[str, Airport] | None = None):
         self.locations: dict[str, Airport] = {}
+        self.sim_codes:set[str]=set()
         self.global_catalog = False
         if locations is not None:
             self.locations.update(locations)
@@ -157,18 +158,43 @@ class AirportCatalog:
                 self.global_catalog = bool(self.locations)
             except (ImportError, OSError, ValueError, KeyError):
                 pass
-        self.locations.update(AIRPORTS)  # parâmetros testados localmente prevalecem
+        self.locations.update(AIRPORTS)  # fallback local, substituído pela navegação MSFS
+
+    def merge_msfs_airports(self, records) -> int:
+        """Coordenadas oficiais da instalação ativa sobrepõem o catálogo externo."""
+        added=0
+        for row in records:
+            try:
+                code,lat,lon=row
+                if not isinstance(code,str) or len(code)!=4 or not code.isalnum():
+                    continue
+                lat,lon=float(lat),float(lon)
+                if not (isfinite(lat) and isfinite(lon) and -90<=lat<=90 and -180<=lon<=180):
+                    continue
+                previous=self.locations.get(code)
+                self.locations[code]=Airport(code,previous.name if previous else code,lat,lon)
+                self.sim_codes.add(code);added+=1
+            except (ValueError,TypeError,OverflowError):
+                continue
+        return added
+
+    def active_locations(self):
+        # Sem retorno oficial usa fallback legado, sempre identificado como tal.
+        # Com cobertura oficial ampla, não oferecer destino ausente do MSFS.
+        if len(self.sim_codes)>=30:
+            return (a for code,a in self.locations.items() if code in self.sim_codes)
+        return iter(self.locations.values())
 
     def nearest(self, lat: float, lon: float, max_nm: float = 5.0) -> Airport | None:
         if not isfinite(lat) or not isfinite(lon):
             return None
-        candidates = ((distance_nm(lat, lon, a.latitude, a.longitude), a) for a in self.locations.values())
+        candidates = ((distance_nm(lat, lon, a.latitude, a.longitude), a) for a in self.active_locations())
         nearest_distance, closest = min(candidates, key=lambda item: item[0], default=(float('inf'), None))
         return closest if nearest_distance <= max_nm else None
 
     def around(self, origin: Airport, max_nm: float = 180.0) -> list[tuple[Airport, float]]:
         around = []
-        for ap in self.locations.values():
+        for ap in self.active_locations():
             if ap.icao == origin.icao:
                 continue
             if abs(ap.latitude - origin.latitude) > max_nm / 55:
@@ -218,7 +244,7 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
     choices=catalog.around(origin,mission_radius_by_level(
         int(stats.get("level",pilot_level(int(stats.get("xp",0)))))))
     broad=[(a,distance_nm(origin.latitude,origin.longitude,a.latitude,a.longitude))
-           for a in catalog.locations.values() if a.icao!=origin.icao and northeast_airport(a)]
+           for a in catalog.active_locations() if a.icao!=origin.icao and northeast_airport(a)]
     seed = int.from_bytes(hashlib.sha256(f"{origin.icao}:{period}:nordeste-v1".encode()).digest()[:8], 'big')
     rng = Random(seed)
     allowed = [t for t in TYPES if eligibility(Mission("x",origin.icao,origin.icao,"",0,
