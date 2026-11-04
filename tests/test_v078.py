@@ -37,7 +37,6 @@ class StrictMsfsTests(unittest.TestCase):
         with self.assertRaises(ValueError):decode_airport_list_packet(good[:-2])
         with self.assertRaises(ValueError):decode_airport_list_packet(good,REQUEST_ID+1)
         with self.assertRaises(ValueError):decode_airport_list_packet(good[:28]+b'broken')
-        self.assertFalse(catalog_from_msfs({'SNBJ':(float('nan'),-36.)}).locations if False else False)
 
     def test_nonexistent_airports_never_injected_from_default_or_sqlite(self):
         current=catalog_from_msfs({'SNRU':(-8.285,-36.0),'SIRF':(-8.89,-35.97)})
