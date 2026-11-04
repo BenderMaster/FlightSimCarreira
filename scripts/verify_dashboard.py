@@ -53,10 +53,20 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#market-list .market-option').count()>0
             page.locator('#market-list .market-option').first.click()
             assert page.locator('#details').is_visible()
-            assert '→' in page.locator('#dialog-text').inner_text()
+            assert page.locator('#details-content').is_visible()
+            assert page.locator('#detail-map-slot #free-map').count()==1
+            assert page.locator('#detail-map-slot .map-area').is_visible()
+            assert 'NM' in page.locator('#detail-distance').inner_text()
+            assert page.locator('#detail-duration').inner_text().startswith('~')
+            assert page.locator('#detail-aircraft').inner_text()
+            assert 'R$' in page.locator('#detail-reward').inner_text()
             page.locator('#dialog-close').click()
+            assert page.locator('.center-column .map-card #free-map').count()==1
             assert page.locator('#market-page').is_visible()
-            page.locator('.nav-item[data-action="freelance"]').click()
+            assert page.locator('.nav-item').count()==10
+            assert page.locator('.nav-item[data-action="freelance"]').count()==0
+            assert page.locator('.nav-item[data-action="regional"]').inner_text()=='Mercado'
+            page.locator('[data-market-view="freelance"]').click()
             assert page.locator('[data-market-view="freelance"]').get_attribute('aria-pressed')=='true'
             for offer in page.locator('#market-list .market-option').all():
                 assert 'FREELANCER' in offer.inner_text()
@@ -83,6 +93,10 @@ with tempfile.TemporaryDirectory() as temp:
             }""")
             assert heading['before'] and 'rotate(-30)' in heading['before'],heading
             assert heading['after'] and 'rotate(90)' in heading['after'],heading
+            page.evaluate("""() => renderMap({...state,mode:'MSFS',telemetry:{
+                lat:-8.12,lon:-34.92,heading_deg:301,heading_magnetic_deg:322,stale:false}})""")
+            assert '322° MAG' in page.locator('#map-mode').inner_text()
+            assert '301° TRUE' in page.locator('#map-mode').inner_text()
 
             page.locator('#zoom-in').click();page.locator('#recenter').click()
             # Native action routed through the command queue, reflected in telemetry.
@@ -208,6 +222,18 @@ with tempfile.TemporaryDirectory() as temp:
             }""")
             assert 'rotate(-30deg)' in orientations['before'],orientations
             assert 'rotate(90deg)' in orientations['after'],orientations
+            # Instância MapLibre e canvas permanecem os mesmos ao abrir detalhes.
+            map_page.locator('.nav-item[data-action="regional"]').click()
+            map_page.locator('#market-list .market-option').first.click()
+            map_page.wait_for_timeout(200)
+            assert map_page.locator('#detail-map-slot #free-map').count()==1
+            assert map_page.evaluate("() => __fakeMap.resizeCalls")>resized['calls']
+            route=map_page.evaluate("() => __fakeMap.getSource('fsc-route').data")
+            assert route['geometry']['type']=='LineString',route
+            map_page.locator('#dialog-close').click()
+            assert map_page.locator('.center-column .map-card #free-map').count()==1
+            map_page.locator('.nav-item[data-action="dashboard"]').click()
+            assert map_page.locator('.map-area').count()==1
             map_page.locator('#satellite-toggle').click()
             credit=map_page.evaluate("""() => {
               const a=document.querySelector('#satellite-toggle').getBoundingClientRect();

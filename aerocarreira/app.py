@@ -25,6 +25,7 @@ from .fuel import FuelManager
 from .fleet import used_market, resale_price
 from .planning import Preflight, inspect_preflight, aircraft_title_matches
 from .flight_audit import real_clock_verified, assistance_verified, flight_safety_xp
+from .taxi import PostLandingTaxi
 from .aircraft_catalog import scan_installed_aircraft, detect_package_roots
 from .ingame_bridge import PanelState, LocalPanelServer
 from . import __version__
@@ -57,6 +58,7 @@ class Application:
         self.session_generation = 0
         self.sim = None
         self.tracker = FlightTracker()
+        self.post_landing_taxi = PostLandingTaxi()
         self.storage = Storage(state_dir() / "carreira.db")
         self.location_recovered=self.storage.recover_legacy_location()
         self.fuel_manager=FuelManager(self.storage)
@@ -75,6 +77,7 @@ class Application:
             if checkpoint:
                 self.career.restore(checkpoint.get("career", {}))
                 self.tracker = FlightTracker.from_snapshot(checkpoint["tracker"])
+                self.post_landing_taxi=PostLandingTaxi.from_snapshot(checkpoint.get('post_landing_taxi_v2'))
                 if self.tracker.phase == Phase.AIRBORNE and self.career.mission:
                     self.realism_frozen = float(checkpoint.get('realism_frozen',0.0))
                     self.realism_mission = checkpoint.get('realism_mission')
@@ -134,6 +137,13 @@ class Application:
         if os.getenv("FLIGHTSIM_CLASSIC") != "1":
             from .dashboard_controller import DashboardController
             self.dashboard = DashboardController(self)
+        if os.getenv('FLIGHTSIM_HEADLESS')!='1':
+            # Sem bloquear o Tk: worker se reconecta se o MSFS ainda não abriu.
+            self.root.after(700,self._auto_connect)
+
+    def _auto_connect(self):
+        if self.mode=='Desconectado' and self.sim is None:
+            self._connect()
 
     def label(self, parent, text, size=10, color=FG, bold=False, bg=None):
         return Label(parent, text=text, bg=bg or parent.cget("bg"), fg=color,
@@ -496,6 +506,7 @@ class Application:
             return
         self._stop()
         self.tracker.reset()
+        self.post_landing_taxi=PostLandingTaxi()
         self.demo_seq=demo_samples()
         self.demo_index=0
         self.mode="Demo"
@@ -869,9 +880,11 @@ class Application:
             + (f"  •  FREELANCER: {PLANE_BY_CODE[m.employer_plane].name}" if m.freelance else ""))
             if m else "Nenhum contrato ativo")
 
-    def _checkpoint_data(self, tracker=None):
+    def _checkpoint_data(self, tracker=None, post_landing=None):
+        post=self.post_landing_taxi if post_landing is None else post_landing
         return {"version": 1, "career": self.career.snapshot(),
                 "tracker": (tracker or self.tracker).snapshot(),
+                "post_landing_taxi_v2":post.snapshot(),
                 'realism_frozen':self.realism_frozen,
                 'realism_mission':self.realism_mission,
                 'fuel_penalty_frozen':self.fuel_penalty_frozen,
@@ -964,6 +977,20 @@ class Application:
             "lat":f"{s.latitude:.5f}","lon":f"{s.longitude:.5f}",
             "fuel":f"{s.fuel_gallons:.1f}" if s.fuel_gallons is not None else "—"}.items():
             self.flight_vars[key].set(val)
+        if self.mode=='MSFS':
+            key=self.post_landing_taxi.observe(s)
+            if key:
+                try:
+                    penalty=self.storage.apply_postflight_taxi_penalty(key)
+                    if penalty:
+                        self._log(f'TÁXI APÓS POUSO: -{penalty} XP neste voo (pista liberada, excesso sustentado).')
+                        self._refresh_pilot_summary()
+                    self._checkpoint(force=True)
+                except Exception as exc:
+                    self._log('Não foi possível registrar táxi após pouso: '+str(exc))
+                    self.post_landing_taxi.penalty_marked=False
+                    self.post_landing_taxi.phase='taxi'
+                    self.post_landing_taxi.fast_since=s.timestamp
         previous_phase = self.tracker.phase
         old_career_state = self.career.snapshot()
         mission_before=self.career.mission
@@ -1010,7 +1037,7 @@ class Application:
                     self._log(f'Realismo confirmado pelo MSFS/checklist: +{self.realism_frozen*100:.1f}% de XP e pagamento.')
                     if verified.get('clock') is None:self._log('Horário UTC: telemetria indisponível, sem bônus automático.')
                     if verified.get('assists') is None:self._log('Assistências: telemetria incompleta, sem bônus automático.')
-                    self._log('Preset de clima ao vivo: não verificável por SimConnect; sem bônus automático.')
+                    self._log('Clima ao vivo não entra no cálculo de XP: preset não verificável.')
                 if self.career.mission and self.career.mission.freelance and not self.career.employer_aircraft_confirmed:
                     self._log("ALERTA FREELANCER: modelo não confirmado na decolagem; sem pagamento até próximo voo correto.")
                 self._checkpoint(force=True)
@@ -1024,7 +1051,8 @@ class Application:
                 payment = completion_payment
                 next_tracker = FlightTracker()
                 next_tracker.update(s)
-                checkpoint_after = self._checkpoint_data(tracker=next_tracker)
+                next_post=PostLandingTaxi.begin(start,s) if self.mode=='MSFS' else PostLandingTaxi()
+                checkpoint_after = self._checkpoint_data(tracker=next_tracker,post_landing=next_post)
                 checkpoint_after['realism_frozen']=0.0
                 checkpoint_after['realism_mission']=None
                 checkpoint_after['fuel_penalty_frozen']=0.0
@@ -1063,6 +1091,7 @@ class Application:
                     # o app poderá confirmar novamente o pouso em solo.
                     return
                 self.tracker = next_tracker
+                self.post_landing_taxi=next_post
                 self.realism_frozen=0.0
                 self.realism_mission=None
                 self.fuel_penalty_frozen=0.0
@@ -1078,7 +1107,7 @@ class Application:
                     earned=self.storage.conn.execute('SELECT xp FROM pilot_xp_ledger WHERE flight_key=?',
                         (f"takeoff:{float(start['timestamp']):.6f}:{float(start['lat']):.7f}:{float(start['lon']):.7f}",)).fetchone()
                     self._log(f"PROGRESSO DO PILOTO: +{earned[0] if earned else 0} XP ({bonus_xp} do despacho, {safety_xp:+d} de segurança).")
-                    if v is not None:self._log(f'Toque estimado: {v:+.0f} ft/min; arremetidas: {self.tracker.go_arounds}; toque-e-arremetidas: {self.tracker.touch_and_go}.')
+                    if v is not None:self._log(f'Toque estimado: {v:+.0f} ft/min; arremetidas: {e.get("go_arounds",0)}; toque-e-arremetidas: {e.get("touch_and_go",0)}.')
                     self._refresh_pilot_summary()
                 if not inserted:
                     self._log("Pouso já salvo anteriormente: pagamento duplicado bloqueado.")

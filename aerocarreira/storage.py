@@ -335,6 +335,29 @@ class Storage:
                                   (json.dumps(checkpoint, ensure_ascii=False),))
         return inserted
 
+    def apply_postflight_taxi_penalty(self, flight_key: str) -> int:
+        """Desconta XP de táxi da mesma decolagem, no máximo uma vez.
+
+        Fica num registro individual, atômico e idempotente. Não muda R$,
+        registro de voos, nem XP de qualquer outra decolagem.
+        """
+        if not isinstance(flight_key,str) or not flight_key.startswith('takeoff:') or len(flight_key)>100:
+            raise ValueError('Identificador de voo inválido')
+        marker='postflight_taxi_v2:'+flight_key
+        with self.conn:
+            if self.conn.execute('SELECT 1 FROM settings WHERE key=?',(marker,)).fetchone():
+                return 0
+            if not self.conn.execute('SELECT 1 FROM flights WHERE flight_key=?',(flight_key,)).fetchone():
+                return 0
+            row=self.conn.execute('SELECT xp FROM pilot_xp_ledger WHERE flight_key=?',(flight_key,)).fetchone()
+            if row is None:return 0
+            deduction=min(2,max(0,int(row[0])))
+            if deduction:
+                self.conn.execute('UPDATE pilot_xp_ledger SET xp=xp-? WHERE flight_key=?',
+                                  (deduction,flight_key))
+            self.conn.execute('INSERT INTO settings(key,value) VALUES(?,?)',(marker,str(deduction)))
+            return deduction
+
     def _ledger_in_transaction(self, key: str, kind: str, amount: int,
                                balance_after: int, description: str) -> None:
         self.conn.execute("""INSERT OR IGNORE INTO finance_ledger

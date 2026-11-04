@@ -38,7 +38,7 @@
  <button class="settings icon-button" data-action="settings" title="Configurações"><svg><use href="#i-gear"/></svg></button>
 <div class="window-controls"><button class="icon-button" id="minimize" title="Minimizar">−</button><button class="icon-button" data-action="close" title="Fechar com segurança">×</button></div></header>
 <main class="workspace">
- <aside class="sidebar card"><nav id="navigation"></nav><div class="scenery"><span>SEU PRÓXIMO DESTINO<br><b>COMEÇA AQUI.</b></span></div><small class="build">MIDNIGHT OPS • 0.7.5 α1</small></aside>
+ <aside class="sidebar card"><nav id="navigation"></nav><div class="scenery"><span>SEU PRÓXIMO DESTINO<br><b>COMEÇA AQUI.</b></span></div><small class="build">MIDNIGHT OPS • 0.7.6 α1</small></aside>
  <section class="left-column">
   <section class="market card"><div class="section-title"><div><h2>MERCADO REGIONAL</h2><small id="market-base">Cadastre sua base</small></div><button class="plain refresh" data-action="refresh" title="Atualizar ofertas"><svg><use href="#i-refresh"/></svg></button></div><div id="offers" class="offers"></div><button class="button all-missions" data-action="market"><svg><use href="#i-search"/></svg>Ver todas as missões</button></section>
   <section class="summary card"><h2><svg><use href="#i-chart"/></svg>RESUMO DA CARREIRA</h2><div id="summary"></div><div class="summary-level"><small>PROGRESSO DO NÍVEL</small><div class="progress green"><i id="summary-progress"></i></div></div></section>
@@ -65,7 +65,29 @@
  </section>
  <section id="details" class="page-shell details-page card" hidden aria-labelledby="dialog-title">
   <header class="page-head"><div><small class="eyebrow">INFORMAÇÕES DA OPERAÇÃO</small><h1 id="dialog-title">DETALHES</h1></div><button id="dialog-close" class="button">← Voltar</button></header>
-  <p id="dialog-text" class="detail-text"></p>
-  <footer class="page-foot"><small>O motor da carreira revalida todos os requisitos antes de aceitar um contrato.</small><button class="button primary" id="dialog-accept">Aceitar missão</button></footer>
+  <p id="dialog-text" class="detail-text" hidden></p>
+  <div id="details-content" class="details-layout" hidden>
+    <section class="detail-info" aria-label="Dados da rota e do contrato">
+      <div class="detail-route-card">
+        <small class="detail-eyebrow">AEROPORTOS DA OPERAÇÃO</small>
+        <div class="detail-icao-line"><div><small>ORIGEM</small><strong id="detail-origin">----</strong></div><span aria-hidden="true" class="detail-route-arrow">⟶</span><div><small>DESTINO</small><strong id="detail-destination">----</strong></div></div>
+        <p id="detail-mission-title"></p>
+      </div>
+      <div class="detail-stat-grid">
+        <div><small>DISTÂNCIA DIRETA</small><strong id="detail-distance">—</strong><span>milhas náuticas</span></div>
+        <div><small>DURAÇÃO ESTIMADA</small><strong id="detail-duration">—</strong><span>inclui margem de 5 min</span></div>
+        <div><small>VELOCIDADE DE CRUZEIRO</small><strong id="detail-cruise">—</strong><span>referência da aeronave</span></div>
+        <div class="detail-reward"><small>PAGAMENTO BRUTO</small><strong id="detail-reward">—</strong><span>antes de custos e bônus</span></div>
+      </div>
+      <div class="detail-aircraft-info"><svg><use href="#i-plane"/></svg><div><small>AERONAVE DA MISSÃO</small><strong id="detail-aircraft">—</strong></div></div>
+      <div class="detail-status"><small>REQUISITOS DO CONTRATO</small><p id="detail-requirements">—</p></div>
+    </section>
+    <section class="detail-map-panel" aria-label="Mapa interativo da rota selecionada">
+      <div class="detail-map-head"><strong><svg><use href="#i-map"/></svg> MAPA INTERATIVO DA ROTA</strong><small>Arraste para navegar • roda do mouse para zoom</small></div>
+      <div id="detail-map-slot" class="detail-map-slot"></div>
+      <small class="detail-map-note">A linha representa a rota direta aproximada, não um plano de voo autorizado.</small>
+    </section>
+  </div>
+  <footer class="page-foot"><small>Estimativas do modelo selecionado. O motor da carreira revalida os requisitos antes do aceite.</small><button class="button primary" id="dialog-accept">Aceitar missão</button></footer>
  </section>
  </main><div id="toast" role="status"></div><script src="/free-map.js"></script><script src="/app.js"></script></body></html>

@@ -158,3 +158,37 @@
 .map-area.free-active .maplibregl-ctrl-bottom-left{max-width:calc(100% - 12em)}
 @media(max-width:900px){.workspace>.page-shell{padding:.8em}.market-page .market-list{grid-template-columns:1fr}.module-context{grid-template-columns:repeat(2,minmax(0,1fr))}.page-head{padding-bottom:.55em}.market-view-tabs button{padding:.55em}.market-page .market-toolbar label{display:none}}
 @media(max-height:620px){.workspace>.page-shell{gap:.5em}.market-page .market-list{grid-auto-rows:minmax(7.2em,auto)}.page-head h1{font-size:1.6em}.market-view-tabs button{padding:.45em}.page-foot{padding-top:.4em}}
+
+/* 0.7.6: reutilização do mapa da dashboard nos detalhes do contrato. */
+.details-page .details-layout{flex:1;display:grid;grid-template-columns:minmax(250px,32%) minmax(0,1fr);gap:1em;min-height:0}
+.details-page .details-layout[hidden]{display:none!important}
+.details-page #dialog-text[hidden]{display:none!important}
+.detail-info{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:.8em;padding-right:.15em}
+.detail-route-card{background:linear-gradient(125deg,#0a3143,#051725);border:1px solid #23556e;border-radius:9px;padding:1em}
+.detail-eyebrow,.detail-info small{font-size:.75em;letter-spacing:.06em;color:#a7ccde}
+.detail-icao-line{display:flex;align-items:center;justify-content:space-between;margin:.8em 0;gap:.3em}
+.detail-icao-line div{min-width:0}.detail-icao-line strong{display:block;font-size:2.1em;letter-spacing:.01em;color:#f1fbff}
+.detail-route-arrow{font-size:2.3em;color:var(--cyan)}.detail-route-card p{margin:0;color:#99d2e9}
+.detail-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65em}
+.detail-stat-grid>div{background:#041b2a;border:1px solid #244c63;border-radius:8px;padding:.9em;min-width:0}
+.detail-stat-grid strong{display:block;color:#eafcff;font-size:1.6em;margin:.28em 0;white-space:nowrap}
+.detail-stat-grid span{color:#8fb5ca;font-size:.75em}
+.detail-stat-grid .detail-reward strong{color:var(--gold);font-size:1.5em}
+.detail-aircraft-info{display:flex;align-items:center;gap:.85em;border:1px solid #285068;background:#062335;border-radius:8px;padding:.8em}
+.detail-aircraft-info svg{width:2em;height:2em;color:var(--cyan)}
+.detail-aircraft-info strong{display:block;font-size:1.12em;margin-top:.3em}
+.detail-status{padding:.8em;border:1px solid #2b5b6e;border-radius:8px}
+.detail-status p{margin:.4em 0 0;font-weight:650}
+.detail-status p.eligible{color:#87ee95}.detail-status p.blocked{color:#e5b35b}
+.detail-map-panel{border:1px solid #27556e;border-radius:9px;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:#031622}
+.detail-map-head{padding:.7em .8em;display:flex;align-items:center;justify-content:space-between;gap:.4em;border-bottom:1px solid #28516a}
+.detail-map-head strong{display:flex;align-items:center;gap:.4em;color:var(--cyan);font-size:.9em;white-space:nowrap}
+.detail-map-head svg{width:1.3em;height:1.3em}
+.detail-map-head small{text-align:right}
+.detail-map-slot{flex:1;display:flex;min-height:0;overflow:hidden}
+.detail-map-slot .map-area{flex:1;height:100%;min-height:0;min-width:0}
+.detail-map-note{padding:.5em .8em;color:#9ebbd1;background:#041623}
+.details-page .page-foot{flex-shrink:0}
+.map-area .map-mode{max-width:calc(100% - 15.5em);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:1100px){.details-page .details-layout{grid-template-columns:minmax(230px,37%) minmax(0,1fr);gap:.55em}.detail-stat-grid{gap:.4em}.detail-stat-grid>div{padding:.55em}.detail-stat-grid strong{font-size:1.35em}.detail-map-head small{display:none}}
+@media(max-height:600px){.detail-icao-line strong{font-size:1.55em}.detail-info{gap:.45em}.detail-route-card,.detail-stat-grid>div,.detail-aircraft-info,.detail-status{padding:.5em}}
