@@ -82,7 +82,7 @@ class DashboardController:
     def dispatch(self,cmd):
         app=self.app;action=cmd['action']
         mapping={'pilot':app._pilot_window,'market':app._market_window,'fleet':app._fleet_window,
-            'planning':app._planning_window,'finance':app._finance_window,'employment':app._employment_window,
+            'planning':app._prepare_mission_button,'finance':app._finance_window,'employment':app._employment_window,
             'connect':app._connect,'disconnect':app._stop,'demo':app._demo_start,'demo_next':app._demo_next,
             'cancel':app._cancel,'plan':app._prepare_active_plan,'close':app._close,'avatar':self.avatar,
             'settings':self.settings,'legacy':self.legacy,'save_log':app._save_log,'installed':app._installed_aircraft_window,
@@ -113,6 +113,30 @@ class DashboardController:
             if not enabled or messagebox.askyesno('Controle de combustível','Desligar aplica -30% de dinheiro e XP aos próximos voos. Confirmar?'):
                 app.storage.set_setting('fuel_control_enabled','0' if enabled else '1')
                 app._log('Controle de combustível '+('desligado.' if enabled else 'ativado.'))
+        elif action=='refuel_set':
+            fm=app.storage.fleet_manager();plane=fm.selected();s=app.last_sample
+            try:
+                if not plane or (app.career.mission and app.career.mission.freelance):
+                    raise ValueError('Selecione uma aeronave da sua frota.')
+                if (app.mode!='MSFS' or not app.connected or not s or not s.on_ground
+                        or time()-s.timestamp>=10 or aircraft_model(s.aircraft_title)!=plane['code']):
+                    raise ValueError('Conecte a aeronave selecionada no solo antes de abastecer.')
+                if app.tracker.phase==Phase.AIRBORNE:
+                    raise ValueError('Não é permitido abastecer em voo.')
+                requested=cmd.get('id','')
+                # A validação completa e controle de crédito ocorrem no FuelManager.
+                result=app.fuel_manager.set_target_liters(plane['ref'],requested)
+                if app.sim:app.sim.request_fuel_restore(result['tanks'])
+                app.career.balance=int(app.storage.get_setting('balance') or 0)
+                app.balance_var.set(brl(app.career.balance))
+                app.refuel_feedback={'status':'success','message':
+                    ('Devolução: '+brl(result['refund_brl']) if result['refund_brl'] else
+                     'Abastecimento: '+brl(result['cost_brl']))+
+                    f" • tanque {result['target_liters']:.1f} L. Aguardando leitura SimConnect."}
+                app._log('ABASTECIMENTO: '+app.refuel_feedback['message'])
+            except (ValueError,TypeError,OSError) as exc:
+                app.refuel_feedback={'status':'error','message':str(exc)}
+                app._log('ABASTECIMENTO BLOQUEADO: '+str(exc))
         elif action in ('refuel','service'):
             fm=app.storage.fleet_manager();plane=fm.selected();s=app.last_sample
             if app.tracker.phase==Phase.AIRBORNE:messagebox.showwarning('Frota','Operação permitida somente em solo.');return
@@ -120,9 +144,10 @@ class DashboardController:
             if app.career.mission and app.career.mission.freelance:
                 messagebox.showwarning('Frota','O contrato utiliza aeronave do contratante. Gerencie sua frota pelo Hangar.');return
             if action=='refuel':
-                if not (app.mode=='MSFS' and app.connected and s and s.on_ground and time()-s.timestamp<10 and aircraft_model(s.aircraft_title)==plane['code']):
-                    messagebox.showwarning('Combustível','Conecte ao MSFS com o modelo selecionado no solo e telemetria atualizada.');return
-            if not messagebox.askyesno('Frota',('Completar tanques' if action=='refuel' else 'Revisar aeronave')+' com cobrança na carreira?'):return
+                # Compatibilidade com a interface Tk clássica; Midnight usa popup próprio.
+                messagebox.showinfo('Abastecimento','Use o popup Abastecer no painel Midnight para informar litros.')
+                return
+            if not messagebox.askyesno('Frota','Revisar aeronave com cobrança na carreira?'):return
             try:
                 result=app.fuel_manager.refuel_full(plane['ref']) if action=='refuel' else fm.service(plane['ref'])
                 app.career.balance=int(app.storage.get_setting('balance') or 0);app.balance_var.set(brl(app.career.balance))
