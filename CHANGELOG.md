@@ -1,3 +1,16 @@
+## v0.7.7 Midnight Ops Alpha.1 — Persistência de combustível, manifestos e peso
+
+- Correção da perda de combustível após reinício: intervalo offline não pode ser interpretado como consumo.
+- Controle de combustível por aeronave individual; popup litros com ajuste, ressarcimento limitado a litros comprados e elegíveis, registro financeiro atômico e restauração de tanques.
+- Alertas de 20% para combustível e integridade, com previsão futura de avisos 2D no MSFS.
+- Missões com manifestos/pessoas específicos e peso determinístico salvo no contrato.
+- Aceite solicita plano VFR e payload automaticamente quando aeronave/modelo/solo/MTOW permitirem; caso contrário, pendência explícita. Despacho manual pode tentar novamente.
+- Bônus de peso +2,5% sobre receita e XP do contrato baseado na leitura real e readback de carga.
+- NOAA preferencial no destino; MSFS fica como fallback salvo configuração posterior.
+- Ícone de decolagem substituído no botão de despacho; ícone principal aguarda aprovação.
+- Navdata de facilities do MSFS pendente; pontos atuais do catálogo externo não são dados oficiais da instalação.
+- CI Windows/Linux/Playwright e testes de reembolso/idempotência e payload; homologação física obrigatória.
+
 ## v0.7.6 Midnight Ops Alpha.1 — Proa magnética, mapa de missão e autoconexão
 
 - Mapa MapLibre da Dashboard reutilizado na página de detalhes, com rota real do contrato selecionado, tempo estimado pelo modelo da aeronave e apresentação em cartões.

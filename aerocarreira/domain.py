@@ -49,6 +49,8 @@ class Mission:
     destination_lat: float | None = None
     destination_lon: float | None = None
     company_code: str | None = None
+    manifest: str = ""    # conteúdo ou passageiros específicos (salvo com contrato)
+    payload_kg: float = 0.0   # peso da missão, não inclui combustível nem piloto
 
 
 MISSIONS = (
@@ -100,6 +102,8 @@ class FlightSample:
     light_landing: bool | None = None
     light_strobe: bool | None = None
     g_force: float | None = None
+    payload_station_count: int | None = None
+    payload_station_weights: dict[str,float] | None = None
 
 
 class Phase(str, Enum):

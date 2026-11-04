@@ -179,3 +179,15 @@ Consulte [Bloco 3](BLOCO_3_CARREIRAS.md).
 - [x] Classificação conservadora com ON ANY RUNWAY, heading/aceleração e monitor pós-pouso.
 - [ ] Homologar fisicamente em pistas e táxis do MSFS 2020; confirmar suporte a ON ANY RUNWAY nos cenários personalizados.
 - [ ] Completar planejamento e aceitações integralmente em páginas nativas WebView2, eliminando telas Tk legadas.
+
+## v0.7.7 — Logística, carga e inventário
+- [x] Inventário separado por aeronave salvo no SQLite do piloto e correção de consumo offline.
+- [x] Abastecimento/devolução em litros com lastro financeiro, sem gerar saldo de combustível inicial.
+- [x] Alertas de 20% para combustível e integridade; mensagens 2D ficam para versão in-game.
+- [x] Manifestos de missões determinísticos com peso salvo na oferta e no checkpoint.
+- [x] Aceite solicita PLN e peso sem confirmação; leitura de retorno condiciona status de carregamento e bônus MTOW.
+- [x] NOAA com precedência no destino, MSFS apenas fallback.
+- [x] Ícone de despacho de decolagem (vetorial); ícone principal aguardando escolha.
+- [ ] Facility API MSFS por ICAO, com cache por instalação de cenário e correspondência exata dos pontos de aeroporto.
+- [ ] Homologação Windows/MSFS físico de Station Weight, FlightPlanLoad e restauração de combustível.
+- [ ] Avisos 2D nativos in-game e perfil de estações de payload por aeronave.

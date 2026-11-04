@@ -93,10 +93,35 @@ with tempfile.TemporaryDirectory() as temp:
             }""")
             assert heading['before'] and 'rotate(-30)' in heading['before'],heading
             assert heading['after'] and 'rotate(90)' in heading['after'],heading
-            page.evaluate("""() => renderMap({...state,mode:'MSFS',telemetry:{
-                lat:-8.12,lon:-34.92,heading_deg:301,heading_magnetic_deg:322,stale:false}})""")
-            assert '322° MAG' in page.locator('#map-mode').inner_text()
-            assert '301° TRUE' in page.locator('#map-mode').inner_text()
+            badge=page.evaluate("""() => {
+              renderMap({...state,mode:'MSFS',telemetry:{
+                lat:-8.12,lon:-34.92,heading_deg:301,heading_magnetic_deg:322,stale:false}});
+              return document.getElementById('map-mode').textContent;
+            }""")
+            assert '322° MAG' in badge,badge
+            assert '301° TRUE' in badge,badge
+
+            # Abastecimento é popup real, com litros e ressarcimento estimado.
+            popup=page.evaluate("""() => {
+              const old=state;
+              state={...old,connection:'connected',phase:'SOLO',
+                plane:{ref:'legacy:c152',title:'Cessna 152'},
+                telemetry:{stale:false},fuel:{quantity:9,capacity:26,refundable_liters:12}};
+              openRefuelDialog();
+              const opened=document.getElementById('refuel-dialog').open;
+              const capacity=document.getElementById('refuel-capacity').textContent;
+              const units=document.getElementById('refuel-target').max;
+              document.getElementById('refuel-target').value='20';
+              updateRefuelPreview();
+              const refund=document.getElementById('refuel-summary').textContent;
+              refuelDialog.close();state=old;
+              return {opened,capacity,units,refund};
+            }""")
+            assert popup['opened'] and 'L' in popup['capacity'],popup
+            assert float(popup['units'])>90,popup
+            assert 'Devolver:' in popup['refund'],popup
+            assert page.locator('#resource-alerts').count()==1
+            assert page.locator('button[data-action="dispatch"]').count()==1
 
             page.locator('#zoom-in').click();page.locator('#recenter').click()
             # Native action routed through the command queue, reflected in telemetry.

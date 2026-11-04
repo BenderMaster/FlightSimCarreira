@@ -42,7 +42,8 @@ OPTIONAL = {"stall_warning": "STALL_WARNING", "fuel_gallons": "FUEL_TOTAL_QUANTI
             "light_landing":"LIGHT_LANDING",
             "light_strobe":"LIGHT_STROBE",
             "engine_running":"GENERAL_ENG_COMBUSTION:1",
-            "g_force":"G_FORCE"}
+            "g_force":"G_FORCE",
+            "payload_station_count":"PAYLOAD_STATION_COUNT"}
 
 
 
@@ -143,6 +144,15 @@ class SampleReader:
         fuel = self._get(OPTIONAL["fuel_gallons"])
         title = self._title()
         tanks,cap = self._tank_snapshot(title,now)
+        station_count=self._get(OPTIONAL['payload_station_count'])
+        count=int(station_count) if station_count is not None and isfinite(station_count) and 1<=station_count<=15 else None
+        station_weights=None
+        if count is not None:
+            station_weights={}
+            for i in range(1,count+1):
+                value=self._get(f'PAYLOAD_STATION_WEIGHT:{i}')
+                if value is not None and isfinite(value) and value>=0:
+                    station_weights[str(i)]=value
         s = FlightSample(timestamp=now,
             latitude=values["latitude"], longitude=values["longitude"],
             altitude_ft=values["altitude_ft"], agl_ft=values["agl_ft"],
@@ -173,7 +183,8 @@ class SampleReader:
             light_taxi=self._optional_bool('light_taxi'),
             light_landing=self._optional_bool('light_landing'),
             light_strobe=self._optional_bool('light_strobe'),
-            g_force=self._get(OPTIONAL['g_force']))
+            g_force=self._get(OPTIONAL['g_force']),
+            payload_station_count=count,payload_station_weights=station_weights)
         self.last = s
         return s, []
 
@@ -206,6 +217,12 @@ class SimConnectWorker:
     def request_plan_load(self, path):
         """Somente sob clique explícito e com o simulador conectado."""
         self.actions.put(("load_pln", str(path)))
+
+    def request_payload(self, plan: dict):
+        """Carga solicitada após aceite explícito, com validação no worker."""
+        if not isinstance(plan,dict) or not 2<=plan.get('station',0)<=15:
+            raise ValueError('Plano de carga inválido')
+        self.actions.put(('payload_load',dict(plan,_queued_at=time())))
 
     def request_fuel_restore(self, tanks: dict[str,float]):
         """Comando gerado por FuelManager; não recebe SimVar arbitrária."""
@@ -249,6 +266,36 @@ class SimConnectWorker:
                                     self._send('fuel_sent','Correção dos tanques enviada; aguardando confirmação da leitura.')
                                 except (AttributeError,OSError,ValueError,RuntimeError) as exc:
                                     self._send('fuel_error',str(exc))
+                            if action == 'payload_load':
+                                try:
+                                    from .contracts import aircraft_model
+                                    if time()-path.get('_queued_at',0)>30:
+                                        raise ValueError('Solicitação antiga de carga descartada após reconexão.')
+                                    station=path['station']
+                                    weight=path['weight_lbs']
+                                    if (not isinstance(station,int) or not 2<=station<=15 or
+                                        not isinstance(weight,(int,float)) or not isfinite(weight) or
+                                        not 0<weight<=2500):
+                                        raise ValueError('Peso/estação inválidos.')
+                                    if aircraft_model(reader._title())!=path['expected_model']:
+                                        raise ValueError('Modelo de aeronave diferente do contrato.')
+                                    ground=reader._get('SIM_ON_GROUND')
+                                    gs=reader._get('GROUND_VELOCITY')
+                                    gross=reader._get('TOTAL_WEIGHT')
+                                    mtow=reader._get('MAX_GROSS_WEIGHT')
+                                    count=reader._get('PAYLOAD_STATION_COUNT')
+                                    old=reader._get(f'PAYLOAD_STATION_WEIGHT:{station}')
+                                    if (ground is None or ground<.5 or gs is None or gs>2 or
+                                        gross is None or mtow is None or count is None or count<station or
+                                        old is None or old>1 or gross+weight>mtow-1):
+                                        raise ValueError('Sem confirmação de solo parado, estação vazia ou margem de peso.')
+                                    result=aq.set(f'PAYLOAD_STATION_WEIGHT:{station}',float(weight))
+                                    if result is False:
+                                        raise ValueError('SimConnect recusou o ajuste do payload.')
+                                    self._send('payload_sent',{'mission_id':path['mission_id'],
+                                        'station':station,'weight_lbs':weight})
+                                except (KeyError,TypeError,AttributeError,OSError,ValueError,RuntimeError) as exc:
+                                    self._send('payload_error',str(exc))
                             if action == 'load_pln':
                                 from pathlib import Path
                                 file = Path(path)

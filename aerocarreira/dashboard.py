@@ -122,6 +122,9 @@ class DashboardPresenter:
             fuel=app.fuel_manager.get(plane['ref'])
         verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s)}
                   if s and app.mode=='MSFS' and app.connected and time()-s.timestamp<10 else {})
+        if m and s and s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None:
+            verified['payload']=(0<s.total_weight_lbs<=s.max_gross_weight_lbs and
+                                 (getattr(app,'payload_confirmed',None)==m.id or m.payload_kg<=0))
         bonus=inspect_preflight(m,plan,verified=verified) if m and plan else None
         if app.tracker.phase==Phase.AIRBORNE:
             bonus= dict(bonus or {},bonus_fraction=app.realism_frozen,frozen=True)
@@ -176,7 +179,15 @@ class DashboardPresenter:
             market=dict(icao=self.center.icao,name=self.center.name,lat=self.center.latitude,lon=self.center.longitude) if self.center else None,offers=offers,
             plane=plane,fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
             capacity=capacity,
+            refundable_liters=app.fuel_manager.refundable_liters(plane['ref']) if plane else 0.0,
             live=s.fuel_gallons if s else None),telemetry=telemetry,phase=app.phase_var.get(),bonus=bonus,
+            payload=dict(confirmed=getattr(app,'payload_confirmed',None)==m.id if m else False,
+                         pending=bool(getattr(app,'payload_pending',None)) if m else False,
+                         kg=m.payload_kg if m else 0,manifest=m.manifest if m else ''),
+            alerts=([dict(kind='fuel',message=f'Combustível em {quantity/capacity:.0%}. Abasteça em breve.')
+                     for _ in [0] if capacity and quantity is not None and quantity/capacity<=.20] +
+                    [dict(kind='wear',message=f'Integridade da aeronave em {plane["condition"]:.1f}%. Faça manutenção.')
+                     for _ in [0] if plane and plane.get('condition') is not None and plane['condition']<=20]),
             log=app.log_text.get('1.0','end').splitlines()[-50:],
             audit=dict(clock=verified.get('clock'),assists=verified.get('assists'),
                 weather=None,go_arounds=app.tracker.go_arounds,

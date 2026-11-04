@@ -133,6 +133,8 @@ class Storage:
             aircraft_ref TEXT PRIMARY KEY, model TEXT NOT NULL,
             tanks_json TEXT NOT NULL, caps_json TEXT NOT NULL,
             updated_utc REAL NOT NULL)""")
+        self.conn.execute("""CREATE TABLE IF NOT EXISTS refundable_fuel_v077
+            (aircraft_ref TEXT PRIMARY KEY, paid_liters REAL NOT NULL DEFAULT 0)""")
         self.conn.commit()
         if self.get_setting("balance") is None:
             self.set_setting("balance", "5000")

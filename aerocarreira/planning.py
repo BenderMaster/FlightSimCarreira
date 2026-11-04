@@ -69,9 +69,10 @@ def inspect_preflight(mission: Mission, data: Preflight, cruise_kts: float = 90.
                    isfinite(data.planned_fuel_gal) and data.planned_fuel_gal > 0 and
                    fuel_required is not None and data.planned_fuel_gal >= fuel_required and
                    data.planned_fuel_gal <= model.fuel_capacity_gal * 1.02)
-    weight_ok = bool(data.payload_checked and data.planned_weight_lbs is not None and
+    weight_ok = bool(data.planned_weight_lbs is not None and
                      data.max_weight_lbs is not None and isfinite(data.planned_weight_lbs) and
-                     isfinite(data.max_weight_lbs) and 0 < data.planned_weight_lbs <= data.max_weight_lbs)
+                     isfinite(data.max_weight_lbs) and 0 < data.planned_weight_lbs <= data.max_weight_lbs
+                     and (verified or {}).get('payload') is True)
     # Preset meteorológico e opções globais NÃO são comprovados pelo
     # SimConnect externo. Declarações NÃO pontuam como dados automáticos.
     checked=verified or {}

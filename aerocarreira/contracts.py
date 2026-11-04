@@ -206,6 +206,31 @@ def freelance_range_nm(model_code: str) -> float:
     endurance_h=p.fuel_capacity_gal*3.785411784/p.fuel_lph
     return round(min(1300,endurance_h*p.cruise_kts*.70),1)
 
+# Catálogo ficcional; escolha determinística pelo ID e código, não pelo seed global.
+# Peso dos passageiros é massa corporal + bagagem, ainda não presume piloto.
+MANIFESTS = {
+ 'cargo': [('Engradado de vinhos',42),('Caixas de livros',28),('Peças agrícolas',56),
+           ('Equipamentos fotográficos',24),('Medicamentos refrigerados',18),
+           ('Peças de reposição',37),('Documentos comerciais',12)],
+ 'tourism':[('Flávia Martins • passeio panorâmico',74),('André Lima • fotografia aérea',79),
+            ('Mariana Costa • passeio turístico',67),('Renata Alves • sobrevoo',71)],
+ 'passenger':[('Camila Ferreira • transporte particular',70),
+              ('Ricardo Nunes • traslado regional',86),('Patrícia Souza • compromisso profissional',76)],
+ 'airtaxi':[('Daniel Rocha • reunião de negócios',82),('Lívia Costa • retorno à cidade',69)],
+ 'humanitarian':[('Kits de primeiros socorros',48),('Roupas e cobertores',54)],
+ 'medical':[('Insumos médicos urgentes',44),('Técnico de saúde • transferência',78)],
+ 'executive':[('Paulo Barreto • reunião executiva',91),('Carolina Teixeira • reunião empresarial',74)],
+ 'rescue':[('Equipe de busca • equipamentos',65),('Kit de resgate e rádios',53)],
+ 'special':[('Sensores geográficos',46),('Equipamento de inspeção aérea',58)]
+}
+# Reservar massa realista para modelos pequenos: nada de 250kg no C152.
+def mission_manifest(category: str, contract_id: str, plane_code: str='c152') -> tuple[str,float]:
+    items=MANIFESTS.get(category,MANIFESTS['cargo'])
+    idx=int.from_bytes(hashlib.sha256(contract_id.encode()).digest()[:4],'big')%len(items)
+    label,kg=items[idx]
+    # Estes são pesos de referência ficcionais, nunca certificados da aeronave.
+    return label,float(kg)
+
 def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
                     qualifications: set[str], family_flights: dict[str, int],
                     period: int, max_regional: int = 10, max_freelance: int = 6) -> list[Mission]:
@@ -239,10 +264,13 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
         target, dist = found
         seen.add((kind.code,target.icao,False))
         reward = market_reward(dist, kind.pay_factor)
-        offers.append(Mission(f"REG-{origin.icao}-{period}-{slot:02}",origin.icao,target.icao,
-            f"{kind.title} • {target.name[:24]}",reward,category=kind.code,
+        ident=f"REG-{origin.icao}-{period}-{slot:02}"
+        manifest,kg=mission_manifest(kind.code,ident)
+        offers.append(Mission(ident,origin.icao,target.icao,
+            f"{kind.title} — {manifest}",reward,category=kind.code,
             origin_lat=origin.latitude,origin_lon=origin.longitude,
-            destination_lat=target.latitude,destination_lon=target.longitude))
+            destination_lat=target.latitude,destination_lon=target.longitude,
+            manifest=manifest,payload_kg=kg))
     allowed_planes = [p for p in EMPLOYER_FLEET if eligibility(
         Mission("x",origin.icao,origin.icao,"",0,category="cargo",freelance=True,employer_plane=p.code),
         stats,qualifications,family_flights)[0]]
@@ -268,8 +296,11 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
         target,dist=rng.choice(choices_for_type[lo:hi])
         salary=market_reward(dist,1+kind.min_level*.09,freelance=True,
                              cruise_kts=AIRCRAFT_ECONOMY[plane.code].cruise_kts)
-        offers.append(Mission(f"FREE-{origin.icao}-{period}-{slot:02}",origin.icao,target.icao,
-            f"Freelancer • {kind.title} • {plane.name}",salary,category=kind.code,freelance=True,
+        ident=f"FREE-{origin.icao}-{period}-{slot:02}"
+        manifest,kg=mission_manifest(kind.code,ident,plane.code)
+        offers.append(Mission(ident,origin.icao,target.icao,
+            f"Freelancer • {kind.title} — {manifest}",salary,category=kind.code,freelance=True,
             employer_plane=plane.code,origin_lat=origin.latitude,origin_lon=origin.longitude,
-            destination_lat=target.latitude,destination_lon=target.longitude))
+            destination_lat=target.latitude,destination_lon=target.longitude,
+            manifest=manifest,payload_kg=kg))
     return offers

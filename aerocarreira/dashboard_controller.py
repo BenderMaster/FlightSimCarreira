@@ -84,7 +84,8 @@ class DashboardController:
         mapping={'pilot':app._pilot_window,'market':app._market_window,'fleet':app._fleet_window,
             'planning':app._planning_window,'finance':app._finance_window,'employment':app._employment_window,
             'connect':app._connect,'disconnect':app._stop,'demo':app._demo_start,'demo_next':app._demo_next,
-            'cancel':app._cancel,'plan':app._prepare_active_plan,'close':app._close,'avatar':self.avatar,
+            'cancel':app._cancel,'plan':app._prepare_active_plan,
+            'dispatch':app._prepare_active_mission,'close':app._close,'avatar':self.avatar,
             'settings':self.settings,'legacy':self.legacy,'save_log':app._save_log,'installed':app._installed_aircraft_window,
             'analyze':app._analyze,'locate':app._locate_neofly,'local_panel':app._open_local_panel}
         if action in mapping:
@@ -106,6 +107,13 @@ class DashboardController:
             # O motor da carreira revalida fase/solo, localização,
             # elegibilidade e contrato ativo em _accept_specific().
             app._accept_specific(m)
+        elif action=='refuel_set':
+            try:
+                amount=float(cmd.get('id','nan'))
+                result=app._set_refuel_target(amount)
+                app._log(f'ABASTECIMENTO: {result["target_liters"]:.1f} L. Aguarde confirmação dos tanques.')
+            except (ValueError,TypeError,KeyError,OSError) as exc:
+                app._log('ABASTECIMENTO RECUSADO: '+str(exc))
         elif action=='fuel':
             if app.tracker.phase==Phase.AIRBORNE:
                 messagebox.showwarning('Combustível','Altere apenas em solo. O modo fica congelado na decolagem.');return
