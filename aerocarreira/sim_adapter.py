@@ -24,7 +24,10 @@ SOFT = {"groundspeed_kt": "GROUND_VELOCITY", "vs_fpm": "VERTICAL_SPEED"}
 OPTIONAL = {"stall_warning": "STALL_WARNING", "fuel_gallons": "FUEL_TOTAL_QUANTITY",
             "total_weight_lbs": "TOTAL_WEIGHT", "max_gross_weight_lbs": "MAX_GROSS_WEIGHT",
             "wind_kt": "AMBIENT_WIND_VELOCITY", "ambient_temperature_c": "AMBIENT_TEMPERATURE",
-            "sim_rate": "SIMULATION_RATE", "unlimited_fuel":"UNLIMITED_FUEL"}
+            "sim_rate": "SIMULATION_RATE", "unlimited_fuel":"UNLIMITED_FUEL",
+            "wind_direction_deg":"AMBIENT_WIND_DIRECTION",
+            "visibility_m":"AMBIENT_VISIBILITY",
+            "sea_level_pressure_hpa":"SEA_LEVEL_PRESSURE"}
 
 
 class SampleReader:
@@ -117,6 +120,9 @@ class SampleReader:
             max_gross_weight_lbs=self._get(OPTIONAL['max_gross_weight_lbs']),
             wind_kt=self._get(OPTIONAL['wind_kt']),
             ambient_temperature_c=self._get(OPTIONAL['ambient_temperature_c']),
+            wind_direction_deg=self._get(OPTIONAL['wind_direction_deg']),
+            visibility_m=self._get(OPTIONAL['visibility_m']),
+            sea_level_pressure_hpa=self._get(OPTIONAL['sea_level_pressure_hpa']),
             sim_rate=self._get(OPTIONAL['sim_rate']),
             fuel_tanks=tanks, fuel_tank_capacities=cap,
             unlimited_fuel=(None if (limit:=self._get(OPTIONAL['unlimited_fuel'])) is None else limit >= .5))

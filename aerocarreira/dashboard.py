@@ -12,6 +12,7 @@ from .domain import AIRPORTS, Phase, distance_nm
 from .planning import inspect_preflight
 from .finance import estimated_minutes
 from .reputation import pilot_reputation
+from .weather import MetarCache, sim_conditions, within_nm
 
 
 def coordinates(m):
@@ -40,6 +41,9 @@ class DashboardPresenter:
         self.avatar=None
         self.reputation_stamp=None
         self.reputation_value=None
+        self.metars=MetarCache()
+        self.origin_observation=None
+        self.weather_mission_id=None
         self.country_cache={}
         self.position_lookup=None
         self.position_center=None
@@ -129,13 +133,27 @@ class DashboardPresenter:
                 except OSError:pass
         capacity=sum(fuel['capacities'].values()) if fuel and fuel['capacities'] else None
         quantity=sum(fuel['tanks'].values()) if fuel else None
+        if (m.id if m else None)!=self.weather_mission_id:
+            self.weather_mission_id=m.id if m else None
+            self.origin_observation=None
+        reading=sim_conditions(s) if app.mode=='MSFS' and app.connected and s and time()-s.timestamp<10 else None
+        close_origin=bool(reading and m and within_nm(s.latitude,s.longitude,m.origin_lat,m.origin_lon,m.origin))
+        close_destination=bool(reading and m and within_nm(s.latitude,s.longitude,m.destination_lat,m.destination_lon,m.destination))
+        if close_origin:
+            self.origin_observation=dict(reading,icao=m.origin,source='MSFS • aeronave na origem')
+        destination_metar=self.metars.get(m.destination) if m and app.mode!='Demo' else None
+        weather=dict(origin=self.origin_observation if m else None,
+                     nearby_origin=close_origin,nearby_destination=close_destination,
+                     destination_sim=dict(reading,icao=m.destination,source='MSFS • aeronave perto do destino') if close_destination else None,
+                     destination_metar=destination_metar,
+                     source_note='SimConnect lê condições na aeronave; não o METAR integral do aeroporto.')
         telemetry=None if s is None else dict(ias=s.ias_kt,gs=s.groundspeed_kt,alt=s.altitude_ft,agl=s.agl_ft,vs=s.vs_fpm,
             lat=s.latitude,lon=s.longitude,stale=app.mode!='Demo' and (not app.connected or time()-s.timestamp>10))
         return dict(google_maps_key=(db.get_setting('google_maps_api_key_v1') or os.environ.get('FLIGHTSIM_GOOGLE_MAPS_API_KEY','')),
             pilot=pilot,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
-            status=app.status_var.get(),mode=app.mode,summary=summary,mission=mission_data(m) if m else None,
+            status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,mission=mission_data(m) if m else None,
             market=dict(icao=self.center.icao,name=self.center.name,lat=self.center.latitude,lon=self.center.longitude) if self.center else None,offers=offers,
             plane=plane,fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
             capacity=capacity,

@@ -82,6 +82,9 @@ class FlightSample:
     fuel_tanks: dict[str, float] | None = None
     fuel_tank_capacities: dict[str, float] | None = None
     unlimited_fuel: bool | None = None
+    wind_direction_deg: float | None = None
+    visibility_m: float | None = None
+    sea_level_pressure_hpa: float | None = None
 
 
 class Phase(str, Enum):
