@@ -115,6 +115,7 @@ def generate_employer_routes(company_code: str, origin, catalog, stats: dict,
     """
     from .contracts import eligibility
     from .domain import Mission
+    from .manifest import assign_manifest
     company=EMPLOYER_BY_CODE.get(company_code)
     if company is None:
         return []
@@ -134,5 +135,5 @@ def generate_employer_routes(company_code: str, origin, catalog, stats: dict,
                   destination_lat=destination.latitude,destination_lon=destination.longitude,
                   company_code=company.code)
         if eligibility(m,stats,qualifications,family_flights)[0]:
-            routes.append(m)
+            routes.append(assign_manifest(m))
     return routes
