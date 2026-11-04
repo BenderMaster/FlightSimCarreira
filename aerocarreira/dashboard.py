@@ -126,7 +126,7 @@ class DashboardPresenter:
                    'condition':None,'airport':m.origin,'kind':'Aeronave do contratante'}
             fuel=app.fuel_manager.get(plane['ref'])
         verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s),
-                   'weight':app._weight_verified(s)}
+                   'weight':app._weight_verified(s) if hasattr(app,'_weight_verified') else False}
                   if s and app.mode=='MSFS' and app.connected and time()-s.timestamp<10 else {})
         bonus=inspect_preflight(m,plan,verified=verified) if m and plan else None
         if app.tracker.phase==Phase.AIRBORNE:
@@ -193,7 +193,8 @@ class DashboardPresenter:
             capacity=capacity,refundable_liters=app.fuel_manager.refundable_liters(plane['ref']) if plane else 0,
             price_per_liter=FUEL_BRL_PER_LITER,liters_per_gallon=LITERS_PER_GALLON,
             live=s.fuel_gallons if s else None),telemetry=telemetry,phase=app.phase_var.get(),bonus=bonus,
-            alerts=alerts,dispatch=dict(app.dispatch_state),
+            alerts=alerts,dispatch=dict(getattr(app,'dispatch_state',{})),
+            refuel_feedback=dict(getattr(app,'refuel_feedback',{})),
             log=app.log_text.get('1.0','end').splitlines()[-50:],
             audit=dict(clock=verified.get('clock'),assists=verified.get('assists'),
                 weather=None,go_arounds=app.tracker.go_arounds,
