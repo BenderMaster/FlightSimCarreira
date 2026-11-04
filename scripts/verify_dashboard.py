@@ -98,6 +98,28 @@ with tempfile.TemporaryDirectory() as temp:
             assert '322° MAG' in page.locator('#map-mode').inner_text()
             assert '301° TRUE' in page.locator('#map-mode').inner_text()
 
+            # Abastecimento é popup real, com litros e ressarcimento estimado.
+            popup=page.evaluate("""() => {
+              const old=state;
+              state={...old,connection:'connected',phase:'SOLO',
+                plane:{ref:'legacy:c152',title:'Cessna 152'},
+                telemetry:{stale:false},fuel:{quantity:9,capacity:26,refundable_liters:12}};
+              openRefuelDialog();
+              const opened=document.getElementById('refuel-dialog').open;
+              const capacity=document.getElementById('refuel-capacity').textContent;
+              const units=document.getElementById('refuel-target').max;
+              document.getElementById('refuel-target').value='20';
+              updateRefuelPreview();
+              const refund=document.getElementById('refuel-summary').textContent;
+              refuelDialog.close();state=old;
+              return {opened,capacity,units,refund};
+            }""")
+            assert popup['opened'] and 'L' in popup['capacity'],popup
+            assert float(popup['units'])>90,popup
+            assert 'Devolver:' in popup['refund'],popup
+            assert page.locator('#resource-alerts').count()==1
+            assert page.locator('button[data-action="dispatch"]').count()==1
+
             page.locator('#zoom-in').click();page.locator('#recenter').click()
             # Native action routed through the command queue, reflected in telemetry.
             before=page.locator('#metric-alt').inner_text()
