@@ -56,6 +56,25 @@ class V076Tests(unittest.TestCase):
             sample(15,True,36,32),sample(20,False,66,66)])
         self.assertEqual(tr.taxi_violations,0)
 
+    def test_custom_runway_false_but_straight_acceleration_is_exempt(self):
+        # Cenário do MSFS onde ON ANY RUNWAY falha em pista customizada.
+        tr=FlightTracker()
+        observe_takeoff(tr,[sample(0),sample(3,True,27,21,runway=False),
+            sample(15,True,36,32,runway=False),
+            sample(20,False,66,66,runway=False)])
+        self.assertEqual(tr.taxi_violations,0)
+
+    def test_incorrect_runway_false_during_rollout_is_not_taxi(self):
+        monitor=PostLandingTaxi.begin({'timestamp':5,'lat':-8,'lon':-34},
+            sample(100,True,60,60,runway=False))
+        self.assertIsNone(monitor.observe(sample(105,True,42,40,runway=False)))
+        self.assertIsNone(monitor.observe(sample(115,True,27,25,runway=False)))
+        self.assertIsNone(monitor.observe(sample(130,True,25,23,runway=False)))
+        self.assertEqual(monitor.phase,'rollout')
+        self.assertIsNone(monitor.observe(sample(135,True,8,8,runway=False)))
+        self.assertEqual(monitor.phase,'taxi')
+        self.assertFalse(monitor.penalty_marked)
+
     def test_known_taxiway_fast_includes_before_takeoff(self):
         tr=FlightTracker()
         observe_takeoff(tr,[sample(0),sample(3,True,29,22,runway=False),
