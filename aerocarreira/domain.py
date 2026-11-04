@@ -82,6 +82,8 @@ class FlightSample:
     aircraft_title: str | None = None
     total_weight_lbs: float | None = None
     max_gross_weight_lbs: float | None = None
+    payload_station_weights: dict[int,float] | None = None
+    payload_station_count: int | None = None
     wind_kt: float | None = None
     ambient_temperature_c: float | None = None
     sim_rate: float | None = None
