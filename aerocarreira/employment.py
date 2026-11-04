@@ -113,7 +113,7 @@ def generate_employer_routes(company_code: str, origin, catalog, stats: dict,
 
     Aeronave virtual fornecida pela companhia, não adquirida pelo usuário.
     """
-    from .contracts import eligibility
+    from .contracts import eligibility, mission_manifest
     from .domain import Mission
     company=EMPLOYER_BY_CODE.get(company_code)
     if company is None:
@@ -127,12 +127,14 @@ def generate_employer_routes(company_code: str, origin, catalog, stats: dict,
     for i,(destination,distance) in enumerate(choices[:2]):
         from .finance import market_reward
         reward=market_reward(distance, max(1.0,company.min_level*.15), freelance=True)
-        m=Mission(f'EMP-{company.code}-{origin.icao}-{period}-{i:02}',origin.icao,destination.icao,
-                  f'{company.name} • trecho contratado',reward,
+        identifier=f'EMP-{company.code}-{origin.icao}-{period}-{i:02}'
+        manifest,kg=mission_manifest('cargo',identifier,company.plane)
+        m=Mission(identifier,origin.icao,destination.icao,
+                  f'{company.name} • {manifest}',reward,
                   category='cargo',freelance=True,employer_plane=company.plane,
                   origin_lat=origin.latitude,origin_lon=origin.longitude,
                   destination_lat=destination.latitude,destination_lon=destination.longitude,
-                  company_code=company.code)
+                  company_code=company.code,manifest=manifest,payload_kg=kg)
         if eligibility(m,stats,qualifications,family_flights)[0]:
             routes.append(m)
     return routes
