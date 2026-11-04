@@ -222,7 +222,7 @@ class SimConnectWorker:
         """Carga solicitada após aceite explícito, com validação no worker."""
         if not isinstance(plan,dict) or not 2<=plan.get('station',0)<=15:
             raise ValueError('Plano de carga inválido')
-        self.actions.put(('payload_load',dict(plan)))
+        self.actions.put(('payload_load',dict(plan,_queued_at=time())))
 
     def request_fuel_restore(self, tanks: dict[str,float]):
         """Comando gerado por FuelManager; não recebe SimVar arbitrária."""
@@ -269,6 +269,8 @@ class SimConnectWorker:
                             if action == 'payload_load':
                                 try:
                                     from .contracts import aircraft_model
+                                    if time()-path.get('_queued_at',0)>30:
+                                        raise ValueError('Solicitação antiga de carga descartada após reconexão.')
                                     station=path['station']
                                     weight=path['weight_lbs']
                                     if (not isinstance(station,int) or not 2<=station<=15 or
