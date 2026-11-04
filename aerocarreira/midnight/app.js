@@ -3,7 +3,7 @@ const token=location.hash.slice(1);history.replaceState(null,'',location.pathnam
 const $=id=>document.getElementById(id),money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(n),number=(n,d=0)=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:d}),text=(id,v)=>$(id).textContent=v;
 const icon=n=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg'),u=document.createElementNS(s.namespaceURI,'use');u.setAttribute('href','#i-'+n);s.append(u);return s};
 const node=(tag,cls,value)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined)e.textContent=value;return e};
-let selectedFleetRef=null,fleetViewKey='';
+let selectedFleetRef=null,fleetViewKey='',fleetListKey='';
 let state={},zoom=1,mapPanX=0,mapPanY=0,selectedOffer=null,lastOfferKey='',pollFailures=0,planeTrack=null,planeBearing=0,recenterPlane=false,marketLastKey='',view='dashboard',previousView='dashboard';
 const nav=[['home','Dashboard','dashboard'],['globe','Mercado','regional'],['hangar','Frota / Hangar','fleet'],['map','Planejamento de Voo','planning'],['pilot','Meu Piloto','pilot'],['coins','Finanças','finance'],['building','Companhias','employment'],['book','Logbook','history'],['chart','Análise e Relatórios','reports'],['gear','Configurações','settings']];
 for(const [ic,label,action] of nav){const b=node('button','nav-item'+(action==='dashboard'?' active':''));b.append(icon(ic),node('span','',label));b.dataset.action=action;$('navigation').append(b)}
@@ -205,9 +205,14 @@ function renderFleetView(s,force=false){
    selectedFleetRef=owned.find(x=>x.is_active)?.ref||owned[0]?.ref||null;
    force=true;
  }
- const key=JSON.stringify([owned,selectedFleetRef,s.phase,s.connection]);
- if(!force&&key===fleetViewKey)return;
+ const selected=owned.find(x=>x.ref===selectedFleetRef);
+ const listKey=JSON.stringify([selectedFleetRef,owned.map(x=>[x.ref,x.title,x.kind,x.photo_url,x.condition,x.airport,x.is_active])]);
+ const key=JSON.stringify([selected,s.phase,s.connection]);
+ if(!force&&key===fleetViewKey&&listKey===fleetListKey)return;
+ const redrawList=force||listKey!==fleetListKey;
  fleetViewKey=key;
+ if(redrawList){
+ fleetListKey=listKey;
  text('fleet-count',owned.length+' '+(owned.length===1?'aeronave':'aeronaves'));
  text('fleet-list-count',owned.length+' adquiridas');
  const list=$('fleet-list');list.replaceChildren();
@@ -230,7 +235,7 @@ function renderFleetView(s,force=false){
    if(plane.is_active)detail.append(node('em','','EM USO'));
    card.append(detail);list.append(card);
  }
- const selected=owned.find(x=>x.ref===selectedFleetRef);
+ }
  const has=!!selected;
  text('fleet-name',selected?.title||'Nenhuma aeronave');
  text('fleet-model',has?selected.ref+' • '+({starter:'Inicial',legacy:'Adquirida (legado)',new:'Comprada nova',used:'Comprada usada'}[selected.kind]||'Própria'):'Selecione sua aeronave da lista');
@@ -358,7 +363,7 @@ const routeNames={atc_sent:'Enviado ao ATC • GPS/VFR NÃO confirmado',
 text('dispatch-progress',m?('Plano: '+(routeNames[ds.route]||ds.route||'não preparado')+
  ' • Carga: '+(ds.payload||'não preparada')+
  (ds.message?' • '+ds.message:'')):'Aceite uma missão para preparar plano e carga automaticamente.');
-text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?s.status:'Conecte ao MSFS em Configurações.');renderMap(s)}
+text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?s.status:'Conecte ao MSFS em Configurações.');if(view==='dashboard'||view==='details')renderMap(s)}
 function svgNode(tag,attrs,textValue){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs||{}))e.setAttribute(k,v);if(textValue!==undefined)e.textContent=textValue;return e}
 function headingDisplay(t){
  if(t?.stale)return 'POSIÇÃO DESATUALIZADA';
