@@ -36,3 +36,26 @@
 .summary-row.reputation:after{content:'';position:absolute;bottom:0;left:0;height:3px;
  width:var(--rep-percentage,0%);border-radius:5px;background:var(--rep-color,#35d6ff);
  box-shadow:0 0 7px var(--rep-color,#35d6ff)}
+
+/* v0.7.2: mapa livre OpenFreeMap/MapLibre, satélite CC BY 4.0. */
+#free-map{position:absolute;inset:0;display:none;z-index:0;background:#071624}
+.map-area.free-active>#free-map{display:block}
+.map-area.free-active>#route-map{display:none}
+.map-area.free-active .map-caption{display:none}
+.map-area .compass,.map-area .map-tools,.map-area .map-mode{z-index:3}
+.map-area.free-active .maplibregl-control-container{position:relative;z-index:2}
+.map-area .maplibregl-ctrl-attrib{font:10px/1.2 'Segoe UI',sans-serif;background:#041523df;color:#d5f2ff;padding:2px}
+.map-area .maplibregl-ctrl-attrib a{color:#72dfff}
+.map-area .maplibregl-canvas{outline:none}
+.map-tools #satellite-toggle{width:auto;min-width:6.7em;padding:0 .42em;white-space:nowrap;
+ color:#a8f4ff;font-size:.73em;border-radius:6px;border-color:#36778f;background:#071a27ed}
+.map-tools #satellite-toggle[aria-pressed=true]{color:#041421;background:#35d6ff}
+.satellite-credit{position:absolute;bottom:.65em;right:.65em;z-index:3;
+ background:#051622e6;color:#d8f6ff;padding:.25em .4em;font-size:.58em;max-width:55%;
+ border:1px solid #2b6274;border-radius:4px}
+.fsc-plane-marker{height:clamp(20px,2vw,28px);width:clamp(20px,2vw,28px);
+ cursor:default;filter:drop-shadow(0 0 5px #00d6eccc)}
+.fsc-plane-marker svg{display:block;width:100%;height:100%;fill:#35d6ff;stroke:#d9fcff;stroke-width:3}
+.fsc-airport-marker{font:600 11px 'Segoe UI',sans-serif;border:1px solid #b5f2ff;border-radius:5px;
+ background:#061827f0;color:#fff;padding:3px 5px;box-shadow:0 0 9px #00dcf544}
+.weather small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:100%}

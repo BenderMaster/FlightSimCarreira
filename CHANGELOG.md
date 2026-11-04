@@ -1,3 +1,10 @@
+## v0.7.2 Midnight Ops Alpha.1 — Hotfix da janela nativa, mapas grátis e clima
+- Reinclui Python.Runtime/CLR e cffi no pacote Windows, desativa UPX e testa WinForms em .exe real.
+- Mapa OpenFreeMap com MapLibre local, sem Google; satélite EOxCloudless 2016 opcional com créditos.
+- Posição, rota, marcador ciano; scroll, arraste, reenquadramento e fallback offline.
+- NOAA METAR no destino com cache async; clima do MSFS na origem/chegada via SimConnect.
+- Contratos, dinheiro, XP, combustível e aeronaves sem alterações de regra.
+
 ## 0.7.1 Midnight Ops Alpha.1 — Reputação e Google Satélite
 
 - Implementa reputação virtual persistente (reconstruída do diário SQLite histórico, sem migrar esquema e sem duplicar ganhos).

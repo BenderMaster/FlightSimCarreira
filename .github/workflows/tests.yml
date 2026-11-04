@@ -41,13 +41,17 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r requirements-windows.txt pyinstaller
+      - name: Download pinned MapLibre web assets
+        run: python scripts/fetch_maplibre.py
       - name: Build standalone Windows folder
-        run: python -m PyInstaller --noconfirm --clean --onedir --name FlightSimCarreira --collect-all webview --collect-all SimConnect --collect-all airportsdata --add-data "aerocarreira/midnight;aerocarreira/midnight" --add-data "in_game;in_game" launch_midnight.py
+        run: python -m PyInstaller --noconfirm --clean --noupx --onedir --name FlightSimCarreira --collect-all webview --collect-all pythonnet --collect-all clr_loader --collect-all cffi --hidden-import clr --collect-all SimConnect --collect-all airportsdata --add-data "aerocarreira/midnight;aerocarreira/midnight" --add-data "in_game;in_game" launch_midnight.py
       - name: Validate packaged airport catalog and UI assets
-        run: python -c "from pathlib import Path; p=Path('dist/FlightSimCarreira/_internal'); assert any((p/'airportsdata').rglob('*.csv')), 'Airport data missing'; assert (p/'aerocarreira/midnight/index.html').is_file(); assert (p/'aerocarreira/midnight/google-map.js').is_file(); assert (p/'SimConnect/SimConnect.dll').is_file()"
+        run: python -c "from pathlib import Path; p=Path('dist/FlightSimCarreira/_internal'); assert any((p/'airportsdata').rglob('*.csv')), 'Airport data missing'; assert (p/'aerocarreira/midnight/index.html').is_file(); assert (p/'aerocarreira/midnight/free-map.js').is_file(); assert (p/'aerocarreira/midnight/vendor/maplibre-gl.js').is_file(); assert (p/'aerocarreira/midnight/vendor/maplibre-gl.css').is_file(); assert (p/'SimConnect/SimConnect.dll').is_file()"
       - name: Executable version smoke test
         run: .\dist\FlightSimCarreira\FlightSimCarreira.exe --version
+      - name: Native pythonnet / WinForms smoke test (real packaged exe)
+        run: .\\dist\\FlightSimCarreira\\FlightSimCarreira.exe --verify-native-webview
       - uses: actions/upload-artifact@v4
         with:
-          name: FlightSimCarreira-0.7.1-midnight-alpha1-Windows
+          name: FlightSimCarreira-0.7.2-midnight-alpha1-Windows
           path: dist/FlightSimCarreira/

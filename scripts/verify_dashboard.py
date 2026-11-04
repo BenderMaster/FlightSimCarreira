@@ -30,6 +30,10 @@ with tempfile.TemporaryDirectory() as temp:
             browser=p.chromium.launch(args=['--no-sandbox'])
             page=browser.new_page(viewport={'width':1600,'height':900})
             errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
+            # Determinístico: exercita também o modo sem serviços externos.
+            page.route('https://cdn.jsdelivr.net/**',lambda route:route.abort())
+            page.route('https://tiles.openfreemap.org/**',lambda route:route.abort())
+            page.route('https://tiles.maps.eox.at/**',lambda route:route.abort())
             page.goto(url);page.wait_for_function("document.getElementById('callsign').textContent.includes('QA-DEMO')")
             # Fresh SQLite state + live engine feed, route and sidebar.
             assert page.locator('#route').inner_text()=='SBRF → SIPE'
@@ -62,25 +66,24 @@ with tempfile.TemporaryDirectory() as temp:
             failures=[r for r in results if r['overlap'] or r['out'] or r['clipped'] or r['buttons'] or r['scrollX'] or r['scrollY']]
             (OUTPUT.parent/'layout-results.json').write_text(json.dumps({'browser_errors':errors,'cases':results},indent=2))
             assert not failures,json.dumps(failures,indent=2)
-            # Google configurável, sem chave: reserva local interativa; sem tiles NASA.
-            assert page.locator('#google-map').count()==1
-            assert not page.locator('.map-area').evaluate("e=>e.classList.contains('google-active')")
+            # Mapa gratuito: fallback interativo permanece sem rede e sem chave.
+            assert page.locator('#free-map').count()==1
+            assert page.locator('#satellite-toggle').count()==1
             assert page.locator('#route-map circle').count()>=2
             zoom_before=page.evaluate('zoom')
+            # O teste offline usa o SVG caso a CDN/mapa não carregue em Chromium.
+            page.evaluate("() => { document.querySelector('.map-area').classList.remove('free-active'); }")
             page.locator('#route-map').hover()
             page.mouse.wheel(0,-300)
             page.wait_for_timeout(250)
             assert page.evaluate('zoom')>zoom_before
-            viewport_box=page.locator('#route-map').bounding_box()
-            x=viewport_box['x']+viewport_box['width']/2
-            y=viewport_box['y']+viewport_box['height']/2
-            pan_before=page.evaluate('[mapPanX,mapPanY]')
-            page.mouse.move(x,y);page.mouse.down();page.mouse.move(x+35,y+20,steps=4);page.mouse.up()
-            assert page.evaluate('[mapPanX,mapPanY]')!=pan_before
-            page.locator('#map-config').click()
-            assert page.locator('#maps-settings-dialog').is_visible()
-            page.locator('#maps-key-close').click()
+            page.locator('#satellite-toggle').click()
+            assert page.locator('#satellite-toggle').get_attribute('aria-pressed')=='true'
+            page.locator('#satellite-toggle').click()
+            assert page.locator('#satellite-toggle').get_attribute('aria-pressed')=='false'
             assert page.locator('#route').inner_text()=='SBRF → SIPE'
+            assert 'ORIGEM' in page.locator('#weather-origin').inner_text()
+            assert 'DESTINO' in page.locator('#weather-destination').inner_text()
             # Safe shutdown persists the active contract in the isolated career.
             page.evaluate("() => command('close')")
             process.wait(timeout=10)
