@@ -634,9 +634,11 @@ class Application:
         if not self.storage.get_pilot():
             messagebox.showwarning("Mercado regional", "Crie seu perfil em 'Meu piloto / Habilitações'.")
             return
-        if self.airport_catalog is None:
-            self.airport_catalog = AirportCatalog()
-        catalog = self.airport_catalog
+        if self.mode!='Demo' and not (self.connected and self.msfs_airports_ready and self.airport_catalog):
+            self._log('MERCADO: aguardando inventário de aeroportos do MSFS. Sem catálogo externo.')
+            return
+        if self.airport_catalog is None:self.airport_catalog=AirportCatalog()  # Demo
+        catalog=self.airport_catalog
         sample = self.last_sample
         center = catalog.nearest(sample.latitude, sample.longitude, 6) if sample else None
         if center is None:
@@ -749,7 +751,7 @@ class Application:
         if not m:
             if not automatic:messagebox.showinfo('Plano VFR','Aceite primeiro um contrato.')
             return False
-        if self.mode=='MSFS':
+        if self.mode!='Demo':
             validated=strict_mission(m,self.airport_catalog if self.msfs_airports_ready else None)
             if validated is None:
                 if self.dispatch_state:self.dispatch_state['route']='waiting_navdata'
@@ -1128,7 +1130,7 @@ class Application:
         self._verify_payload(s)
         if (self.career.mission and self.dispatch_state.get('mission_id')==self.career.mission.id
                 and self.dispatch_state.get('route') in ('waiting_sim','waiting_navdata')
-                and s.on_ground and self.mode=='MSFS' and self.connected):
+                and s.on_ground and self.mode=='MSFS' and self.connected and self.msfs_airports_ready):
             if (self.dispatch_state['route']=='waiting_sim' or
                     self.career.mission.nav_source=='MSFS'):
                 self._prepare_active_plan(automatic=True)
@@ -1327,12 +1329,13 @@ class Application:
         s=self.last_sample if self.connected else None
         mission=None
         if m:
-            a,b=AIRPORTS.get(m.origin),AIRPORTS.get(m.destination)
+            verified=restricted_mission(m,self.airport_catalog if self.msfs_airports_ready else None)
             mission={'origin':m.origin,'destination':m.destination,'title':m.title,
-                     'reward':m.reward,'origin_lat':m.origin_lat if m.origin_lat is not None else (a.latitude if a else None),
-                     'origin_lon':m.origin_lon if m.origin_lon is not None else (a.longitude if a else None),
-                     'destination_lat':m.destination_lat if m.destination_lat is not None else (b.latitude if b else None),
-                     'destination_lon':m.destination_lon if m.destination_lon is not None else (b.longitude if b else None)}
+                     'reward':m.reward,'origin_lat':verified.origin_lat,
+                     'origin_lon':verified.origin_lon,
+                     'destination_lat':verified.destination_lat,
+                     'destination_lon':verified.destination_lon,
+                     'nav_source':verified.nav_source}
         self.bridge_state.update(status='connected' if s else 'offline',
             phase=self.tracker.phase.value,balance=self.career.balance,
             aircraft=s.aircraft_title if s else None,
