@@ -66,6 +66,7 @@ class Application:
         self.payload_pending=None
         self.payload_confirmed=None
         self.low_resource_notice=set()
+        self.auto_prepare_due=False
         self.fuel_penalty_frozen=0.0
         self.fuel_ref_frozen=None
         self.fuel_mode_at_takeoff=False
@@ -88,6 +89,7 @@ class Application:
                 self.fuel_company_guard=checkpoint.get('fuel_company_guard')
                 self.payload_confirmed=checkpoint.get('payload_confirmed')
                 self.payload_pending=checkpoint.get('payload_pending')
+                self.auto_prepare_due=bool(checkpoint.get('auto_prepare_due',False))
                 if self.tracker.phase == Phase.AIRBORNE:
                     self.fuel_penalty_frozen=float(checkpoint.get('fuel_penalty_frozen',0.0))
                     self.fuel_mode_at_takeoff=bool(checkpoint.get('fuel_mode_at_takeoff',False))
@@ -587,6 +589,7 @@ class Application:
             self._checkpoint(force=True)
             self.payload_confirmed=None
             self.payload_pending=None
+            self.auto_prepare_due=True
             self._log(f"Contrato aceito: {m.title} ({m.origin} → {m.destination}).")
             if m.freelance:
                 plane = PLANE_BY_CODE[m.employer_plane]
@@ -737,6 +740,7 @@ class Application:
             self._log('DESPACHO PENDENTE: modelo ativo não é o designado na missão.')
             return
         self.sim.request_plan_load(path)
+        self.auto_prepare_due=False
         if m.payload_kg<=0:
             self.payload_confirmed=m.id
             return
@@ -937,7 +941,8 @@ class Application:
                 'fuel_ref_frozen':self.fuel_ref_frozen,
                 'fuel_company_guard':self.fuel_company_guard,
                 'payload_confirmed':self.payload_confirmed,
-                'payload_pending':self.payload_pending}
+                'payload_pending':self.payload_pending,
+                'auto_prepare_due':self.auto_prepare_due}
 
     def _checkpoint(self, force=False):
         # Demo mantém o banco de carreira; checkpoint do voo é para modo MSFS.
@@ -1034,6 +1039,13 @@ class Application:
     def _process_sample(self,s):
         self.last_sample=s
         self._sync_fuel(s)
+        if (self.auto_prepare_due and self.career.mission and self.connected
+                and s.on_ground and s.groundspeed_kt<=2):
+            expected=(self.career.mission.employer_plane if self.career.mission.freelance
+                      else (self.storage.fleet_manager().selected() or {}).get('code'))
+            if aircraft_model(s.aircraft_title)==expected:
+                self._auto_prepare_mission(self.career.mission)
+                self._checkpoint(force=True)
         if self.payload_pending and self.career.mission and self.payload_pending['mission_id']==self.career.mission.id:
             measured=(s.payload_station_weights or {}).get(str(self.payload_pending['station']))
             if measured is not None and abs(measured-self.payload_pending['weight_lbs'])<=1.5:
