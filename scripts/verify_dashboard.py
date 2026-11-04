@@ -48,6 +48,10 @@ with tempfile.TemporaryDirectory() as temp:
             page.locator('.nav-item[data-action="market"]').first.click()
             assert page.locator('#market-dialog').is_visible()
             assert page.locator('#market-list .market-option').count()>0
+            page.locator('#market-list .market-option').first.click()
+            assert page.locator('#details').is_visible()
+            assert '→' in page.locator('#dialog-text').inner_text()
+            page.locator('#dialog-close').click()
             page.locator('[data-market-filter="freelance"]').click()
             assert page.locator('[data-market-filter="freelance"]').get_attribute('aria-pressed')=='true'
             for offer in page.locator('#market-list .market-option').all():
