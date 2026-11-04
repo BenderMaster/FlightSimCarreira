@@ -49,6 +49,11 @@ class Mission:
     destination_lat: float | None = None
     destination_lon: float | None = None
     company_code: str | None = None
+    # Manifesto persistido na oferta/contrato; versões antigas usam defaults.
+    payload_kg: float = 0.0
+    manifest_label: str | None = None
+    manifest_kind: str | None = None  # passenger, cargo, medical
+    passenger_count: int = 0
 
 
 MISSIONS = (
