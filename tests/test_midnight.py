@@ -32,7 +32,15 @@ class PresenterTests(unittest.TestCase):
         self.assertEqual(s['balance'],12345);self.assertEqual(s['country'],'BR');self.assertIn('PPA',s['summary']['qualifications'])
         self.db.conn.execute("INSERT INTO pilot_xp_ledger(flight_key,xp,awarded_utc) VALUES('test',400,1)");self.db.conn.commit()
         changed=self.presenter.snapshot();self.assertGreater(changed['progress']['level'],s['progress']['level']);self.assertNotEqual(changed['progress']['fraction'],s['progress']['fraction'])
+    def test_no_external_market_while_msfs_airports_not_confirmed(self):
+        self.app.mode='MSFS'
+        self.app.connected=True
+        self.pilot()
+        self.assertEqual(self.presenter.snapshot()['offers'],[])
+        self.assertFalse(self.presenter.snapshot()['airports']['ready'])
+
     def test_market_comes_from_persistent_generator(self):
+        self.app.mode='Demo'  # Catálogo embutido permitido SOMENTE na demonstração
         self.pilot();s=self.presenter.snapshot();self.assertTrue(s['offers'])
         ids={m.id for m in self.db.active_offers('SBRF')};self.assertTrue(all(o['id'] in ids for o in s['offers']))
     def test_legacy_route_uses_real_airport_coordinates(self):
@@ -74,7 +82,7 @@ class PresenterTests(unittest.TestCase):
     def test_telemetry_poll_does_not_rescan_world_airports_each_frame(self):
         from aerocarreira.demo import demo_samples
         from aerocarreira.domain import AIRPORTS
-        self.pilot();self.app.connected=True;self.app.last_sample=demo_samples()[0]
+        self.pilot();self.app.mode='Demo';self.app.connected=True;self.app.last_sample=demo_samples()[0]
         from aerocarreira.contracts import AirportCatalog
         self.app.airport_catalog=Mock(wraps=AirportCatalog(locations=AIRPORTS),locations=AIRPORTS)
         self.app.airport_catalog.nearest.return_value=AIRPORTS['SBRF']
@@ -96,6 +104,7 @@ class PresenterTests(unittest.TestCase):
             controller.dispatch({'action':'fuel'});warning.assert_called_once()
         self.assertEqual(self.db.get_setting('fuel_control_enabled'),old)
     def test_offer_confirmed_in_webview_skips_invisible_tk_confirmation(self):
+        self.app.mode='Demo'
         self.pilot()
         self.presenter.refresh_market()
         offer=next(iter(self.presenter.offers.values()))
