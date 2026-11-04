@@ -39,7 +39,7 @@ class TestV077(unittest.TestCase):
 
     def test_first_session_next_day_restores_saved_fuel(self):
         self.assertEqual(self.observe()[0],'calibrated')
-        self.clock[0]+=10
+        self.clock[0]+=2000
         low={'LEFT_MAIN':7.8,'RIGHT_MAIN':7.8}
         self.assertEqual(self.observe(low)[0],'consuming')
         self.clock[0]+=86400*4
