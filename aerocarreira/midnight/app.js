@@ -200,11 +200,11 @@ function weatherDetails(){
  const w=state.weather||{},o=w.origin,n=w.destination_metar,d=w.destination_sim;
  const origin=state.mission?.origin||'—',dest=state.mission?.destination||'—';
  const useSim=!n||w.show_sim_with_noaa;
- return 'ORIGEM '+origin+' — MSFS (condições na aeronave)\\n'+(o?weatherSummary(o):'Sem leitura na origem')+
-  '\\n\\nDESTINO '+dest+' — NOAA METAR\\n'+(n?(n.raw||weatherSummary(n)):'NOAA indisponível')+
-  (n?.stale?'\\nBoletim em cache; pode estar desatualizado.':'')+
-  (useSim?'\\n\\nDESTINO — MSFS (fallback ou preferência)\\n'+(d?weatherSummary(d):'Aguardando aproximação'):'')+
-  '\\n\\nO MSFS não informa o METAR integral via SimVars.';
+ return 'ORIGEM '+origin+' — MSFS (condições na aeronave)\n'+(o?weatherSummary(o):'Sem leitura na origem')+
+  '\n\nDESTINO '+dest+' — NOAA METAR\n'+(n?(n.raw||weatherSummary(n)):'NOAA indisponível')+
+  (n?.stale?'\nBoletim em cache; pode estar desatualizado.':'')+
+  (useSim?'\n\nDESTINO — MSFS (fallback ou preferência)\n'+(d?weatherSummary(d):'Aguardando aproximação'):'')+
+  '\n\nO MSFS não informa o METAR integral via SimVars.';
 }
 function renderWeather(s){
  const w=s.weather||{},o=w.origin,n=w.destination_metar,d=w.destination_sim;
