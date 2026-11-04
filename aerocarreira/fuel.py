@@ -240,5 +240,5 @@ class FuelManager:
         if not old or not old['capacities']:
             raise ValueError('Calibre tanques antes de completar.')
         result=self.change_liters(ref,sum(old['capacities'].values())*LITERS_PER_GALLON)
-        return dict(result,added_gal=max(0,result['delta_liters'])/LITERS_PER_GALLON,
-                    total_gal=result['target_liters']/LITERS_PER_GALLON)
+        return dict(result,added_gal=round(max(0,sum(result['tanks'].values())-sum(old['tanks'].values())),5),
+                    total_gal=round(sum(result['tanks'].values()),5))
