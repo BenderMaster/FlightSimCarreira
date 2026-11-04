@@ -12,7 +12,12 @@ def main():
     from . import __version__
     parser.add_argument('--version',action='version',version='FlightSimCarreira '+__version__)
     parser.add_argument('--webview-host',help=argparse.SUPPRESS)
+    parser.add_argument('--verify-native-webview',action='store_true',help=argparse.SUPPRESS)
     args=parser.parse_args()
+    if args.verify_native_webview:
+        from .webview_host import verify_native_runtime
+        print(verify_native_runtime())
+        return
     if args.webview_host:
         from .webview_host import main as host_main
         host_main(args.webview_host);return

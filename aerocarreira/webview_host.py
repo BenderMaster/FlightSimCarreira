@@ -3,6 +3,24 @@ import json
 import sys
 import urllib.request
 
+def verify_native_runtime():
+    """Exercita exatamente o backend pythonnet/WinForms usado no executável Windows.
+
+    Não abre navegador ou interface alternativa. Falha com código != 0 em caso
+    de DLL do pythonnet incompatível, bloqueada ou ausente.
+    """
+    if sys.platform != 'win32':
+        raise RuntimeError('Verificação WinForms disponível somente no Windows')
+    import clr
+    import System
+    import webview
+    from webview.platforms import winforms
+    screens = webview.screens
+    if not screens:
+        raise RuntimeError('pywebview/WinForms não encontrou tela disponível')
+    return f'Python.Runtime e WinForms carregados; telas={len(screens)}'
+
+
 def main(url=None):
     import webview
     url=url or sys.argv[1];origin,token=url.split('/#',1)
