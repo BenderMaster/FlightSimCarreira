@@ -82,7 +82,10 @@ class FuelManager:
                 return 'mismatch',None  # capacidade trocada: não sobrescrever outro modelo/tanque
         if caps and caps!=old['capacities']:
             old['capacities']=caps
-        elapsed=max(0,now-self.last_seen.get(ref,old['updated_at']))
+        # Fechar o simulador por horas/dias NÃO representa horas de voo.
+        # Ao reconectar, nunca aceitar queda de combustível ocorrida offline.
+        previous=self.last_seen.get(ref)
+        elapsed=max(0,min(10,now-previous)) if previous is not None else 0
         self.last_seen[ref]=now
         # No modo desligado aceitamos consumo mas não permitimos acumular
         # combustível inserido manualmente para obter combustível grátis depois.
@@ -115,28 +118,15 @@ class FuelManager:
         return 'restore',dict(expected)
 
     def refuel_full(self, ref):
-        """Transação única: combustível pago + novo alvo de todos os tanques."""
+        """Completa tanques preservando compatibilidade de API com v0.7.6."""
         old=self.get(ref)
         if not old or not old['capacities'] or set(old['tanks'])!=set(old['capacities']):
-            raise ValueError('Tanques/capacidades ainda não sincronizados. Conecte a aeronave no solo.')
-        if self.db.get_setting('fuel_control_enabled')!='1':
-            raise ValueError('Ative o controle de combustível do addon para abastecer.')
-        if self.db.fleet_manager().get(ref) is None:
-            raise ValueError('Aeronave própria/alugada não encontrada.')
-        caps=old['capacities']
-        new={k:round(caps[k],4) for k in old['tanks']}
-        if not valid_tanks(new,capacities=caps):
-            raise ValueError('Capacidades inválidas; abastecimento recusado.')
-        added=sum(new.values())-sum(old['tanks'].values())
-        if added<=.03:
-            raise ValueError('Tanques já estão praticamente cheios.')
-        price=max(1,round(added*LITERS_PER_GALLON*FUEL_BRL_PER_LITER))
-        with self.db.conn:
-            self.db._money_movement('refuel:'+ref+':'+str(time_ns()),'abastecimento',-price,
-                                    f'Abastecimento {added:.1f} gal — {ref}')
-            self.db.conn.execute('''UPDATE fleet_fuel SET tanks_json=?,updated_utc=? WHERE aircraft_ref=?''',
-                                 (json.dumps(new,sort_keys=True),self.clock(),ref))
-        return {'added_gal':round(added,2),'cost_brl':price,'total_gal':round(sum(new.values()),2)}
+            raise ValueError('Capacidades dos tanques indisponíveis.')
+        before=sum(old['tanks'].values())
+        target=sum(old['capacities'].values())*LITERS_PER_GALLON
+        result=self.set_target_liters(ref,target)
+        return {'added_gal':round(target/LITERS_PER_GALLON-before,2),
+                'cost_brl':result['cost_brl'],'total_gal':round(target/LITERS_PER_GALLON,2)}
 
     def set_target_liters(self, ref: str, target_liters: float) -> dict:
         """Ajusta o TOTAL em litros preservando distribuição proporcional.
