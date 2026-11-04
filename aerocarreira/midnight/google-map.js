@@ -85,6 +85,8 @@ function render(s){
   if(map&&active){update(s);return;}
   if(Date.now()<nextTry)return;
   load(key).then(()=>{
+    // A configuração pode ter sido desativada durante o carregamento assíncrono.
+    if((recentState?.google_maps_key||'')!==key){fallback();return;}
     if(!map)map=new google.maps.Map(get(),{center:{lat:-8.05,lng:-34.9},zoom:9,
       mapTypeId:'satellite',gestureHandling:'greedy',scrollwheel:true,zoomControl:false,
       fullscreenControl:false,mapTypeControl:false,streetViewControl:false,rotateControl:false,
