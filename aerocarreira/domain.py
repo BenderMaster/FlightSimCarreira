@@ -87,6 +87,8 @@ class FlightSample:
     visibility_m: float | None = None
     sea_level_pressure_hpa: float | None = None
     heading_true_deg: float | None = None  # proa geográfica real, graus, opcional
+    heading_magnetic_deg: float | None = None  # proa magnética do cockpit
+    on_any_runway: bool | None = None  # nenhum dado = None, não falsa
     # None indica dado indisponível; nunca significa opção desligada.
     assistance_landing: bool | None = None
     assistance_takeoff: bool | None = None
