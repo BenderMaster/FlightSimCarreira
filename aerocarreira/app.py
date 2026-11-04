@@ -8,7 +8,7 @@ from queue import Queue, Empty
 from tkinter import Tk, Toplevel, Frame, Label, Button, Entry, StringVar, IntVar, Checkbutton, Canvas, filedialog, messagebox, Text, END
 from tkinter import ttk
 from time import strftime, localtime, time
-from .domain import FlightTracker, Career, MISSIONS, AIRPORTS, distance_nm, Phase
+from .domain import FlightTracker, Career, MISSIONS, AIRPORTS, distance_nm, Phase, Airport
 from .storage import Storage
 from .sim_adapter import SimConnectWorker
 from .demo import demo_samples
@@ -23,6 +23,7 @@ from .finance import AIRCRAFT_ECONOMY, brl, estimated_minutes
 from .contracts import aircraft_model
 from .fuel import FuelManager
 from .manifest import mission_manifest
+from .msfs_navdata import remember_airport, overlay_mission, overlay_catalog, validated_airport
 from .payload import load_plan, load_confirmed
 from .fleet import used_market, resale_price
 from .planning import Preflight, inspect_preflight, aircraft_title_matches
@@ -547,7 +548,7 @@ class Application:
         self._accept_specific(m)
 
     def _accept_specific(self, m):
-        m=mission_manifest(m)
+        m=overlay_mission(mission_manifest(m),self.storage)
         # No menu do MSFS ainda não existe SimConnect; o jogador pode
         # reservar contrato na base do seu perfil e preparar o plano .PLN.
         offline = self.mode == "Desconectado"
@@ -731,6 +732,11 @@ class Application:
         if not m:
             if not automatic:messagebox.showinfo('Plano VFR','Aceite primeiro um contrato.')
             return False
+        if automatic and self.mode=='MSFS' and m.nav_source!='MSFS':
+            if self.dispatch_state:self.dispatch_state['route']='waiting_navdata'
+            if self.sim:self.sim.request_airports([m.origin,m.destination])
+            self._log('PLANO VFR pendente: aguardando origem e destino da base de aeroportos do MSFS. Use o botão manual para gerar com catálogo externo se necessário.')
+            return False
         try:
             data=self._saved_preflight()
             path=export_vfr_plan(m,state_dir()/'planos_vfr', data.altitude_ft if data else 2500)
@@ -800,6 +806,35 @@ class Application:
             if time()-self._payload_last_request>4:
                 self._payload_last_request=time()
                 self._queue_payload_load()
+
+    def _apply_facility(self,item):
+        try:
+            code,lat,lon=validated_airport(item['icao'],item['lat'],item['lon'])
+        except (KeyError,TypeError,ValueError):
+            return
+        try:
+            remember_airport(self.storage,code,lat,lon)
+            if self.airport_catalog is None:
+                from .contracts import AirportCatalog
+                self.airport_catalog=AirportCatalog()
+                overlay_catalog(self.airport_catalog,self.storage)
+            old=self.airport_catalog.locations.get(code)
+            if old:self.airport_catalog.locations[code]=Airport(code,old.name,lat,lon)
+            presenter=self.dashboard.presenter if self.dashboard else None
+            if presenter:
+                presenter.offers={key:overlay_mission(m,self.storage) for key,m in presenter.offers.items()}
+                if presenter.position_center and presenter.position_center.icao==code:
+                    presenter.position_center=self.airport_catalog.locations.get(code)
+            if self.career.mission and code in (self.career.mission.origin,self.career.mission.destination):
+                was=self.career.mission.nav_source
+                self.career.mission=overlay_mission(self.career.mission,self.storage)
+                if (self.career.mission.nav_source=='MSFS' and was!='MSFS' and
+                    self.dispatch_state.get('route')=='waiting_navdata'):
+                    self._log('ROTA MSFS: ambas as coordenadas confirmadas. Preparando plano automaticamente.')
+                    self._prepare_active_plan(automatic=True)
+                self._checkpoint(force=True)
+        except (ValueError,OSError) as exc:
+            self._log('NAVDATA MSFS: '+str(exc))
 
     def _warn_resources(self,s):
         plane=self.storage.fleet_manager().selected()
@@ -1300,6 +1335,8 @@ class Application:
                     self._log('PLANO VFR: '+item)
                 elif kind=='payload_sent':
                     self._log('Peso enviado ao simulador; aguardando leitura de confirmação.')
+                elif kind=='facility':
+                    self._apply_facility(item)
                 elif kind=='payload_error':
                     if self.dispatch_state:
                         self.dispatch_state.update(payload='error',message=item)
