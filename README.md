@@ -1,3 +1,17 @@
+# FlightSimCarreira v0.7.8.1 — Hotfix do catálogo de aeroportos do MSFS 2020
+
+Correção localizada do erro **"AEROPORTOS MSFS INDISPONÍVEIS: Lista truncada: tamanho incompatível com contagem"** identificado em teste real da v0.7.8.
+
+- O array de aeroportos retornado via SimConnect pode começar no byte **28 ou 32**; cada registro pode ocupar **33, 36 ou 40 bytes** conforme alinhamento. O leitor agora reconhece as combinações válidas e verifica dados plausíveis antes de aceitar.
+- O mercado só é liberado após receber **todas** as páginas válidas da listagem do MSFS; **nenhuma base externa nem coordenada inventada** é usada.
+- Erro de leitura continua bloqueando ofertas e agora informa bytes/contagem quando o layout não é reconhecido, sem repetir indefinidamente a mesma mensagem no log.
+- Novos testes cobrem o caso que falhava, registro único ambíguo, seis combinações de alinhamento, coordenadas inválidas e respostas incompletas.
+- Regras de contrato, pagamentos, combustível, payload, ícone aprovado e save da v0.7.8 permanecem inalterados.
+
+**Teste MSFS 2020:** instale o ZIP completo em uma pasta nova, preserve o banco SQLite e inicie com o avião em solo. Aguarde o log `AEROPORTOS MSFS: N aeródromos confirmados pelo simulador`. Se a mensagem de layout persistir, envie o texto integral com os valores de pacote e registros: **não use catálogo externo** para contornar o erro. A aprovação por CI não equivale a homologação física no simulador.
+
+---
+
 # FlightSimCarreira v0.7.8 Midnight Ops Alpha.1 — navegação MSFS rigorosa
 
 **Foco:** corrigir as falhas reais detectadas na v0.7.7 (aeroportos inexistentes, popup de abastecimento rejeitado, confusão entre ATC e mapa VFR) preservando a carga confirmada e o save.

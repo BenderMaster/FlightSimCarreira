@@ -1,3 +1,11 @@
+## v0.7.8.1 Midnight Ops Alpha.2 — Hotfix de alinhamento SimConnect
+
+- Suporta cabeçalho de 28/32 bytes e registros de aeroporto de 33/36/40 bytes na listagem MSFS 2020.
+- Valida contagem, paginação, ICAO, coordenadas e altitude; rejeita layouts ambíguos/incompletos, mantendo mercado bloqueado em falha.
+- Evita repetir indefinidamente mensagens idênticas de erro durante a importação.
+- Acrescenta testes de regressão que reproduzem os pacotes alinhados reportados na v0.7.8.
+- Preserva payload, combustível, mapa, versão de banco e a restrição a aeroportos da sessão MSFS.
+
 ## v0.7.8 Midnight Ops Alpha.1 — catálogo oficial do MSFS e refuel
 - Catálogo de aeroportos restrito ao MSFS 2020 via SimConnect, paginação completa, validação de ICAO/coordenadas, sem fallback externo ou arquivo CSV empacotado. Ofertas e exportação exigem origem/destino existentes na sessão atual.
 - Contratos antigos preservados no save, mas bloqueados quando inexistentes no catálogo entregue pelo MSFS.

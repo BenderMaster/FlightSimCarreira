@@ -12,3 +12,8 @@
 Se o catálogo não aparecer, reportar `airport_catalog_error` e versão da instalação MSFS; evitar ofertar coordenadas externas só para popular a UI.
 
 **CI verde não substitui o MSFS real.**
+## Hotfix v0.7.8.1 — alinhamento dos pacotes (4 nov 2026)
+
+A v0.7.8 lia sempre a lista a partir do byte 28. Alguns buffers usam padding e colocam o primeiro registro no byte 32. O leitor atualizado testa offsets 28/32 e strides 33/36/40, validando coordenadas para selecionar o layout. O catálogo continua **100% MSFS**: falhas de leitura não permitem fallback externo.
+
+Se a importação continuar falhando, o log agora apresenta comprimento do pacote e contagem dos registros para investigação. Conferir `AEROPORTOS MSFS: N aeródromos confirmados` antes de selecionar qualquer missão.
