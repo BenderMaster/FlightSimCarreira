@@ -712,6 +712,12 @@ class Application:
         self.label(buttons,"Apenas ofertas regionais; máximo 13 armazenadas.",9,MUTED).pack(side="right")
         populate()
 
+    def _prepare_active_mission(self):
+        if self.career.mission is None:
+            self._log('DESPACHO: aceite primeiro uma missão.')
+            return
+        self._auto_prepare_mission(self.career.mission)
+
     def _prepare_active_plan(self):
         m=self.career.mission
         if m is None:
