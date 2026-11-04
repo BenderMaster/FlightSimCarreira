@@ -729,6 +729,140 @@ class Application:
         self.label(buttons,"Apenas ofertas regionais; máximo 13 armazenadas.",9,MUTED).pack(side="right")
         populate()
 
+    def _import_msfs_facilities(self, airports):
+        """Prioriza coordenadas do cenário MSFS nas futuras rotas e .PLN."""
+        if not isinstance(airports,list) or not airports:return
+        if self.airport_catalog is None:self.airport_catalog=AirportCatalog()
+        count=self.airport_catalog.merge_msfs_airports(airports)
+        if not count:return
+        # A lista validada tem número limitado de ICAOs regionais.
+        self.storage.set_setting('msfs_airports_v077',json.dumps(airports))
+        if self.dashboard:
+            self.dashboard.presenter.market_key=None
+            self.dashboard.presenter.refresh_market(True)
+        self._log(f'NAVDATA MSFS: {count} aeroportos incorporados ao mapa e rotas VFR.')
+        if self.career.mission and self.tracker.phase!=Phase.AIRBORNE:
+            self.career.mission=resolve_mission_navdata(self.career.mission,self.airport_catalog)
+            self.dispatch_state['plan']='pending'
+            self._checkpoint(force=True)
+            self._auto_prepare_mission()
+
+    def _weight_verified(self,s):
+        m=self.career.mission
+        d=self.dispatch_state
+        if not m or d.get('mission_id')!=m.id or d.get('payload')!='confirmed':
+            return False
+        target=d.get('target_lbs')
+        return bool(target is not None and s.payload_station_2_lbs is not None
+            and abs(s.payload_station_2_lbs-target)<=2.0
+            and s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None
+            and 0<s.total_weight_lbs<=s.max_gross_weight_lbs)
+
+    def _verify_mission_payload(self,s):
+        d=self.dispatch_state
+        if d.get('mission_id')!=(self.career.mission.id if self.career.mission else None):return
+        target=d.get('target_lbs')
+        if target is None or not s.on_ground:return
+        confirmed=(s.payload_station_2_lbs is not None and
+                   abs(s.payload_station_2_lbs-target)<=2.0 and
+                   s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None
+                   and s.total_weight_lbs<=s.max_gross_weight_lbs)
+        if confirmed and d.get('payload')!='confirmed':
+            d['payload']='confirmed'
+            d['message']='Carga confirmada no MSFS pelo peso da estação'
+            self._log(f'CARGA CONFIRMADA: {target:.1f} lb na estação 2; dentro do MTOW.')
+            self._checkpoint(force=True)
+        elif d.get('payload')=='confirmed' and not confirmed:
+            d['payload']='pending'
+            d['message']='Peso alterado no MSFS; aguardando restauração'
+        elif d.get('payload')=='sent' and time()-float(d.get('requested_at') or 0)>15:
+            d['payload']='error'
+            d['message']='Sem leitura de confirmação da carga; verifique a aeronave.'
+            self._log('ALERTA CARGA: SimConnect não confirmou a estação após 15 s.')
+            self._checkpoint(force=True)
+
+    def _auto_prepare_mission(self,force=False):
+        """Uma aceitação já é autorização explícita. Sem nova confirmação/popup.
+
+        Não executa escrita em voo, em modelo errado ou sem telemetria MTOW.
+        Ausência de navegação oficial mantém o plano pendente, sem inventar pista.
+        """
+        m=self.career.mission
+        if not m or self.mode!='MSFS' or not self.connected or not self.sim:return
+        s=self.last_sample
+        if not s or not s.on_ground or time()-s.timestamp>10 or self.tracker.phase==Phase.AIRBORNE:return
+        d=self.dispatch_state
+        if d.get('mission_id')!=m.id:
+            d.update(mission_id=m.id,plan='pending',payload='pending',target_lbs=None,
+                     requested_at=0,message='Preparando missão')
+        if force and d.get('plan') in ('requested','error'):
+            d['plan']='pending'
+        if self.airport_catalog and official_route_ready(m,self.airport_catalog):
+            new=resolve_mission_navdata(m,self.airport_catalog)
+            if new!=m:
+                self.career.mission=m=new
+                self._checkpoint(force=True)
+            if d['plan']=='pending':
+                try:
+                    saved=self._saved_preflight()
+                    path=export_vfr_plan(m,state_dir()/'planos_vfr',
+                                         saved.altitude_ft if saved else 2500)
+                    self.sim.request_plan_load(path)
+                    d['plan']='sent'
+                    self._log('PLANO VFR: solicitação automática enviada ao MSFS (navdata oficial).')
+                except (OSError,ValueError) as exc:
+                    d['plan']='error'
+                    self._log('PLANO VFR: '+str(exc))
+        elif d['plan']=='pending':
+            d['message']='Aguardando coordenadas oficiais MSFS para carregar o plano VFR'
+        if d.get('payload') not in ('pending','blocked'):return
+        if m.freelance and not matches_aircraft(s.aircraft_title,m.employer_plane):
+            d['message']='Selecione a aeronave do contratante no MSFS para carregar a missão'
+            return
+        if not m.freelance:
+            selected=self.storage.fleet_manager().selected()
+            if not selected or aircraft_model(s.aircraft_title)!=selected['code']:
+                d['message']='Aeronave selecionada no simulador difere do Hangar'
+                return
+        try:
+            check=payload_limits(s,m)
+        except ValueError as exc:
+            message=str(exc)
+            if d.get('message')!=message:self._log('DESPACHO DE CARGA: '+message)
+            d['payload']='blocked'
+            d['message']=message
+            return
+        self.sim.request_payload_load(check['station'],check['target_lbs'],m.id)
+        d['payload']='sent'
+        d['target_lbs']=check['target_lbs']
+        d['requested_at']=time()
+        d['message']='Peso enviado ao SimConnect; aguardando confirmação'
+        self._log(f'PREPARAÇÃO AUTOMÁTICA: {m.manifest_description} ({m.payload_kg:.0f} kg), '
+                  f'estação 2, peso projetado {check["projected_lbs"]:.0f}/{check["max_lbs"]:.0f} lb.')
+        self._checkpoint(force=True)
+
+    def _prepare_mission_button(self):
+        self._auto_prepare_mission(force=True)
+        self._planning_window()
+
+    def _emit_career_alerts(self,s):
+        plane=self.storage.fleet_manager().selected()
+        if plane is None:return
+        ref=plane['ref']
+        fuel=self.fuel_manager.get(ref)
+        if fuel and fuel['capacities']:
+            cap=sum(fuel['capacities'].values())
+            if cap>0 and sum(fuel['tanks'].values())/cap<=.20:
+                key=(ref,'fuel')
+                if key not in self._alerted:
+                    self._alerted.add(key)
+                    self._log('ALERTA CRÍTICO: combustível abaixo de 20% em '+plane['title']+'.')
+        if plane.get('condition') is not None and plane['condition']<=20:
+            key=(ref,'wear')
+            if key not in self._alerted:
+                self._alerted.add(key)
+                self._log('ALERTA CRÍTICO: desgaste da aeronave atingiu 20%. Procure manutenção.')
+
     def _prepare_active_plan(self):
         m=self.career.mission
         if m is None:
