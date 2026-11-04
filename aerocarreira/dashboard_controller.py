@@ -101,8 +101,11 @@ class DashboardController:
             m=self.presenter.offers.get(cmd.get('id'))
             if not m or app.storage.contract_completed(m.id):
                 messagebox.showwarning('Mercado','Oferta expirada ou concluída. Atualize a lista.');return
-            if messagebox.askyesno('Aceitar contrato',f'{m.title}\n{m.origin} → {m.destination}\nPagamento bruto: {brl(m.reward)}\n\nAceitar esta missão?'):
-                app._accept_specific(m)
+            # O botão "Aceitar missão" já confirma explicitamente dentro da
+            # janela WebView2; não abrir messagebox Tk atrás do app.
+            # O motor da carreira revalida fase/solo, localização,
+            # elegibilidade e contrato ativo em _accept_specific().
+            app._accept_specific(m)
         elif action=='fuel':
             if app.tracker.phase==Phase.AIRBORNE:
                 messagebox.showwarning('Combustível','Altere apenas em solo. O modo fica congelado na decolagem.');return
