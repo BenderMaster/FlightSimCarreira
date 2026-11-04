@@ -10,3 +10,29 @@
 [hidden]{display:none!important}.aircraft-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 45%;filter:saturate(.7) brightness(.8)}.aircraft-art.has-photo:after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,#061b28 0,transparent 40%,#061b2810);pointer-events:none}.photo-credit{position:absolute;z-index:2;right:.4em;bottom:.35em;border:1px solid #7b9baa;background:#03131bd9;border-radius:50%;width:1.3em;height:1.3em;font-size:.75em;line-height:1;padding:0}.photo-credit:hover{color:#00e9ff}
 
 .center-column{grid-template-rows:13.5fr 34.5fr 24fr 20fr}.metrics{grid-template-rows:minmax(0,1fr)}.metric{min-height:0;padding:.15em .1em}.metric svg{width:1.25em;height:1.25em;flex-shrink:0}.metric strong{font-size:1.18em;line-height:1.1;margin:.08em 0}.metric>small{font-size:.67em;line-height:1.1}.weather-row{height:32%;margin-top:.5em}@media(max-height:650px){.center-column{grid-template-rows:14fr 32fr 27fr 20fr}.metric svg{height:1.15em;width:1.15em}}
+
+/* v0.7.1 — mapa Google oficialmente licenciado; mantenha logo e atribuições nativas visíveis. */
+#google-map{position:absolute;inset:0;display:none;z-index:0;background:#071624}
+.map-area.google-active>#google-map{display:block}
+.map-area.google-active>#route-map{display:none}
+.map-area.google-active .map-caption{display:none}
+.map-area .compass,.map-area .map-tools,.map-area .map-mode{z-index:3}
+#route-map{cursor:grab;touch-action:none}
+#route-map:active{cursor:grabbing}
+.map-tools button{box-shadow:0 1px 6px #0009}
+.maps-settings-dialog{width:min(560px,90vw);background:#071725;color:var(--fg);
+ border:1px solid #39738b;border-radius:12px;box-shadow:0 10px 40px #000b;padding:1.3em}
+.maps-settings-dialog::backdrop{background:#000b}
+.maps-settings-dialog p{color:var(--muted);line-height:1.5}
+.maps-settings-dialog label{display:block;margin:.9em 0 .4em;font-weight:700}
+.maps-settings-dialog input{width:100%;padding:.8em;border:1px solid #49758b;
+ border-radius:7px;background:#00121d;color:#eaffff;font:inherit}
+.maps-settings-dialog small{display:block;margin:.8em 0 1.4em;line-height:1.5}
+.summary-row.rep-good b{color:#83ee6f}
+.summary-row.rep-neutral b{color:#35d6ff}
+.summary-row.rep-warning b{color:#f4be4b}
+.summary-row.rep-critical b{color:#fa6d70}
+.summary-row.reputation{position:relative;padding-bottom:.6em}
+.summary-row.reputation:after{content:'';position:absolute;bottom:0;left:0;height:3px;
+ width:var(--rep-percentage,0%);border-radius:5px;background:var(--rep-color,#35d6ff);
+ box-shadow:0 0 7px var(--rep-color,#35d6ff)}

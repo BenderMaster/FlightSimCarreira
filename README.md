@@ -1,3 +1,13 @@
+# FlightSimCarreira v0.7.1 Midnight Ops Alpha.1 — reputação e Google Satélite
+
+Novo patch sobre a v0.7.0 aprovada. Reputação calculada do histórico real, ícone ciano vetorial, Google Satélite oficial com scroll/arraste e mapa de coordenadas como fallback.
+
+**Atenção:** Google Maps requer chave da Maps JavaScript API e configuração de faturamento/restrições do próprio piloto. Chave e fotos não devem ser enviadas ao GitHub. [Como configurar e testar](docs/V071_REPUTACAO_MAPA.md).
+
+O motor SQLite/SimConnect, bônus, combustível, contratos e pagamentos continuam os mesmos da v0.7.0.
+
+---
+
 # FlightSimCarreira — Midnight Ops 0.7.0 Alpha 1
 
 Esta branch reconstrói o dashboard sobre a **v0.6.1-alpha.1**, commit `3048bb86ee498770b93862ef449fb4d2ff6e061f`, preservando seu motor Python. A `main` v0.6.3 permanece independente.

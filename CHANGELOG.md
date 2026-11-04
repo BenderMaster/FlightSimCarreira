@@ -1,3 +1,13 @@
+## 0.7.1 Midnight Ops Alpha.1 — Reputação e Google Satélite
+
+- Implementa reputação virtual persistente (reconstruída do diário SQLite histórico, sem migrar esquema e sem duplicar ganhos).
+- Substitui NASA Blue Marble pelo mapa Google Satélite por API oficial, com chave configurável localmente, scroll, arraste e reenquadramento.
+- Sem chave Google: fallback local interativo, sem tiles NASA.
+- Troca marcador por silhueta vetorial ciano proporcional, com orientação aproximada via deslocamento observado.
+- Adiciona controles e testes de regressão, documentação de licenciamento e faturamento do Google Maps.
+- Não muda SimConnect, motor de voos, pagamentos, XP ou combustível.
+- Integração Google ainda requer chave configurada e homologação real no MSFS do piloto.
+
 # Changelog
 
 ## 0.7.0-midnight.alpha.1 — branch de redesign sobre v0.6.1 (03/11/2026)

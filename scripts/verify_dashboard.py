@@ -62,12 +62,25 @@ with tempfile.TemporaryDirectory() as temp:
             failures=[r for r in results if r['overlap'] or r['out'] or r['clipped'] or r['buttons'] or r['scrollX'] or r['scrollY']]
             (OUTPUT.parent/'layout-results.json').write_text(json.dumps({'browser_errors':errors,'cases':results},indent=2))
             assert not failures,json.dumps(failures,indent=2)
-            # External imagery can fail without breaking route or engine updates.
-            page.route('https://gibs.earthdata.nasa.gov/**',lambda route:route.abort())
-            page.evaluate('() => { tileCache.clear(); renderMap(state); }')
-            page.wait_for_timeout(800)
-            assert page.locator('#route').inner_text()=='SBRF → SIPE'
+            # Google configurável, sem chave: reserva local interativa; sem tiles NASA.
+            assert page.locator('#google-map').count()==1
+            assert not page.locator('.map-area').evaluate("e=>e.classList.contains('google-active')")
             assert page.locator('#route-map circle').count()>=2
+            zoom_before=page.evaluate('zoom')
+            page.locator('#route-map').hover()
+            page.mouse.wheel(0,-300)
+            page.wait_for_timeout(250)
+            assert page.evaluate('zoom')>zoom_before
+            viewport_box=page.locator('#route-map').bounding_box()
+            x=viewport_box['x']+viewport_box['width']/2
+            y=viewport_box['y']+viewport_box['height']/2
+            pan_before=page.evaluate('[mapPanX,mapPanY]')
+            page.mouse.move(x,y);page.mouse.down();page.mouse.move(x+35,y+20,steps=4);page.mouse.up()
+            assert page.evaluate('[mapPanX,mapPanY]')!=pan_before
+            page.locator('#map-config').click()
+            assert page.locator('#maps-settings-dialog').is_visible()
+            page.locator('#maps-key-close').click()
+            assert page.locator('#route').inner_text()=='SBRF → SIPE'
             # Safe shutdown persists the active contract in the isolated career.
             page.evaluate("() => command('close')")
             process.wait(timeout=10)

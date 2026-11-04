@@ -4,20 +4,39 @@ const $=id=>document.getElementById(id),money=n=>new Intl.NumberFormat('pt-BR',{
 const icon=n=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg'),u=document.createElementNS(s.namespaceURI,'use');u.setAttribute('href','#i-'+n);s.append(u);return s};
 const node=(tag,cls,value)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined)e.textContent=value;return e};
 const tileCache=new Map();
-let state={},zoom=1,selectedOffer=null,lastOfferKey='',pollFailures=0;
+let state={},zoom=1,mapPanX=0,mapPanY=0,selectedOffer=null,lastOfferKey='',pollFailures=0,planeTrack=null,planeBearing=0;
 const nav=[['home','Dashboard','dashboard'],['plane','Missões e Contratos','market'],['globe','Mercado Regional','market'],['hangar','Frota / Hangar','fleet'],['map','Planejamento de Voo','planning'],['pilot','Meu Piloto','pilot'],['coins','Finanças','finance'],['building','Companhias','employment'],['book','Logbook','history'],['chart','Análise e Relatórios','reports'],['gear','Configurações','settings']];
 for(const [ic,label,action] of nav){const b=node('button','nav-item'+(action==='dashboard'?' active':''));b.append(icon(ic),node('span','',label));b.dataset.action=action;$('navigation').append(b)}
 const metricNames=[['ias','gauge','Velocidade (IAS)','kt'],['gs','gauge','Velocidade (GS)','kt'],['alt','mountain','Altitude (MSL)','ft'],['agl','layers','Altura (AGL)','ft'],['vs','arrows','Razão Vertical','ft/min'],['phase','plane','Fase do Voo','']];
 for(const [key,ic,label] of metricNames){const m=node('div','metric');m.append(icon(ic));const v=node('strong','','—');v.id='metric-'+key;m.append(v,node('small','',label));$('metrics').append(m)}
 function toast(message){text('toast',message);$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),4000)}
-async function command(action,id){try{const r=await fetch('/command',{method:'POST',headers:{'Content-Type':'application/json','X-Flight-Token':token},body:JSON.stringify(id?{action,id}:{action})});if(!r.ok)throw Error();if(!['refresh','close'].includes(action))toast('Solicitação enviada ao aplicativo.');}catch{toast('Não foi possível enviar. Verifique se o aplicativo está aberto.')}}
+async function command(action,id){try{const r=await fetch('/command',{method:'POST',headers:{'Content-Type':'application/json','X-Flight-Token':token},body:JSON.stringify(id!==undefined?{action,id}:{action})});if(!r.ok)throw Error();if(!['refresh','close'].includes(action))toast('Solicitação enviada ao aplicativo.');}catch{toast('Não foi possível enviar. Verifique se o aplicativo está aberto.')}}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b){if(b.dataset.action==='dashboard')return;command(b.dataset.action)}const tab=e.target.closest('[data-tab]');if(tab&&tab.dataset.tab==='weather')showDetails('METAR / CLIMA','Consulta METAR externa ainda não validada nesta base.\n\nNão há dados confiáveis de QNH, visibilidade ou condição VFR/IFR disponíveis.');});
 function showDetails(title,body,offer){text('dialog-title',title);text('dialog-text',body);selectedOffer=offer||null;$('dialog-accept').hidden=!offer;$('dialog-accept').disabled=!!offer&&!offer.allowed;$('details').showModal()}
 $('dialog-close').onclick=()=>$('details').close();$('dialog-accept').onclick=()=>{if(selectedOffer?.allowed){command('offer',selectedOffer.id);$('details').close()}};
 function bar(id,ratio){$(id).style.width=(Math.min(1,Math.max(0,ratio||0))*100)+'%'}
 function renderOffers(s){const key=JSON.stringify([s.offers,s.mission?.id]);if(key===lastOfferKey)return;lastOfferKey=key;$('offers').replaceChildren();const offers=s.offers.slice(0,5);if(!offers.length){const empty=node('div','empty');empty.append(icon('globe'),node('span','',s.pilot?'Sem propostas disponíveis. Atualize o mercado ou confira sua base e habilitações.':'Cadastre seu piloto para descobrir os contratos da região.'));$('offers').append(empty);return}
 for(const o of offers){const b=node('button','offer'+(s.mission?.id===o.id?' active':'')+(!o.allowed?' locked':''));b.append(icon(o.category.toLowerCase().includes('carga')?'box':'plane'));const d=node('div');d.append(node('strong','',o.category));const meta=node('div','offer-meta');meta.append(node('span','',o.origin+' → '+o.destination),node('span','price',money(o.reward)));d.append(meta,node('small','duration',(o.minutes===null?'—':'~ '+Math.floor(o.minutes/60)+'h'+String(o.minutes%60).padStart(2,'0'))+(!o.allowed?' • Bloqueado':'')));b.append(d);b.onclick=()=>showDetails(o.category,o.origin+' → '+o.destination+'\nPagamento bruto: '+money(o.reward)+'\n'+(o.distance===null?'Distância indisponível':number(o.distance)+' NM • '+o.minutes+' min')+'\n\n'+o.reason,o);$('offers').append(b)}}
-function renderSummary(s){const entries=[['plane','Voos realizados',s.summary.flights],['clock','Horas de voo',number(s.summary.hours,1)+' h'],['layers','Resultado operacional',money(s.summary.net),'money'],['badge','Bônus de realismo',money(s.summary.bonus),'money'],['pilot','Reputação','Indisponível']];$('summary').replaceChildren();for(const [ic,label,v,c] of entries){const row=node('div','summary-row '+(c||''));row.append(icon(ic),node('span','',label),node('b','',v));$('summary').append(row)}bar('summary-progress',s.progress.fraction)}
+function renderSummary(s){
+  const rep=s.summary?.reputation?.score;
+  const band=s.summary?.reputation?.band||'neutral';
+  const entries=[['plane','Voos realizados',s.summary.flights],
+    ['clock','Horas de voo',number(s.summary.hours,1)+' h'],
+    ['layers','Resultado operacional',money(s.summary.net),'money'],
+    ['badge','Bônus de realismo',money(s.summary.bonus),'money'],
+    ['pilot','Reputação',Number.isFinite(rep)?rep+'%':'Indisponível','reputation rep-'+band]];
+  $('summary').replaceChildren();
+  for(const [ic,label,v,c] of entries){
+    const row=node('div','summary-row '+(c||''));
+    row.append(icon(ic),node('span','',label),node('b','',v));
+    if(label==='Reputação'&&Number.isFinite(rep)){
+      row.style.setProperty('--rep-percentage',Math.max(0,Math.min(100,rep))+'%');
+      row.style.setProperty('--rep-color',{good:'#80ef65',neutral:'#35d6ff',warning:'#f4be4b',critical:'#f86b72'}[band]||'#35d6ff');
+    }
+    $('summary').append(row);
+  }
+  bar('summary-progress',s.progress.fraction);
+}
 function render(s){state=s;if(!s.progress)return;const p=s.pilot;const country=s.country==='BR'?'':s.country?' · '+s.country:'';text('callsign',(p?.callsign||'CADASTRAR PILOTO')+country);if(s.country==='BR'){const flag=node('span','flag-br');flag.title='Brasil • país da base';$('callsign').append(flag)}text('qualification',p?({autonomo:'Piloto autônomo',empregado:'Piloto empregado',proprietario:'Companhia própria'}[s.employment]||s.employment)+' • '+s.summary.qualifications.join(' / '):'Crie sua carreira');text('level',p?'NÍVEL '+s.progress.level:'NÍVEL —');text('xp',p?'XP '+s.progress.xp+' / '+s.progress.target+' ('+Math.round(s.progress.fraction*100)+'%)':'XP —');bar('xpbar',s.progress.fraction);text('balance',money(s.balance));text('connection',{connected:'Conectado',reconnecting:'Reconectando',disconnected:'Desconectado'}[s.connection]);$('led').style.background={connected:'#86fc24',reconnecting:'#ffc400',disconnected:'#e06a75'}[s.connection];$('avatar').hidden=!s.avatar;if(s.avatar&&$('avatar').src!==s.avatar)$('avatar').src=s.avatar;
 text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderSummary(s);
 const m=s.mission;const bonus=s.bonus?.bonus_fraction||0;text('route',m?m.origin+' → '+m.destination:'Selecione uma missão');text('distance',m?'Distância: '+(m.distance===null?'—':number(m.distance)+' NM')+'  |  Prev. voo: '+(m.minutes===null?'—':m.minutes+' min'):'Explore o mercado regional para começar');text('category',m?.category||'');text('reward',m?money(m.reward):'—');text('bonus-value',m?'+'+number(bonus*100,1)+'%':'—');text('mission-status',m?(s.bonus?.frozen?'EM VOO • CONGELADO':'RESERVADO'):'');
@@ -25,34 +44,63 @@ for(const [key,, ,unit] of metricNames){const e=$('metric-'+key);if(key==='phase
 const labels=['Clima ao vivo','Horário real','Assistências realistas','Pista e iluminação','Rota revisada','Combustível adequado','Peso dentro do limite'];const components=Object.values(s.bonus?.components||{});$('checklist').replaceChildren();labels.forEach((label,i)=>{const ok=components[i]?.ok;const e=node('div',ok?'ok':'');e.append(icon('check'),node('span','',label));e.title=(components[i]?'+'+number(components[i].rate*100,1)+'% • ':'')+(i<5?'Declaração do piloto':'Telemetria/estimativa');$('checklist').append(e)});text('edit-plan',s.bonus?.frozen?'Congelado na decolagem • Ver despacho':'Revisar no despacho →');
 const a=s.plane;const photo=a?.code==='c152';$('aircraft-photo').hidden=!photo;$('photo-credit').hidden=!photo;document.querySelector('.aircraft-art').classList.toggle('has-photo',photo);document.querySelector('.aircraft-art>svg').style.display=photo?'none':'';document.querySelector('.aircraft-art>span').hidden=photo;text('aircraft-name',a?.title||'Nenhuma aeronave');text('aircraft-ref',a?a.ref+' • '+a.kind:'Selecione no Hangar');document.querySelectorAll('[data-action=refuel],[data-action=service]').forEach(b=>{b.disabled=!!a?.ref.startsWith('contract:');b.title=b.disabled?'Aeronave fornecida pelo contratante':''});text('location',a?.airport||'—');text('condition',a?.condition!==null&&a?number(a.condition,1)+'%':'Indisponível');bar('conditionbar',a?a.condition/100:0);$('conditionbar').style.background=a?.condition<40?'#ef6464':a?.condition<75?'#ffc400':'';const f=s.fuel;const q=f.quantity;const ratio=q!==null&&f.capacity?q/f.capacity:null;text('fuel-value',q!==null?number(q,1)+' gal'+(ratio!==null?' ('+number(ratio*100)+'%)':''):'Sem leitura validada');bar('fuelbar',ratio);text('fuel-title','Controle: '+(f.enabled?'ATIVO':'DESLIGADO'));text('fuel-status',f.enabled?(s.connection==='connected'?'Confira a confirmação no registro':'Aguardando MSFS • sem confirmação'):'Penalidade de 30% em R$ e XP');$('fuel-toggle').classList.toggle('on',f.enabled);text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?s.status:'Conecte ao MSFS em Configurações.');renderMap(s)}
 function svgNode(tag,attrs,textValue){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs||{}))e.setAttribute(k,v);if(textValue!==undefined)e.textContent=textValue;return e}
-function renderMap(s){const svg=$('route-map');svg.replaceChildren();const m=s.mission;const points=[];if(!m&&!s.telemetry&&s.market)points.push({lat:s.market.lat,lon:s.market.lon,label:s.market.icao,type:'airport'});if(m?.start)points.push({lat:m.start[0],lon:m.start[1],label:m.origin,type:'airport'});if(m?.end)points.push({lat:m.end[0],lon:m.end[1],label:m.destination,type:'airport'});if(s.telemetry)points.push({lat:s.telemetry.lat,lon:s.telemetry.lon,label:s.mode==='Demo'?'DEMO':'AERONAVE',type:'plane'});if(!points.length){svg.append(svgNode('text',{x:450,y:160,'text-anchor':'middle',fill:'#a4c2d0',stroke:'none','font-size':18},'Selecione um contrato para visualizar a rota'));svg.append(svgNode('text',{x:450,y:190,'text-anchor':'middle',fill:'#5c8c9d',stroke:'none','font-size':12},'Mapa offline • nenhuma rota fictícia'));return}
+function renderMap(s){
+  window.FSCGoogleMap?.render(s);
+  if(window.FSCGoogleMap?.isActive()){
+    text('map-mode',s.telemetry?.stale?'GOOGLE SATÉLITE • POSIÇÃO DESATUALIZADA':s.telemetry?'GOOGLE SATÉLITE • POSIÇÃO MSFS':'GOOGLE SATÉLITE');
+    return;
+  }
+  const svg=$('route-map');svg.replaceChildren();const m=s.mission;const points=[];if(!m&&!s.telemetry&&s.market)points.push({lat:s.market.lat,lon:s.market.lon,label:s.market.icao,type:'airport'});if(m?.start)points.push({lat:m.start[0],lon:m.start[1],label:m.origin,type:'airport'});if(m?.end)points.push({lat:m.end[0],lon:m.end[1],label:m.destination,type:'airport'});if(s.telemetry)points.push({lat:s.telemetry.lat,lon:s.telemetry.lon,label:s.mode==='Demo'?'DEMO':'AERONAVE',type:'plane'});if(!points.length){svg.append(svgNode('text',{x:450,y:160,'text-anchor':'middle',fill:'#a4c2d0',stroke:'none','font-size':18},'Selecione um contrato para visualizar a rota'));svg.append(svgNode('text',{x:450,y:190,'text-anchor':'middle',fill:'#5c8c9d',stroke:'none','font-size':12},'Mapa offline • nenhuma rota fictícia'));return}
 const lat0=(Math.max(...points.map(p=>p.lat))+Math.min(...points.map(p=>p.lat)))/2;const lon0=(Math.max(...points.map(p=>p.lon))+Math.min(...points.map(p=>p.lon)))/2;const cos=Math.max(.05,Math.cos(lat0*Math.PI/180));const xspan=Math.max(.2,...points.map(p=>Math.abs(p.lon-lon0)*cos*2)),yspan=Math.max(.15,...points.map(p=>Math.abs(p.lat-lat0)*2));const scale=Math.min(700/xspan,230/yspan)*zoom;
-const xy=p=>[450+(p.lon-lon0)*cos*scale,170-(p.lat-lat0)*scale];
-// GIBS geographic WMTS: 512 px tiles, 288 degrees at level 0 (matrix 2x1).
-// Tile loading is independent of state polling; failed imagery never blocks the UI.
-const z=Math.max(0,Math.min(7,Math.ceil(Math.log2(scale*288/512)))),span=288/2**z;
-const west=lon0-450/(cos*scale),east=lon0+450/(cos*scale),north=Math.min(90,lat0+170/scale),south=Math.max(-90,lat0-170/scale);
-let loaded=0,requested=0;const raster=svgNode('g',{opacity:.92});
-for(let ty=Math.max(0,Math.floor((90-north)/span));ty<=Math.floor((90-south)/span);ty++){
- for(let tx=Math.max(0,Math.floor((west+180)/span));tx<=Math.min(Math.ceil(360/span)-1,Math.floor((east+180)/span));tx++){
-  if(requested++>=24)continue;
-  const url=`https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/BlueMarble_ShadedRelief_Bathymetry/default/500m/${z}/${ty}/${tx}.jpeg`;
-  let tile=tileCache.get(url);
-  if(!tile){const img=new Image();tile={img,loaded:false};tileCache.set(url,tile);img.referrerPolicy='no-referrer';img.onload=()=>{tile.loaded=true;renderMap(state)};img.onerror=()=>{tile.failed=true};img.src=url;}
-  if(tile.loaded){const [x,y]=xy({lat:90-ty*span,lon:-180+tx*span});raster.append(svgNode('image',{href:url,x,y,width:span*cos*scale+.1,height:span*scale+.1,preserveAspectRatio:'none'}));loaded++;}
- }
-}
-while(tileCache.size>64){const key=tileCache.keys().next().value;tileCache.delete(key)}
-svg.append(raster);if(loaded)svg.append(svgNode('rect',{x:0,y:0,width:900,height:340,fill:'#00121f',opacity:.2,stroke:'none'}));
-document.querySelector('.map-caption').textContent=loaded?'NASA GIBS • BLUE MARBLE (HISTÓRICO)':'MAPA LOCAL • COORDENADAS REAIS';
-
+const xy=p=>[450+(p.lon-lon0)*cos*scale+mapPanX,170-(p.lat-lat0)*scale+mapPanY];
+// Mapa local interativo (offline) permanece disponível quando não há chave Google.
+const loaded=0;
+document.querySelector('.map-caption').textContent=s.google_maps_key
+ ? 'GOOGLE SATÉLITE INDISPONÍVEL • MAPA LOCAL'
+ : 'MAPA LOCAL • CONFIGURE GOOGLE SATÉLITE';
 for(let x=30;x<900;x+=60)svg.append(svgNode('line',{x1:x,y1:0,x2:x,y2:340,stroke:'#49636b','stroke-width':.5,opacity:loaded?.18:1}));for(let y=20;y<340;y+=40)svg.append(svgNode('line',{x1:0,y1:y,x2:900,y2:y,stroke:'#49636b','stroke-width':.5,opacity:loaded?.18:1}));
-for(let x=90;x<900;x+=180)svg.append(svgNode('text',{x,y:328,fill:'#557f8c',stroke:'none','font-size':10,'text-anchor':'middle'},(lon0+(x-450)/cos/scale).toFixed(2)+'°'));
-for(let y=60;y<300;y+=80)svg.append(svgNode('text',{x:8,y,fill:'#557f8c',stroke:'none','font-size':10},(lat0-(y-170)/scale).toFixed(2)+'°'));
+for(let x=90;x<900;x+=180)svg.append(svgNode('text',{x,y:328,fill:'#557f8c',stroke:'none','font-size':10,'text-anchor':'middle'},(lon0+(x-450-mapPanX)/cos/scale).toFixed(2)+'°'));
+for(let y=60;y<300;y+=80)svg.append(svgNode('text',{x:8,y,fill:'#557f8c',stroke:'none','font-size':10},(lat0-(y-170-mapPanY)/scale).toFixed(2)+'°'));
 if(m?.start&&m?.end){const a=xy(points[0]),b=xy(points[1]);svg.append(svgNode('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'#00e9f9','stroke-width':9,opacity:.12}));svg.append(svgNode('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'#00e9f9','stroke-width':3}))}
-for(const p of points){const [x,y]=xy(p);if(x<20||x>880||y<20||y>315)continue;if(p.type==='plane'){const g=svgNode('g',{transform:`translate(${x-16},${y-16})`});const use=svgNode('use',{href:'#i-plane',width:32,height:32,fill:'#fff',stroke:'#c7e9ff','stroke-width':.6});g.append(use);svg.append(g)}else{svg.append(svgNode('circle',{cx:x,cy:y,r:14,fill:'#00d7ec',opacity:.13,stroke:'none'}));svg.append(svgNode('circle',{cx:x,cy:y,r:8,fill:'#06cfe4',stroke:'#ebfcff','stroke-width':3}));const labelY=y>55?y-36:y+21;svg.append(svgNode('rect',{x:x-31,y:labelY,width:62,height:24,rx:5,fill:'#031016',stroke:'#8fa6a9'}));svg.append(svgNode('text',{x,y:labelY+17,'text-anchor':'middle',fill:'#f4f9fc',stroke:'none','font-size':15,'font-weight':700},p.label))}}
+for(const p of points){const [x,y]=xy(p);if(x<20||x>880||y<20||y>315)continue;if(p.type==='plane'){
+  const current={lat:p.lat,lng:p.lon};
+  if(planeTrack&&window.FSCGoogleMap&&
+    Math.hypot((current.lat-planeTrack.lat)*111000,(current.lng-planeTrack.lng)*111000*Math.cos(current.lat*Math.PI/180))>25){
+    planeBearing=window.FSCGoogleMap.bearing(planeTrack,current);
+  }
+  planeTrack=current;
+  const planeSize=25;
+  const g=svgNode('g',{transform:`translate(${x},${y}) rotate(${planeBearing-45}) scale(${planeSize/260}) translate(-157,-160)`});
+  g.append(svgNode('path',{d:window.FSCGoogleMap?.aircraftPath||'M0 0',fill:'#35d6ff',stroke:'#d9fcff','stroke-width':1}));
+  svg.append(g);
+}else{svg.append(svgNode('circle',{cx:x,cy:y,r:14,fill:'#00d7ec',opacity:.13,stroke:'none'}));svg.append(svgNode('circle',{cx:x,cy:y,r:8,fill:'#06cfe4',stroke:'#ebfcff','stroke-width':3}));const labelY=y>55?y-36:y+21;svg.append(svgNode('rect',{x:x-31,y:labelY,width:62,height:24,rx:5,fill:'#031016',stroke:'#8fa6a9'}));svg.append(svgNode('text',{x,y:labelY+17,'text-anchor':'middle',fill:'#f4f9fc',stroke:'none','font-size':15,'font-weight':700},p.label))}}
 const nm=60*90/scale;svg.append(svgNode('path',{d:'M760 294v6h90v-6',stroke:'#b9dce8','stroke-width':2}));svg.append(svgNode('text',{x:805,y:288,'text-anchor':'middle',fill:'#c9e3ed',stroke:'none','font-size':12},number(nm,1)+' NM'));text('map-mode',s.mode==='Demo'?'DEMONSTRAÇÃO':s.telemetry?.stale?'POSIÇÃO DESATUALIZADA':s.telemetry?'POSIÇÃO MSFS':'ROTA PLANEJADA')}
-$('zoom-in').onclick=()=>{zoom=Math.min(8,zoom*1.3);renderMap(state)};$('zoom-out').onclick=()=>{zoom=Math.max(.3,zoom/1.3);renderMap(state)};$('recenter').onclick=()=>{zoom=1;for(const [key,tile]of tileCache)if(tile.failed)tileCache.delete(key);renderMap(state)};
+$('zoom-in').onclick=()=>{if(window.FSCGoogleMap?.zoomBy(1))return;zoom=Math.min(16,zoom*1.3);renderMap(state)};
+$('zoom-out').onclick=()=>{if(window.FSCGoogleMap?.zoomBy(-1))return;zoom=Math.max(.2,zoom/1.3);renderMap(state)};
+$('recenter').onclick=()=>{if(window.FSCGoogleMap?.recenter(state))return;zoom=1;mapPanX=mapPanY=0;renderMap(state)};
+const mapSvg=$('route-map');
+mapSvg.addEventListener('wheel',e=>{if(window.FSCGoogleMap?.isActive())return;
+  e.preventDefault();zoom=Math.min(16,Math.max(.2,zoom*(e.deltaY<0?1.18:1/1.18)));renderMap(state);
+},{passive:false});
+let drag=null;
+mapSvg.addEventListener('pointerdown',e=>{if(e.button!==0||window.FSCGoogleMap?.isActive())return;
+  drag={x:e.clientX,y:e.clientY};mapSvg.setPointerCapture(e.pointerId)});
+mapSvg.addEventListener('pointermove',e=>{if(!drag||window.FSCGoogleMap?.isActive())return;
+  const ratioX=900/Math.max(1,mapSvg.clientWidth),ratioY=340/Math.max(1,mapSvg.clientHeight);
+  mapPanX+=(e.clientX-drag.x)*ratioX;mapPanY+=(e.clientY-drag.y)*ratioY;
+  drag={x:e.clientX,y:e.clientY};renderMap(state)});
+const endDrag=()=>{drag=null};
+mapSvg.addEventListener('pointerup',endDrag);mapSvg.addEventListener('pointercancel',endDrag);
+$('map-config').onclick=()=>{$('maps-key-input').value=state.google_maps_key||'';$('maps-settings-dialog').showModal()};
+$('maps-key-close').onclick=()=>$('maps-settings-dialog').close();
+$('maps-key-save').onclick=()=>{
+  const key=$('maps-key-input').value.trim();
+  if(key&&!window.FSCGoogleMap?.validKey(key)){toast('Chave Google Maps inválida.');return}
+  command('maps_key',key);$('maps-settings-dialog').close();
+  toast('Configuração salva. Se o mapa já carregou com outra chave, reinicie o aplicativo.');
+};
+$('maps-key-clear').onclick=()=>{command('maps_key','');$('maps-settings-dialog').close();toast('Google desativado; mapa local disponível.')};
+
 async function poll(){try{const response=await fetch('/state',{headers:{'X-Flight-Token':token},cache:'no-store'});if(!response.ok)throw Error();render(await response.json());pollFailures=0}catch{pollFailures++;if(pollFailures===3){text('connection','App indisponível');$('led').style.background='#e06a75';text('telemetry-status','SEM ATUALIZAÇÃO');toast('Conexão com o aplicativo interrompida.')}}finally{setTimeout(poll,500)}}poll();
 
 $('minimize').onclick=()=>{if(window.pywebview?.api)window.pywebview.api.minimize();else toast('Minimizar disponível na janela Windows.');};

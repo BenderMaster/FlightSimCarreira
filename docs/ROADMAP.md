@@ -1,3 +1,24 @@
+## Marco homologado — v0.7.0 Midnight Ops (03–04/11/2026)
+
+- [x] Piloto aprovou visualmente o Dashboard WebView2 no MSFS 2020 Steam.
+- [x] Executável Windows abriu, carregou carreira e manteve conexão/telemetria SimConnect.
+- [x] Mercado e contrato, mapa com rota correta, monitoramento de combustível, decolagem/pouso, crédito de contrato/XP e persistência após reinício validados em voo físico pelo piloto.
+- [x] Motor funcional sólido v0.6.1 preservado; experimentos visuais Tk v0.6.2/0.6.3 **não incorporados**.
+- [x] 133 testes antes do patch e compilação Windows do WebView concluídos no GitHub.
+- [ ] Painel integrado diretamente na toolbar do MSFS continua pendente.
+
+## Patch v0.7.1 Midnight Ops Alpha.1 — reputação e mapa
+
+- [x] Reputação calculada do diário real, incluindo voos históricos e sem pagamentos/XP retroativos.
+- [x] Mapa NASA retirado; Google Maps JavaScript API via chave local, satélite e overlay de rota/posição.
+- [x] Ícone ciano vetorial proporcional, com rumo aproximado por deslocamento.
+- [x] Zoom por scroll, arrastar, botões ± e reenquadramento, inclusive fallback de coordenadas sem chave.
+- [x] Chave Google configurável no mapa, sem credencial hardcoded; documentação de faturamento/limites/privacidade.
+- [x] 6 jobs CI aprovados (Windows/Linux + dashboard + pacote Windows) antes de homologação física.
+- [ ] Configurar chave Maps JS no PC do piloto e validar renderização/controles reais no WebView2.
+- [ ] Confirmar valor de reputação com banco de carreira existente e voo de teste, conferir saldo e combustível.
+- [ ] Evoluir mapa com serviços aeroportuários e meteorologia sem afirmar dados não verificados.
+
 ## v0.5.1 Alpha.1 — progresso visual do piloto
 - [x] Barra de nível no painel principal.
 - [x] Horas, voos e XP com barras individuais por habilitação; janela rolável.
