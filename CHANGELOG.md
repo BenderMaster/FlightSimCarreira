@@ -1,3 +1,12 @@
+## v0.7.8 Midnight Ops Alpha.1 — catálogo oficial do MSFS e refuel
+- Catálogo de aeroportos restrito ao MSFS 2020 via SimConnect, paginação completa, validação de ICAO/coordenadas, sem fallback externo ou arquivo CSV empacotado. Ofertas e exportação exigem origem/destino existentes na sessão atual.
+- Contratos antigos preservados no save, mas bloqueados quando inexistentes no catálogo entregue pelo MSFS.
+- Corrigido HTTP 400 no abastecimento em litros por incompatibilidade JSON número × string, mantendo controles de autorização e entradas válidas.
+- Diferencia solicitação do plano de voo ao ATC e sincronização do mapa VFR/GPS, que o SimConnect do MSFS 2020 não garante.
+- Ícone principal aprovado incorporado ao executável Windows; conversão em .ico multi-resolução durante build.
+- Mantido payload automatizado confirmado no MSFS da versão anterior.
+- Testes de inventário SimConnect, fonte de coordenadas e protocolo de abastecimento, com CI Windows/Linux.
+
 ## v0.7.7 Midnight Ops Alpha.1 — Combustível, peso, manifesto e facilities
 
 - Corrigida persistência de combustível em reaberturas após dias sem uso, sem reset de desgaste individual.

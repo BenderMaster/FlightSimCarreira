@@ -191,3 +191,13 @@ Consulte [Bloco 3](BLOCO_3_CARREIRAS.md).
 - [ ] Homologar gravação/retorno de payload, combustível e Facilities no MSFS 2020 Windows.
 - [ ] Mensagens 2D nativas dentro do simulador, sem afetar UI externa.
 - [ ] Aprovação do ícone principal antes de atualizar .ico e empacotamento.
+
+## v0.7.8 — homologação dos aeroportos e plano VFR
+- [x] SimConnect_RequestFacilitiesList com paginação para aeroportos da sessão atual.
+- [x] Nenhum aeroporto fora do MSFS nas ofertas, coordenadas ou aceites.
+- [x] Sem dependência airportsdata no executável Windows.
+- [x] Abastecimento aceita JSON numérico com autenticação.
+- [x] Progresso do plano especifica envio ATC, sem fingir sincronismo dos aviônicos.
+- [x] Aplicado ícone principal aprovado no build.
+- [ ] Validar pacote de facilities no MSFS 2020 real.
+- [ ] Explorar via SDK WASM/Coherent ou integração específica de aviônicos, sem prometer carregamento universal de GPS/VFR.

@@ -1,3 +1,20 @@
+# FlightSimCarreira v0.7.8 Midnight Ops Alpha.1 — navegação MSFS rigorosa
+
+**Foco:** corrigir as falhas reais detectadas na v0.7.7 (aeroportos inexistentes, popup de abastecimento rejeitado, confusão entre ATC e mapa VFR) preservando a carga confirmada e o save.
+
+- **Aeroportos exclusivamente do simulador, sem exceção no modo MSFS.** `SimConnect_RequestFacilitiesList` pede o inventário mundial ao MSFS 2020. A lista só é aplicada quando **todos os pacotes** forem recebidos e validados. Coordenadas vêm apenas dessa lista da sessão atual. Não aceitamos posições de `airportsdata`, CSV ou SQLite anterior para o mercado, planejamento e aceite; dependência externa retirada do pacote Windows. Antes da resposta, mercado vazio, sem aeronaves fictícias.
+- **Contratos antigos preservados** (não apagar SQLite): um contrato com aeroporto ausente no MSFS fica visível como não validado, mas sem rota/cartografia e bloqueado para despacho até que sua origem e destino sejam confirmados.
+- **Abastecer** envia alvo numérico em litros: protocolo local agora aceita `id` numérico somente na ação `refuel`, finito, >=0, <=200000. As outras ações continuam restritas a texto. O popup de compra/reembolso e rollback seguro da v0.7.7 permanecem.
+- **Plano VFR**: o addon solicita o carregamento do arquivo `.PLN` via SimConnect. No MSFS 2020, a API pública pode carregar somente a rota do **ATC**; **não é garantia de sincronizar GPS, G1000 ou mapa VFR**. A interface exibe "enviado ao ATC" e jamais declara GPS/VFR carregado sem evidência. A linha direta continua disponível no mapa interativo do addon.
+- **Carga**: nenhum ajuste na rotina de payload, que foi confirmada em teste físico.
+- **Ícone aprovado** incorporado ao executável Windows por PNG de origem e ICO multi-resolução gerado antes do PyInstaller.
+
+**Alpha, ainda não homologada no MSFS real**. CI Python, interface e empacotamento verificam lógica e bytes, não a chamada da DLL na tua instalação. Teste primeiro conectado, em solo, aguardando a listagem de aeroportos e verificando se o aeroporto destino realmente existe no mapa do simulador. A lista pode demorar e deve ficar vazia em caso de erro; reporte o log. Faça backup do `%APPDATA%\AeroCarreira-Lab\carreira.db` com o programa fechado.
+
+Ver [validação da v0.7.8](docs/V078_MSFS_ONLY_AIRPORTS.md).
+
+---
+
 # FlightSimCarreira v0.7.7 Alpha.1 — Persistência, despacho e navdata MSFS
 
 - **Combustível por aeronave:** inventário continua no SQLite da carreira e é restaurado no primeiro sample de solo após reinício, sem fingir consumo durante vários dias offline. Desgaste/condição já é persistido por exemplar.
