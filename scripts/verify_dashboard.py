@@ -30,6 +30,10 @@ with tempfile.TemporaryDirectory() as temp:
             browser=p.chromium.launch(args=['--no-sandbox'])
             page=browser.new_page(viewport={'width':1600,'height':900})
             errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
+            # Determinístico: exercita também o modo sem serviços externos.
+            page.route('https://cdn.jsdelivr.net/**',lambda route:route.abort())
+            page.route('https://tiles.openfreemap.org/**',lambda route:route.abort())
+            page.route('https://tiles.maps.eox.at/**',lambda route:route.abort())
             page.goto(url);page.wait_for_function("document.getElementById('callsign').textContent.includes('QA-DEMO')")
             # Fresh SQLite state + live engine feed, route and sidebar.
             assert page.locator('#route').inner_text()=='SBRF → SIPE'
