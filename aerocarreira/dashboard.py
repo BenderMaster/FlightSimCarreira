@@ -9,7 +9,8 @@ from .contracts import AirportCatalog, generate_offers, eligibility, TYPE_BY_COD
 from .employment import generate_employer_routes
 from .pilot import level_progress
 from .domain import AIRPORTS, Phase, distance_nm
-from .planning import inspect_preflight
+from .planning import inspect_preflight, Preflight
+from dataclasses import replace
 from .flight_audit import real_clock_verified, assistance_verified
 from .finance import estimated_minutes, AIRCRAFT_ECONOMY
 from .manifest import mission_manifest
@@ -140,6 +141,17 @@ class DashboardPresenter:
             fuel=app.fuel_manager.get(plane['ref'])
         verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s)}
                   if s and app.mode=='MSFS' and app.connected and time()-s.timestamp<10 else {})
+        if (m and app.dispatch_state.get('mission_id')==m.id and
+                app.dispatch_state.get('payload')=='verified' and s
+                and s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None
+                and s.total_weight_lbs<=s.max_gross_weight_lbs):
+            if plan:
+                plan=replace(plan,payload_checked=True,
+                    planned_weight_lbs=s.total_weight_lbs,max_weight_lbs=s.max_gross_weight_lbs)
+            else:
+                plan=Preflight(m.id,s.aircraft_title or '',
+                    payload_checked=True,planned_weight_lbs=s.total_weight_lbs,
+                    max_weight_lbs=s.max_gross_weight_lbs)
         bonus=inspect_preflight(m,plan,verified=verified) if m and plan else None
         if app.tracker.phase==Phase.AIRBORNE:
             bonus= dict(bonus or {},bonus_fraction=app.realism_frozen,frozen=True)
