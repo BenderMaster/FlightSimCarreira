@@ -129,13 +129,13 @@ class DashboardController:
                 if app.sim:app.sim.request_fuel_restore(result['tanks'])
                 app.career.balance=int(app.storage.get_setting('balance') or 0)
                 app.balance_var.set(brl(app.career.balance))
-                app.refuel_feedback={'status':'success','message':
+                app.refuel_feedback={'status':'success','ts':time(),'message':
                     ('Devolução: '+brl(result['refund_brl']) if result['refund_brl'] else
                      'Abastecimento: '+brl(result['cost_brl']))+
                     f" • tanque {result['target_liters']:.1f} L. Aguardando leitura SimConnect."}
                 app._log('ABASTECIMENTO: '+app.refuel_feedback['message'])
             except (ValueError,TypeError,OSError) as exc:
-                app.refuel_feedback={'status':'error','message':str(exc)}
+                app.refuel_feedback={'status':'error','ts':time(),'message':str(exc)}
                 app._log('ABASTECIMENTO BLOQUEADO: '+str(exc))
         elif action in ('refuel','service'):
             fm=app.storage.fleet_manager();plane=fm.selected();s=app.last_sample
