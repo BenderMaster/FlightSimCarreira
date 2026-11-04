@@ -43,6 +43,40 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#offers .offer').count()>0
             assert page.locator('#weather-origin').inner_text().endswith('SBRF')
             page.locator('[data-tab="weather"]').first.click();assert page.locator('#details').is_visible();page.locator('#dialog-close').click()
+            # NOAA prevalece sobre MSFS e a preferência explícita faz aparecer ambos.
+            preferred=page.evaluate("""() => {
+              const original=state;
+              const sample={...original,mission:{...original.mission,destination:'SBJP'},
+                weather:{destination_metar:{raw:'SBJP 270900Z 11008KT CAVOK'},
+                  destination_sim:{wind_kt:14},show_sim_with_noaa:false}};
+              renderWeather(sample);
+              const defaultText=document.getElementById('weather-destination-values').textContent;
+              renderWeather({...sample,weather:{...sample.weather,show_sim_with_noaa:true}});
+              const withSim=document.getElementById('weather-destination-values').textContent;
+              renderWeather(original);
+              return {defaultText,withSim};
+            }""")
+            assert 'SBJP 270900Z' in preferred['defaultText'] and 'MSFS' not in preferred['defaultText'],preferred
+            assert 'MSFS' in preferred['withSim'],preferred
+            # 20% no painel; refuel é diálogo proposital, não navegação pop-up.
+            warnings=page.evaluate("""() => {
+              const original=state;
+              render({...original,maintenance_alerts:{fuel_low:true,condition_low:true},
+                plane:{...original.plane,condition:15},fuel:{...original.fuel,quantity:3,capacity:26}});
+              const messages=document.getElementById('resource-alerts').textContent;
+              render(original);return messages;
+            }""")
+            assert 'Combustível' in warnings and '20%' in warnings and 'Aeronave' in warnings,warnings
+            page.evaluate("""() => {
+              state={...state,connection:'connected',phase:'SOLO',
+                fuel:{...state.fuel,quantity:12,capacity:26,refundable_liters:5}};
+              openRefuelDialog();
+            }""")
+            assert page.locator('#refuel-dialog').is_visible()
+            page.locator('#refuel-target').fill('20')
+            assert 'Crédito:' in page.locator('#refuel-price').inner_text()
+            page.locator('#refuel-cancel').click()
+            assert not page.locator('#refuel-dialog').is_visible()
 
             # Sidebar persistente: os mercados são páginas separadas, não diálogos.
             page.locator('.nav-item[data-action="regional"]').click()
@@ -59,6 +93,9 @@ with tempfile.TemporaryDirectory() as temp:
             assert 'NM' in page.locator('#detail-distance').inner_text()
             assert page.locator('#detail-duration').inner_text().startswith('~')
             assert page.locator('#detail-aircraft').inner_text()
+            assert page.locator('#detail-manifest-name').inner_text()
+            assert 'kg' in page.locator('#detail-payload').inner_text()
+            assert page.locator('#detail-nav-source').inner_text()
             assert 'R$' in page.locator('#detail-reward').inner_text()
             page.locator('#dialog-close').click()
             assert page.locator('.center-column .map-card #free-map').count()==1

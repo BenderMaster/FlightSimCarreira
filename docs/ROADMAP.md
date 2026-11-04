@@ -179,3 +179,25 @@ Consulte [Bloco 3](BLOCO_3_CARREIRAS.md).
 - [x] Classificação conservadora com ON ANY RUNWAY, heading/aceleração e monitor pós-pouso.
 - [ ] Homologar fisicamente em pistas e táxis do MSFS 2020; confirmar suporte a ON ANY RUNWAY nos cenários personalizados.
 - [ ] Completar planejamento e aceitações integralmente em páginas nativas WebView2, eliminando telas Tk legadas.
+
+## v0.7.7 — Persistência e manifesto
+- [x] Combustível salvo por exemplar sem consumir dias de intervalo offline, revisão preservada no SQLite.
+- [x] Alertas visuais/log de 20%.
+- [x] Abastecimento em popup com litros, compra/devolução, trava MTOW e estorno.
+- [x] Manifestos persistentes e automação de payload por estações, confirmação por telemetria.
+- [x] Bônus de peso no pagamento/XP, sem dupla liquidação do voo.
+- [x] NOAA prioritário por padrão no destino.
+- [x] Facilities do MSFS por ICAO com proveniência; sem declarar coordenadas externas como oficiais.
+- [ ] Homologar gravação/retorno de payload, combustível e Facilities no MSFS 2020 Windows.
+- [ ] Mensagens 2D nativas dentro do simulador, sem afetar UI externa.
+- [ ] Aprovação do ícone principal antes de atualizar .ico e empacotamento.
+
+## v0.7.8 — homologação dos aeroportos e plano VFR
+- [x] SimConnect_RequestFacilitiesList com paginação para aeroportos da sessão atual.
+- [x] Nenhum aeroporto fora do MSFS nas ofertas, coordenadas ou aceites.
+- [x] Sem dependência airportsdata no executável Windows.
+- [x] Abastecimento aceita JSON numérico com autenticação.
+- [x] Progresso do plano especifica envio ATC, sem fingir sincronismo dos aviônicos.
+- [x] Aplicado ícone principal aprovado no build.
+- [ ] Validar pacote de facilities no MSFS 2020 real.
+- [ ] Explorar via SDK WASM/Coherent ou integração específica de aviônicos, sem prometer carregamento universal de GPS/VFR.

@@ -16,7 +16,7 @@ class DashboardController:
         self.app=app;self.closed=False;self.process=None;self.fallback=False
         self.presenter=DashboardPresenter(app)
         self.server=DashboardServer();self.server.publish(self.presenter.snapshot());self.server.start()
-        self.tick_id=app.root.after(250,self.tick)
+        self.tick_id=app.root.after(500,self.tick)
         if os.getenv('FLIGHTSIM_HEADLESS')!='1':
             args=([sys.executable,'--webview-host',self.server.url] if getattr(sys,'frozen',False) else [sys.executable,'-m','aerocarreira.webview_host',self.server.url])
             self.process=subprocess.Popen(args)
@@ -40,7 +40,7 @@ class DashboardController:
                 else:self.app._close();return
         except Exception as exc:
             self.app._log('Dashboard: '+str(exc))
-        self.tick_id=self.app.root.after(250,self.tick)
+        self.tick_id=self.app.root.after(500,self.tick)
 
     def show_text(self,title,text):
         w=Toplevel(self.app.root);w.title(title);w.geometry('900x580');w.configure(bg='#081421')
@@ -93,6 +93,12 @@ class DashboardController:
             if not self.closed:
                 for child in app.root.winfo_children():
                     if isinstance(child,Toplevel):child.lift();child.focus_force()
+        elif action=='prepare':
+            if not app.career.mission:
+                app._log('DESPACHO: aceite um contrato antes de preparar plano e carga.');return
+            app._prepare_active_plan(automatic=True)
+            app._queue_payload_load()
+            app._checkpoint(force=True)
         elif action=='refresh':self.presenter.refresh_market(True)
         elif action=='history':self.show_text('Diário de bordo',app.history_text.get('1.0','end'))
         elif action=='reports':self.show_text('Análise e relatórios','Módulo de análise avançada em desenvolvimento.\n\nREGISTRO DA SESSÃO\n\n'+app.log_text.get('1.0','end'))
@@ -113,20 +119,48 @@ class DashboardController:
             if not enabled or messagebox.askyesno('Controle de combustível','Desligar aplica -30% de dinheiro e XP aos próximos voos. Confirmar?'):
                 app.storage.set_setting('fuel_control_enabled','0' if enabled else '1')
                 app._log('Controle de combustível '+('desligado.' if enabled else 'ativado.'))
-        elif action in ('refuel','service'):
-            fm=app.storage.fleet_manager();plane=fm.selected();s=app.last_sample
-            if app.tracker.phase==Phase.AIRBORNE:messagebox.showwarning('Frota','Operação permitida somente em solo.');return
-            if not plane:messagebox.showwarning('Frota','Selecione sua aeronave no Hangar.');return
+        elif action=='refuel':
+            # O popup HTML já é a confirmação da quantidade; não abrir Tk extra.
+            fm=app.storage.fleet_manager();plane=fm.selected();sample=app.last_sample
+            if not plane or app.tracker.phase==Phase.AIRBORNE:
+                app._log('ABASTECIMENTO: selecione aeronave própria em solo.');return
             if app.career.mission and app.career.mission.freelance:
-                messagebox.showwarning('Frota','O contrato utiliza aeronave do contratante. Gerencie sua frota pelo Hangar.');return
-            if action=='refuel':
-                if not (app.mode=='MSFS' and app.connected and s and s.on_ground and time()-s.timestamp<10 and aircraft_model(s.aircraft_title)==plane['code']):
-                    messagebox.showwarning('Combustível','Conecte ao MSFS com o modelo selecionado no solo e telemetria atualizada.');return
-            if not messagebox.askyesno('Frota',('Completar tanques' if action=='refuel' else 'Revisar aeronave')+' com cobrança na carreira?'):return
+                app._log('ABASTECIMENTO: avião do contratante não aceita combustível pessoal.');return
+            if not (app.mode=='MSFS' and app.connected and app.sim and sample and sample.on_ground
+                    and time()-sample.timestamp<10
+                    and aircraft_model(sample.aircraft_title)==plane['code']):
+                app._log('ABASTECIMENTO: MSFS e modelo selecionado devem estar conectados em solo.');return
             try:
-                result=app.fuel_manager.refuel_full(plane['ref']) if action=='refuel' else fm.service(plane['ref'])
-                app.career.balance=int(app.storage.get_setting('balance') or 0);app.balance_var.set(brl(app.career.balance))
-                app._log(('ABASTECIMENTO' if action=='refuel' else 'MANUTENÇÃO')+': '+str(result))
+                litres=float(cmd.get('id'))
+                # Mudança de combustível pode ultrapassar o MTOW, mesmo se
+                # o peso da carga estava válido antes. Nunca comprar acima.
+                previous=app.fuel_manager.get(plane['ref'])
+                if previous and sample.total_weight_lbs is not None and sample.max_gross_weight_lbs is not None:
+                    from .finance import LITERS_PER_GALLON
+                    current_litres=sum(previous['tanks'].values())*LITERS_PER_GALLON
+                    projected=sample.total_weight_lbs+(litres-current_litres)*1.58733
+                    if projected>sample.max_gross_weight_lbs-1:
+                        raise ValueError('Combustível deixaria o avião acima do MTOW. Reduza a quantidade.')
+                result=app.fuel_manager.change_liters(plane['ref'],litres)
+                app.pending_fuel_ref=plane['ref']
+                app.sim.request_fuel_restore(result['tanks'])
+                app.career.balance=int(app.storage.get_setting('balance') or 0)
+                app.balance_var.set(brl(app.career.balance))
+                app._log('ABASTECIMENTO: meta %.1f L; compra %s; reembolso %s. Enviado ao MSFS para leitura posterior.'%(
+                    result['target_liters'],brl(result['cost_brl']),brl(result['refund_brl'])))
+            except (ValueError,TypeError,KeyError) as exc:
+                app._log('ABASTECIMENTO RECUSADO: '+str(exc))
+        elif action=='service':
+            fm=app.storage.fleet_manager();plane=fm.selected()
+            if not plane or app.tracker.phase==Phase.AIRBORNE:
+                messagebox.showwarning('Frota','Aeronave própria em solo necessária.');return
+            if not messagebox.askyesno('Frota','Revisar a aeronave e cobrar na carreira?'):
+                return
+            try:
+                result=fm.service(plane['ref'])
+                app.career.balance=int(app.storage.get_setting('balance') or 0)
+                app.balance_var.set(brl(app.career.balance))
+                app._log('MANUTENÇÃO: '+str(result))
             except (ValueError,KeyError) as exc:messagebox.showwarning('Frota',str(exc))
 
     def stop(self):

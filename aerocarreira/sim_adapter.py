@@ -69,6 +69,7 @@ class SampleReader:
         self.last_groundspeed_time = None
         self.soft_missing = set()
         self.last_tank_scan = -1e15
+        self.last_payload_scan = -1e15
 
     def _get(self, simvar):
         try:
@@ -112,6 +113,22 @@ class SampleReader:
             caps[name]=cap
         return (tanks or None),(caps or None)
 
+    def _payload_snapshot(self, now):
+        if now-self.last_payload_scan<2.5:
+            return None,None
+        self.last_payload_scan=now
+        count=self._get("PAYLOAD_STATION_COUNT")
+        if count is None or not isfinite(count) or not 2<=count<=15:
+            return None,None
+        n=int(count)
+        values={}
+        for i in range(1,n+1):
+            v=self._get("PAYLOAD_STATION_WEIGHT:"+str(i))
+            if v is None or not isfinite(v) or not 0<=v<=15000:
+                return None,None
+            values[i]=v
+        return n,values
+
     def _optional_bool(self,key):
         value=self._get(OPTIONAL[key])
         return None if value is None or not isfinite(value) else value>=0.5
@@ -143,6 +160,7 @@ class SampleReader:
         fuel = self._get(OPTIONAL["fuel_gallons"])
         title = self._title()
         tanks,cap = self._tank_snapshot(title,now)
+        station_count,station_weights=self._payload_snapshot(now)
         s = FlightSample(timestamp=now,
             latitude=values["latitude"], longitude=values["longitude"],
             altitude_ft=values["altitude_ft"], agl_ft=values["agl_ft"],
@@ -152,6 +170,8 @@ class SampleReader:
             groundspeed_estimated=estimated, aircraft_title=title,
             total_weight_lbs=self._get(OPTIONAL['total_weight_lbs']),
             max_gross_weight_lbs=self._get(OPTIONAL['max_gross_weight_lbs']),
+            payload_station_count=station_count,
+            payload_station_weights=station_weights,
             wind_kt=self._get(OPTIONAL['wind_kt']),
             ambient_temperature_c=self._get(OPTIONAL['ambient_temperature_c']),
             wind_direction_deg=self._get(OPTIONAL['wind_direction_deg']),
@@ -203,9 +223,26 @@ class SimConnectWorker:
         self.thread = Thread(target=self._run, name="simconnect-reader", daemon=True)
         self.thread.start()
 
+    def request_airports(self, codes=()):
+        """Compatibilidade: sempre consulta a lista INTEIRA do MSFS 2020.
+
+        Códigos do catálogo externo nunca entram na consulta nem na oferta.
+        """
+        self.actions.put(('airports',None))
+
     def request_plan_load(self, path):
         """Somente sob clique explícito e com o simulador conectado."""
         self.actions.put(("load_pln", str(path)))
+
+    def request_payload_set(self, mission_id, stations: dict[int,float]):
+        if not isinstance(mission_id,str) or not mission_id or len(mission_id)>130:
+            raise ValueError('Identificador de missão inválido')
+        if not stations or len(stations)>14 or any(
+                not isinstance(k,int) or not 2<=k<=15 or
+                not isinstance(v,(int,float)) or not isfinite(v) or not 0<=v<=15000
+                for k,v in stations.items()):
+            raise ValueError('Distribuição de peso inválida')
+        self.actions.put(('payload_set',{'mission':mission_id,'stations':dict(stations)}))
 
     def request_fuel_restore(self, tanks: dict[str,float]):
         """Comando gerado por FuelManager; não recebe SimVar arbitrária."""
@@ -219,6 +256,7 @@ class SimConnectWorker:
     def _run(self):
         try:
             from SimConnect import SimConnect, AircraftRequests
+            from .sim_facilities import connection_class
         except Exception as exc:
             self._send("error", f"SimConnect indisponível: {exc}. Verifique a instalação do adaptador.")
             self._send("disconnected", "Adaptador não instalado")
@@ -226,16 +264,33 @@ class SimConnectWorker:
         while not self.stop_event.is_set():
             sm = None
             try:
-                sm = SimConnect()
+                try:
+                    sm=connection_class()(
+                        lambda airports:self._send('airport_catalog',airports),
+                        lambda error:self._send('airport_catalog_error',error))
+                except (AttributeError,OSError,ValueError,RuntimeError) as exc:
+                    sm=SimConnect()  # mantém monitor, mas NÃO libera mercado
+                    self._send('airport_catalog_error','Listagem MSFS indisponível: '+str(exc))
                 aq = AircraftRequests(sm, _time=200)
                 reader = SampleReader(aq)
                 self._send("connected", "SimConnect conectado")
+                # Consulta mundial de aeroportos é potencialmente custosa.
+                # Não pedir enquanto o MSFS ainda está carregando o voo,
+                # nem em pleno voo. Fazer no máximo UMA solicitação por sessão,
+                # após 3 s de amostras estáveis com aeronave em solo.
+                catalog_attempted = False
+                ground_since = None
                 missing_runs = 0
                 last_warning = 0.0
                 while not self.stop_event.is_set():
                     try:
                         while True:
                             action, path = self.actions.get_nowait()
+                            if action=='airports':
+                                # Pedido pendente é atendido quando o MSFS
+                                # estiver carregado e a aeronave em solo.
+                                # Nunca pedir múltiplos catálogos mundiais.
+                                pass
                             if action == 'fuel_restore':
                                 # Ações de escrita somente pela thread SimConnect.
                                 # Settable: quantidades individuais; total é read-only.
@@ -249,6 +304,15 @@ class SimConnectWorker:
                                     self._send('fuel_sent','Correção dos tanques enviada; aguardando confirmação da leitura.')
                                 except (AttributeError,OSError,ValueError,RuntimeError) as exc:
                                     self._send('fuel_error',str(exc))
+                            if action=='payload_set':
+                                try:
+                                    for index,pounds in path['stations'].items():
+                                        ok=aq.set('PAYLOAD_STATION_WEIGHT:'+str(index),float(pounds))
+                                        if ok is False:
+                                            raise ValueError('MSFS recusou estação '+str(index))
+                                    self._send('payload_sent',path['mission'])
+                                except (AttributeError,OSError,ValueError,RuntimeError) as exc:
+                                    self._send('payload_error',str(exc))
                             if action == 'load_pln':
                                 from pathlib import Path
                                 file = Path(path)
@@ -259,7 +323,7 @@ class SimConnectWorker:
                                         # O adaptador Python-SimConnect implementa esta API do SDK.
                                         accepted = sm.load_flight_plan(str(file))
                                         if accepted:
-                                            self._send('plan_loaded', f'Comando de carga enviado: {file.name}. Verifique o mapa VFR/GPS.')
+                                            self._send('plan_atc_sent', f'Plano enviado ao ATC do MSFS: {file.name}. O mapa VFR/GPS NÃO é sincronizado pelo SimConnect do MSFS 2020.')
                                         else:
                                             self._send('plan_error', 'SimConnect recusou a solicitação de plano VFR.')
                                     except (OSError, AttributeError, ValueError, RuntimeError) as exc:
@@ -280,6 +344,16 @@ class SimConnectWorker:
                             raise ConnectionError("Sem dados críticos por 30 ciclos; recriando conexão")
                     else:
                         missing_runs = 0
+                        if sample.on_ground:
+                            if ground_since is None:
+                                ground_since = now
+                            if not catalog_attempted and now-ground_since>=3.0:
+                                catalog_attempted=True
+                                if not getattr(sm,'request_airport_catalog',lambda:False)():
+                                    self._send('airport_catalog_error',
+                                        'Consulta MSFS indisponível. Nenhum aeroporto externo será usado.')
+                        else:
+                            ground_since = None
                         self._send("sample", sample)
                         if reader.soft_missing and now - last_warning >= 15:
                             self._send("warning", "SimVar intermitente: " + ", ".join(sorted(reader.soft_missing)) + "; monitoramento continua")

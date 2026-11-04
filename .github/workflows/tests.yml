@@ -43,15 +43,17 @@ jobs:
       - run: pip install -r requirements-windows.txt pyinstaller
       - name: Download pinned MapLibre web assets
         run: python scripts/fetch_maplibre.py
+      - name: Generate approved Windows icon
+        run: python scripts/prepare_app_icon.py
       - name: Build standalone Windows folder
-        run: python -m PyInstaller --noconfirm --clean --noupx --onedir --name FlightSimCarreira --collect-all webview --collect-all pythonnet --collect-all clr_loader --collect-all cffi --hidden-import clr --collect-all SimConnect --collect-all airportsdata --add-data "aerocarreira/midnight;aerocarreira/midnight" --add-data "in_game;in_game" launch_midnight.py
+        run: python -m PyInstaller --icon assets/flight_sim_carreira.ico --noconfirm --clean --noupx --onedir --name FlightSimCarreira --collect-all webview --collect-all pythonnet --collect-all clr_loader --collect-all cffi --hidden-import clr --collect-all SimConnect --add-data "aerocarreira/midnight;aerocarreira/midnight" --add-data "in_game;in_game" launch_midnight.py
       - name: Validate packaged airport catalog and UI assets
-        run: python -c "from pathlib import Path; p=Path('dist/FlightSimCarreira/_internal'); assert any((p/'airportsdata').rglob('*.csv')), 'Airport data missing'; assert (p/'aerocarreira/midnight/index.html').is_file(); assert (p/'aerocarreira/midnight/free-map.js').is_file(); assert (p/'aerocarreira/midnight/vendor/maplibre-gl.js').is_file(); assert (p/'aerocarreira/midnight/vendor/maplibre-gl.css').is_file(); assert (p/'SimConnect/SimConnect.dll').is_file()"
+        run: python -c "from pathlib import Path; p=Path('dist/FlightSimCarreira/_internal'); assert Path('assets/flight_sim_carreira.ico').is_file(), 'Approved icon missing'; assert (p/'aerocarreira/midnight/index.html').is_file(); assert (p/'aerocarreira/midnight/free-map.js').is_file(); assert (p/'aerocarreira/midnight/vendor/maplibre-gl.js').is_file(); assert (p/'aerocarreira/midnight/vendor/maplibre-gl.css').is_file(); assert (p/'SimConnect/SimConnect.dll').is_file()"
       - name: Executable version smoke test
         run: .\dist\FlightSimCarreira\FlightSimCarreira.exe --version
       - name: Native pythonnet / WinForms smoke test (real packaged exe)
         run: .\\dist\\FlightSimCarreira\\FlightSimCarreira.exe --verify-native-webview
       - uses: actions/upload-artifact@v4
         with:
-          name: FlightSimCarreira-0.7.6-midnight-alpha1-Windows
+          name: FlightSimCarreira-0.7.8.2-midnight-alpha3-Windows
           path: dist/FlightSimCarreira/

@@ -8,7 +8,7 @@ from queue import Queue, Empty
 from tkinter import Tk, Toplevel, Frame, Label, Button, Entry, StringVar, IntVar, Checkbutton, Canvas, filedialog, messagebox, Text, END
 from tkinter import ttk
 from time import strftime, localtime, time
-from .domain import FlightTracker, Career, MISSIONS, AIRPORTS, distance_nm, Phase
+from .domain import FlightTracker, Career, MISSIONS, AIRPORTS, distance_nm, Phase, Airport
 from .storage import Storage
 from .sim_adapter import SimConnectWorker
 from .demo import demo_samples
@@ -22,6 +22,9 @@ from .flightplan import export_vfr_plan
 from .finance import AIRCRAFT_ECONOMY, brl, estimated_minutes
 from .contracts import aircraft_model
 from .fuel import FuelManager
+from .manifest import mission_manifest
+from .msfs_airports import catalog_from_msfs, strict_mission, restricted_mission
+from .payload import load_plan, load_confirmed
 from .fleet import used_market, resale_price
 from .planning import Preflight, inspect_preflight, aircraft_title_matches
 from .flight_audit import real_clock_verified, assistance_verified, flight_safety_xp
@@ -62,6 +65,11 @@ class Application:
         self.storage = Storage(state_dir() / "carreira.db")
         self.location_recovered=self.storage.recover_legacy_location()
         self.fuel_manager=FuelManager(self.storage)
+        self.pending_fuel_ref=None
+        self.dispatch_state={}
+        self.weight_bonus_frozen=0
+        self.last_resource_warning={}
+        self._payload_last_request=0.0
         self.fuel_penalty_frozen=0.0
         self.fuel_ref_frozen=None
         self.fuel_mode_at_takeoff=False
@@ -82,6 +90,8 @@ class Application:
                     self.realism_frozen = float(checkpoint.get('realism_frozen',0.0))
                     self.realism_mission = checkpoint.get('realism_mission')
                 self.fuel_company_guard=checkpoint.get('fuel_company_guard')
+                self.dispatch_state=checkpoint.get('dispatch_state') or {}
+                self.weight_bonus_frozen=int(checkpoint.get('weight_bonus_frozen',0))
                 if self.tracker.phase == Phase.AIRBORNE:
                     self.fuel_penalty_frozen=float(checkpoint.get('fuel_penalty_frozen',0.0))
                     self.fuel_mode_at_takeoff=bool(checkpoint.get('fuel_mode_at_takeoff',False))
@@ -108,6 +118,7 @@ class Application:
         self.fleet_dialog = None
         self.planning_dialog = None
         self.airport_catalog = None
+        self.msfs_airports_ready=False
         self.bridge_state = PanelState()
         self.bridge = LocalPanelServer(self.bridge_state)
         self.bridge_error = None
@@ -486,6 +497,12 @@ class Application:
             self.tracker.reset()
         self.session_generation += 1
         self.sim = SimConnectWorker(self.queue, generation=self.session_generation)
+        self.airport_catalog=None
+        self.msfs_airports_ready=False
+        if self.dashboard:
+            self.dashboard.presenter.market_key=None
+            self.dashboard.presenter.offers={}
+            self.dashboard.presenter.position_center=None
         self.mode="MSFS"
         self.status_var.set("Conectando ao MSFS...")
         self._log("Iniciando monitoramento com reconexão automática.")
@@ -497,6 +514,8 @@ class Application:
             self.sim = None
         self.session_generation += 1  # descartar mensagens de sessões antigas
         self.connected=False
+        self.msfs_airports_ready=False
+        self.airport_catalog=None
         self.mode="Desconectado"
         self.status_var.set("Desconectado")
 
@@ -539,8 +558,16 @@ class Application:
         self._accept_specific(m)
 
     def _accept_specific(self, m):
-        # No menu do MSFS ainda não existe SimConnect; o jogador pode
-        # reservar contrato na base do seu perfil e preparar o plano .PLN.
+        m=mission_manifest(m)
+        # Em jogo real, catálogo vivo do MSFS é a ÚNICA fonte de aeroportos.
+        # Mesmo uma oferta antiga no SQLite NÃO comprova aeroporto instalado.
+        if self.mode!='Demo':
+            validated=strict_mission(m,self.airport_catalog if self.msfs_airports_ready else None)
+            if validated is None:
+                self._log('MERCADO BLOQUEADO: origem ou destino não existe na base lida do MSFS desta sessão. Nenhuma rota externa será aceita.')
+                self.status_var.set('Aguardando catálogo oficial do MSFS')
+                return False
+            m=validated
         offline = self.mode == "Desconectado"
         if not offline and (self.mode not in ("MSFS", "Demo") or self.last_sample is None):
             messagebox.showwarning("Contrato", "Conecte ao MSFS e aguarde telemetria em solo.")
@@ -577,6 +604,10 @@ class Application:
         try:
             self.career.accept(m, None if offline else self.last_sample)
             self.storage.set_setting('preflight_v1','')  # outro contrato exige novo despacho
+            self.dispatch_state={'mission_id':m.id,'route':'pending',
+                                 'payload':'waiting_sim','weights':{},
+                                 'weight_expected_lbs':None,'message':'Preparação iniciada'}
+            self.weight_bonus_frozen=0
             self._show_mission()
             self._checkpoint(force=True)
             self._log(f"Contrato aceito: {m.title} ({m.origin} → {m.destination}).")
@@ -585,11 +616,12 @@ class Application:
                 self._log(f"FREELANCER: avião fornecido pelo contratante: {plane.name}.")
                 self._log("Selecione este modelo no MSFS antes de decolar; o addon NÃO muda o avião automaticamente.")
                 if not offline and self.last_sample and not matches_aircraft(self.last_sample.aircraft_title, m.employer_plane):
-                    messagebox.showinfo("Freelancer — aeronave do contratante",
-                        f"Contrato aceito. Avião designado: {plane.name}\n\n"
-                        "Antes de decolar, selecione essa aeronave no MSFS. "
-                        "O SimConnect deve reconhecer o modelo para validar o pagamento.")
-            self._log('Pode gerar e carregar o plano VFR pelo botão Preparar plano da missão.')
+                    self._log(f'FREELANCER: troque para {plane.name} no MSFS; carga ficará pendente até o modelo corresponder.')
+            # O clique Aceitar missão já é consentimento explícito: sem novo
+            # messagebox, tenta rota e carga, deixando status visível.
+            self._prepare_active_plan(automatic=True)
+            self._queue_payload_load()
+            self._checkpoint(force=True)
             return True
         except ValueError as exc:
             messagebox.showwarning("Contrato",str(exc))
@@ -602,9 +634,11 @@ class Application:
         if not self.storage.get_pilot():
             messagebox.showwarning("Mercado regional", "Crie seu perfil em 'Meu piloto / Habilitações'.")
             return
-        if self.airport_catalog is None:
-            self.airport_catalog = AirportCatalog()
-        catalog = self.airport_catalog
+        if self.mode!='Demo' and not (self.connected and self.msfs_airports_ready and self.airport_catalog):
+            self._log('MERCADO: aguardando inventário de aeroportos do MSFS. Sem catálogo externo.')
+            return
+        if self.airport_catalog is None:self.airport_catalog=AirportCatalog()  # Demo
+        catalog=self.airport_catalog
         sample = self.last_sample
         center = catalog.nearest(sample.latitude, sample.longitude, 6) if sample else None
         if center is None:
@@ -711,35 +745,144 @@ class Application:
         self.label(buttons,"Apenas ofertas regionais; máximo 13 armazenadas.",9,MUTED).pack(side="right")
         populate()
 
-    def _prepare_active_plan(self):
+    def _prepare_active_plan(self, automatic=False):
+        """Exporta plano VFR e solicita importação em solo sem segundo aceite."""
         m=self.career.mission
-        if m is None:
-            messagebox.showinfo('Plano VFR','Aceite primeiro um contrato.')
-            return
+        if not m:
+            if not automatic:messagebox.showinfo('Plano VFR','Aceite primeiro um contrato.')
+            return False
+        if self.mode!='Demo':
+            validated=strict_mission(m,self.airport_catalog if self.msfs_airports_ready else None)
+            if validated is None:
+                if self.dispatch_state:self.dispatch_state['route']='waiting_navdata'
+                self._log('PLANO NÃO ENVIADO: origem/destino ainda não verificados no MSFS; sem coordenadas externas.')
+                return False
+            m=validated
+            self.career.mission=m
         try:
             data=self._saved_preflight()
             path=export_vfr_plan(m,state_dir()/'planos_vfr', data.altitude_ft if data else 2500)
+            self._log(f'Plano VFR exportado: {path}')
         except (OSError,ValueError) as exc:
-            messagebox.showerror('Plano VFR',str(exc))
-            return
-        self._log(f'Plano VFR exportado: {path}')
-        if self.mode != 'MSFS' or not self.connected:
-            messagebox.showinfo('Plano preparado para o Mapa-Múndi',
-                f'Plano exportado: {path}\n\nNo menu Mapa-Múndi do MSFS 2020, use Carregar/Salvar para abrir este .PLN e selecione manualmente a aeronave. '
-                'Não existe integração testada para mudar automaticamente o avião pelo menu.')
-            return
-        if not messagebox.askyesno('Plano VFR criado',
-            f'Plano salvo em:\n{path}\n\nSolicitar carregamento no MSFS agora?\n'
-            'Isso altera a rota do simulador, mas NÃO troca a aeronave nem a posição.\n'
-            'O GPS/mapa VFR pode exigir confirmação manual.'):
-            return
+            self._log('PLANO VFR: '+str(exc))
+            if self.dispatch_state:self.dispatch_state['route']='error'
+            if not automatic:messagebox.showerror('Plano VFR',str(exc))
+            return False
         if not (self.mode=='MSFS' and self.connected and self.sim and self.last_sample
-                and self.last_sample.on_ground and time()-self.last_sample.timestamp < 10):
-            messagebox.showwarning('Plano VFR','Para carregar automaticamente, conecte o MSFS e mantenha o avião em solo. '
-                'O arquivo .PLN já foi salvo e pode ser importado manualmente.')
-            return
+                and self.last_sample.on_ground and time()-self.last_sample.timestamp<10):
+            if self.dispatch_state:self.dispatch_state['route']='waiting_sim'
+            self._log('Plano VFR guardado. Carregamento automático pendente: conecte MSFS com avião no solo.')
+            return False
         self.sim.request_plan_load(path)
-        self._log('Solicitação de carga do plano VFR enviada ao SimConnect. Aguardando retorno da API.')
+        if self.dispatch_state:self.dispatch_state['route']='loading'
+        self._log('Plano VFR enviado ao SimConnect. A API padrão do MSFS 2020 atualiza ATC, não garante o GPS/mapa VFR.')
+        return True
+
+    def _queue_payload_load(self):
+        m=self.career.mission
+        if not m or not self.dispatch_state or self.dispatch_state.get('mission_id')!=m.id:
+            return False
+        s=self.last_sample
+        if not (self.mode=='MSFS' and self.connected and self.sim and s
+                and time()-s.timestamp<12 and s.on_ground):
+            self.dispatch_state['payload']='waiting_sim'
+            return False
+        chosen=(m.employer_plane if m.freelance else
+                (self.storage.fleet_manager().selected() or {}).get('code'))
+        if not chosen or aircraft_model(s.aircraft_title)!=chosen:
+            self.dispatch_state.update(payload='waiting_aircraft',
+                message='Selecione no MSFS a aeronave do contrato.')
+            return False
+        try:
+            distribution=load_plan(s,m)
+        except (ValueError,TypeError) as exc:
+            self.dispatch_state.update(payload='waiting_weight',
+                message=str(exc))
+            return False
+        self.sim.request_payload_set(m.id,distribution['stations'])
+        self.dispatch_state.update(payload='loading',weights=distribution['stations'],
+            weight_expected_lbs=distribution['total_lbs'],
+            message='Aplicando carga • aguardando retorno das estações.')
+        self._payload_last_request=time()
+        self._log(f'CARGA: {m.manifest_label} ({m.payload_kg:.1f} kg) → MSFS. MTOW previsto: {distribution["total_lbs"]:.1f}/{distribution["max_lbs"]:.1f} lb.')
+        return True
+
+    def _verify_payload(self,s):
+        m=self.career.mission
+        if not m or not self.dispatch_state or self.dispatch_state.get('mission_id')!=m.id or not s.on_ground:
+            return
+        status=self.dispatch_state.get('payload')
+        if status=='verified' and s.payload_station_weights:
+            if not load_confirmed(s.payload_station_weights,self.dispatch_state.get('weights') or {}):
+                self.dispatch_state.update(payload='waiting_weight',
+                    message='Peso alterado ao reabrir MSFS; reaplicando manifesto salvo.')
+                self._log('CARGA: simulação voltou com pesos diferentes; sincronizando novamente.')
+                status='waiting_weight'
+        if status=='loading':
+            stations=self.dispatch_state.get('weights') or {}
+            if (s.payload_station_weights and load_confirmed(s.payload_station_weights,stations)
+                and s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None
+                and s.total_weight_lbs<=s.max_gross_weight_lbs):
+                self.dispatch_state.update(payload='verified',
+                    message='Carga confirmada por leitura SimConnect.')
+                self._log(f'CARGA CONFIRMADA: {m.manifest_label} • {m.payload_kg:.1f} kg, dentro do MTOW.')
+                self._checkpoint(force=True)
+            elif time()-self._payload_last_request>18:
+                self.dispatch_state.update(payload='waiting_weight',
+                    message='Não foi possível confirmar a carga; verifique Peso e Balanceamento.')
+        elif status in ('waiting_sim','waiting_aircraft','waiting_weight'):
+            if time()-self._payload_last_request>4:
+                self._payload_last_request=time()
+                self._queue_payload_load()
+
+    def _apply_msfs_catalog(self,raw):
+        """Aceita o inventário COMPLETO, produzido pela sessão SimConnect atual."""
+        try:
+            catalog=catalog_from_msfs(raw)
+        except (ValueError,TypeError) as exc:
+            self._log('AEROPORTOS MSFS: dados recusados: '+str(exc))
+            return
+        self.airport_catalog=catalog
+        self.msfs_airports_ready=True
+        self._log(f'AEROPORTOS MSFS: {len(catalog.locations)} aeródromos confirmados pelo simulador. Catálogos externos ignorados.')
+        if self.dashboard:
+            presenter=self.dashboard.presenter
+            presenter.market_key=None
+            presenter.offers={}
+            presenter.position_lookup=None
+            presenter.position_center=None
+            presenter.refresh_market(force=True)
+        if self.career.mission:
+            verified=strict_mission(self.career.mission,catalog)
+            if verified is None:
+                self._log('CONTRATO ANTERIOR: aeroporto não encontrado no MSFS; rota e despacho bloqueados. Não foi cancelado automaticamente.')
+                if self.dispatch_state:
+                    self.dispatch_state.update(route='invalid_airport',
+                        message='Origem/destino ausentes da instalação MSFS; contrato legado preservado.')
+            else:
+                self.career.mission=verified
+                if self.dispatch_state.get('route') in ('waiting_navdata','waiting_sim','pending'):
+                    self._prepare_active_plan(automatic=True)
+                self._checkpoint(force=True)
+
+    def _warn_resources(self,s):
+        plane=self.storage.fleet_manager().selected()
+        if not plane or self.mode!='MSFS':return
+        ref=plane['ref']
+        fuel=self.fuel_manager.get(ref)
+        ratio=(sum(fuel['tanks'].values())/sum(fuel['capacities'].values())
+               if fuel and fuel['capacities'] and sum(fuel['capacities'].values())>0 else None)
+        for kind,low,notice in (
+            ('fuel',ratio is not None and ratio<=.20,
+             'COMBUSTÍVEL BAIXO (≤20%): abasteça antes de voar.'),
+            ('wear',plane['condition'] is not None and plane['condition']<=20,
+             'DESGASTE CRÍTICO (≤20% de condição): agende manutenção.')):
+            key=(ref,kind)
+            if low and not self.last_resource_warning.get(key):
+                self._log('ALERTA '+ref+': '+notice)
+                self.last_resource_warning[key]=True
+            elif not low:
+                self.last_resource_warning.pop(key,None)
 
     def _employment_window(self):
         if self.employment_dialog and self.employment_dialog.winfo_exists():
@@ -867,6 +1010,8 @@ class Application:
     def _cancel(self):
         self.career.cancel()
         self.storage.set_setting('preflight_v1','')
+        self.dispatch_state={}
+        self.weight_bonus_frozen=0
         self.realism_frozen=0.0
         self.realism_mission=None
         self.fuel_company_guard=None
@@ -890,7 +1035,9 @@ class Application:
                 'fuel_penalty_frozen':self.fuel_penalty_frozen,
                 'fuel_mode_at_takeoff':self.fuel_mode_at_takeoff,
                 'fuel_ref_frozen':self.fuel_ref_frozen,
-                'fuel_company_guard':self.fuel_company_guard}
+                'fuel_company_guard':self.fuel_company_guard,
+                'dispatch_state':self.dispatch_state,
+                'weight_bonus_frozen':self.weight_bonus_frozen}
 
     def _checkpoint(self, force=False):
         # Demo mantém o banco de carreira; checkpoint do voo é para modo MSFS.
@@ -955,6 +1102,17 @@ class Application:
                 self._log('Combustível: monitoramento indisponível: '+str(exc))
                 self.fuel_warning_at=time()
             return
+        if status in ('consuming','calibrated') and self.fuel_manager.confirm_pending(ref):
+            self.pending_fuel_ref=None
+            self._log('ABASTECIMENTO confirmado pelo MSFS e consolidado no save: '+ref)
+        if status=='write_not_confirmed' and self.fuel_manager.pending(ref):
+            old=self.fuel_manager.rollback_pending(ref)
+            self.pending_fuel_ref=None
+            self.career.balance=int(self.storage.get_setting('balance') or 0)
+            self.balance_var.set(brl(self.career.balance))
+            if old and self.sim:self.sim.request_fuel_restore(old)
+            self._log('ABASTECIMENTO ESTORNADO: MSFS não confirmou os tanques após tentativas.')
+            return
         if correction and self.sim and self.connected:
             self.sim.request_fuel_restore(correction)
             if time()-self.fuel_warning_at>=12:
@@ -969,6 +1127,14 @@ class Application:
     def _process_sample(self,s):
         self.last_sample=s
         self._sync_fuel(s)
+        self._verify_payload(s)
+        if (self.career.mission and self.dispatch_state.get('mission_id')==self.career.mission.id
+                and self.dispatch_state.get('route') in ('waiting_sim','waiting_navdata')
+                and s.on_ground and self.mode=='MSFS' and self.connected and self.msfs_airports_ready):
+            if (self.dispatch_state['route']=='waiting_sim' or
+                    self.career.mission.nav_source=='MSFS'):
+                self._prepare_active_plan(automatic=True)
+        self._warn_resources(s)
         fmt=lambda n: f"{n:,.0f}"
         for key,val in {
             "ias":fmt(s.ias_kt),"gs":fmt(s.groundspeed_kt) + ("~" if s.groundspeed_estimated else ""),
@@ -1003,6 +1169,7 @@ class Application:
                 self._log("DECOLAGEM detectada. Diário iniciado e salvo para recuperação.")
                 self.realism_frozen=0.0
                 self.realism_mission=None
+                self.weight_bonus_frozen=0
                 self.fuel_penalty_frozen=(.3 if self.storage.get_setting('fuel_control_enabled')=='0' else 0.0)
                 ref,model=self._fuel_ref_for_sample(s)
                 self.fuel_ref_frozen=ref
@@ -1010,6 +1177,18 @@ class Application:
                 if self.fuel_penalty_frozen:
                     self._log('Combustível sob controle do MSFS: penalidade -30% sobre R$ e XP deste voo.')
                 plan=self._saved_preflight()
+                if (self.career.mission and self.dispatch_state.get('mission_id')==self.career.mission.id
+                    and self.dispatch_state.get('payload')=='verified'
+                    and s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None
+                    and s.total_weight_lbs<=s.max_gross_weight_lbs):
+                    self.weight_bonus_frozen=5
+                    if plan is None:
+                        plan=Preflight(self.career.mission.id,s.aircraft_title or '',
+                            payload_checked=True,planned_weight_lbs=s.total_weight_lbs,
+                            max_weight_lbs=s.max_gross_weight_lbs)
+                    else:
+                        plan=replace(plan,payload_checked=True)
+                    self._log('PESO DENTRO DO MTOW: +5 XP e bônus de pagamento/XP previsto no despacho.')
                 if self.career.mission:
                     # Autoavaliação: só dados SimConnect válidos valem bônus.
                     # Clima ao vivo não pode ser provado por esta API.
@@ -1055,6 +1234,8 @@ class Application:
                 checkpoint_after = self._checkpoint_data(tracker=next_tracker,post_landing=next_post)
                 checkpoint_after['realism_frozen']=0.0
                 checkpoint_after['realism_mission']=None
+                checkpoint_after['weight_bonus_frozen']=0
+                checkpoint_after['dispatch_state']={}
                 checkpoint_after['fuel_penalty_frozen']=0.0
                 checkpoint_after['fuel_mode_at_takeoff']=False
                 checkpoint_after['fuel_ref_frozen']=None
@@ -1081,7 +1262,8 @@ class Application:
                                         destination=landing_icao,
                                         fuel_penalty_fraction=self.fuel_penalty_frozen,
                                         fuel_prepaid=self.fuel_mode_at_takeoff,
-                                        flight_xp_extra=safety_xp)
+                                        flight_xp_extra=safety_xp,
+                                        flight_xp_weight_bonus=(self.weight_bonus_frozen if payment else 0))
                 except Exception as exc:
                     self._log(f"FALHA AO SALVAR pouso: {exc}. Não feche antes de exportar log.")
                     self.status_var.set("Erro ao salvar voo")
@@ -1094,6 +1276,8 @@ class Application:
                 self.post_landing_taxi=next_post
                 self.realism_frozen=0.0
                 self.realism_mission=None
+                self.weight_bonus_frozen=0
+                self.dispatch_state={}
                 self.fuel_penalty_frozen=0.0
                 self.fuel_mode_at_takeoff=False
                 self.fuel_ref_frozen=None
@@ -1145,12 +1329,13 @@ class Application:
         s=self.last_sample if self.connected else None
         mission=None
         if m:
-            a,b=AIRPORTS.get(m.origin),AIRPORTS.get(m.destination)
+            verified=restricted_mission(m,self.airport_catalog if self.msfs_airports_ready else None)
             mission={'origin':m.origin,'destination':m.destination,'title':m.title,
-                     'reward':m.reward,'origin_lat':m.origin_lat if m.origin_lat is not None else (a.latitude if a else None),
-                     'origin_lon':m.origin_lon if m.origin_lon is not None else (a.longitude if a else None),
-                     'destination_lat':m.destination_lat if m.destination_lat is not None else (b.latitude if b else None),
-                     'destination_lon':m.destination_lon if m.destination_lon is not None else (b.longitude if b else None)}
+                     'reward':m.reward,'origin_lat':verified.origin_lat,
+                     'origin_lon':verified.origin_lon,
+                     'destination_lat':verified.destination_lat,
+                     'destination_lon':verified.destination_lon,
+                     'nav_source':verified.nav_source}
         self.bridge_state.update(status='connected' if s else 'offline',
             phase=self.tracker.phase.value,balance=self.career.balance,
             aircraft=s.aircraft_title if s else None,
@@ -1185,18 +1370,48 @@ class Application:
                 elif kind=="warning":
                     self.status_var.set("Monitorando / recuperação")
                     self._log(item)
-                elif kind=='plan_loaded':
+                elif kind in ('plan_atc_sent','plan_loaded'):
+                    if self.dispatch_state:
+                        self.dispatch_state.update(route='atc_sent',message=
+                            'ATC recebeu comando. GPS/mapa VFR não são sincronizados automaticamente pelo SimConnect MSFS 2020.')
                     self._log(item)
-                    messagebox.showinfo('SimConnect / plano VFR',item)
                 elif kind=='fuel_sent':
                     self._log('Combustível: solicitação enviada ao MSFS; leitura posterior confirmará.')
                 elif kind=='fuel_error':
-                    self._log('ALERTA combustível: escrita recusada: '+item)
+                    if self.pending_fuel_ref:
+                        old=self.fuel_manager.rollback_pending(self.pending_fuel_ref)
+                        self.pending_fuel_ref=None
+                        self.career.balance=int(self.storage.get_setting('balance') or 0)
+                        self.balance_var.set(brl(self.career.balance))
+                        self._log('ABASTECIMENTO ESTORNADO: '+item)
+                        if old and self.sim:self.sim.request_fuel_restore(old)
+                    else:self._log('ALERTA combustível: escrita recusada: '+item)
                 elif kind=='plan_error':
+                    if self.dispatch_state:self.dispatch_state['route']='error'
                     self._log('PLANO VFR: '+item)
-                    messagebox.showwarning('Plano VFR',item)
+                elif kind=='payload_sent':
+                    self._log('Peso enviado ao simulador; aguardando leitura de confirmação.')
+                elif kind=='airport_catalog':
+                    self._apply_msfs_catalog(item)
+                elif kind=='airport_catalog_error':
+                    self.msfs_airports_ready=False
+                    self.airport_catalog=None
+                    if self.dashboard:
+                        self.dashboard.presenter.offers={}
+                        self.dashboard.presenter.center=None
+                    self._log('AEROPORTOS MSFS INDISPONÍVEIS: '+str(item))
+                elif kind=='payload_error':
+                    if self.dispatch_state:
+                        self.dispatch_state.update(payload='error',message=item)
+                    self._log('CARGA: '+item)
                 elif kind=="disconnected":
                     self.connected=False
+                    self.msfs_airports_ready=False
+                    self.airport_catalog=None
+                    if self.dashboard:
+                        self.dashboard.presenter.market_key=None
+                        self.dashboard.presenter.offers={}
+                        self.dashboard.presenter.center=None
                     self.status_var.set(item)
         except Empty:
             pass

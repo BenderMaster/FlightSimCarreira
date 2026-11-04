@@ -136,6 +136,7 @@ function start(){
   mapArea?.classList.add('free-active');
   if(mapNode){mapNode.style.display='block';mapNode.style.width='100%';mapNode.style.height='100%';}
   map=new maplibregl.Map({container:'free-map',style:BASE,center:[-34.92,-8.12],zoom:9,
+    antialias:false,renderWorldCopies:false,
    scrollZoom:true,dragPan:true,touchZoomRotate:true,keyboard:true,
    pitchWithRotate:false,dragRotate:false,maxPitch:0,attributionControl:false,fadeDuration:0});
   map.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-left');

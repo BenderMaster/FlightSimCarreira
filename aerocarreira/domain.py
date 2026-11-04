@@ -49,6 +49,12 @@ class Mission:
     destination_lat: float | None = None
     destination_lon: float | None = None
     company_code: str | None = None
+    # Manifesto persistido na oferta/contrato; versões antigas usam defaults.
+    payload_kg: float = 0.0
+    manifest_label: str | None = None
+    manifest_kind: str | None = None  # passenger, cargo, medical
+    passenger_count: int = 0
+    nav_source: str = 'CATALOGO'  # MSFS somente se ambos pontos forem confirmados
 
 
 MISSIONS = (
@@ -77,6 +83,8 @@ class FlightSample:
     aircraft_title: str | None = None
     total_weight_lbs: float | None = None
     max_gross_weight_lbs: float | None = None
+    payload_station_weights: dict[int,float] | None = None
+    payload_station_count: int | None = None
     wind_kt: float | None = None
     ambient_temperature_c: float | None = None
     sim_rate: float | None = None

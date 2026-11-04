@@ -44,6 +44,7 @@ class FuelManager:
         self.last_seen={}
         self.last_correction={}
         self.restore_attempts={}
+        self.awaiting={}
 
     def get(self, ref):
         row=self.db.conn.execute('SELECT model,tanks_json,caps_json,updated_utc FROM fleet_fuel WHERE aircraft_ref=?',(ref,)).fetchone()
@@ -82,8 +83,23 @@ class FuelManager:
                 return 'mismatch',None  # capacidade trocada: não sobrescrever outro modelo/tanque
         if caps and caps!=old['capacities']:
             old['capacities']=caps
-        elapsed=max(0,now-self.last_seen.get(ref,old['updated_at']))
+        first_read=ref not in self.last_seen
+        elapsed=max(0,now-self.last_seen.get(ref,now))
         self.last_seen[ref]=now
+        # Primeiro sample após reiniciar: NÃO inferir consumo por dias offline.
+        # A cópia SQLite é autoritativa ao iniciar no chão, e deve ser restaurada.
+        if first_read and enabled and on_ground:
+            mismatch=any(abs(float(observed[k])-expected[k])>.15 for k in expected)
+            if mismatch:
+                if not old['capacities'] or set(old['capacities'])!=set(expected):
+                    return 'read_only',None
+                self.last_correction[ref]=now
+                self.restore_attempts[ref]=1
+                self.awaiting[ref]=dict(expected)
+                return 'restore',dict(expected)
+        elif first_read and not on_ground:
+            # Reabertura em voo: não acrescentar combustível ao avião em voo.
+            return 'awaiting_ground',None
         # No modo desligado aceitamos consumo mas não permitimos acumular
         # combustível inserido manualmente para obter combustível grátis depois.
         if not enabled:
@@ -99,9 +115,11 @@ class FuelManager:
         invalid_drop=total_drop>max_drop or any(observed[k]<0 for k in expected)
         if not increase and not invalid_drop:
             self.restore_attempts.pop(ref,None)
-            # Ignorar flutuação positiva de até 0.12 gal; não aumentar o inventário.
+            self.awaiting.pop(ref,None)
             reduced={k:min(expected[k],float(observed[k])) for k in expected}
             if reduced!=expected or caps:
+                burned=max(0,sum(expected.values())-sum(reduced.values()))*LITERS_PER_GALLON
+                self._reduce_refundable(ref,burned)
                 self._save(ref,model,reduced,old['capacities'])
             return 'consuming',None
         if not old['capacities'] or set(old['capacities'])!=set(expected):
@@ -112,28 +130,115 @@ class FuelManager:
             return 'awaiting_write',None
         self.last_correction[ref]=now
         self.restore_attempts[ref]=self.restore_attempts.get(ref,0)+1
+        self.awaiting[ref]=dict(expected)
         return 'restore',dict(expected)
 
-    def refuel_full(self, ref):
-        """Transação única: combustível pago + novo alvo de todos os tanques."""
+    def _refundable(self,ref):
+        return max(0,float(self.db.get_setting('fuel_refundable_liters:'+ref) or 0))
+
+    def _reduce_refundable(self,ref,burned_liters):
+        if burned_liters<=.0001:return
+        self.db.set_setting('fuel_refundable_liters:'+ref,
+            str(round(max(0,self._refundable(ref)-burned_liters),5)))
+
+    def pending(self,ref):
+        raw=self.db.get_setting('fuel_pending_adjustment:'+ref)
+        if not raw:return None
+        try:return json.loads(raw)
+        except (ValueError,TypeError):return None
+
+    def confirm_pending(self,ref):
+        if not self.pending(ref):return False
+        with self.db.conn:
+            self.db.conn.execute("DELETE FROM settings WHERE key=?",('fuel_pending_adjustment:'+ref,))
+        return True
+
+    def rollback_pending(self,ref):
+        """Estorno idempotente quando a DLL recusa o envio ou a leitura falha."""
+        pending=self.pending(ref)
+        if not pending:return None
+        with self.db.conn:
+            amount=-int(pending['amount'])
+            old_balance=int(self.db.get_setting('balance') or 0)
+            balance=old_balance+amount
+            self.db._ledger_in_transaction('refund-failed:'+pending['event_key'],
+                'estorno_abastecimento',amount,balance,
+                'Reversão por falha de escrita no MSFS: '+ref)
+            self.db.conn.execute("""INSERT INTO settings(key,value) VALUES('balance',?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value""",(str(balance),))
+            self.db.conn.execute('UPDATE fleet_fuel SET tanks_json=?,updated_utc=? WHERE aircraft_ref=?',
+                (json.dumps(pending['old_tanks'],sort_keys=True),self.clock(),ref))
+            self.db.conn.execute("""INSERT INTO settings(key,value) VALUES(?,?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value""",
+                ('fuel_refundable_liters:'+ref,str(pending['old_credit'])))
+            self.db.conn.execute("DELETE FROM settings WHERE key=?",('fuel_pending_adjustment:'+ref,))
+        self.awaiting.pop(ref,None)
+        self.restore_attempts.pop(ref,None)
+        self.last_correction.pop(ref,None)
+        return pending['old_tanks']
+
+    def change_liters(self, ref, target_liters):
+        """Alvo absoluto por aeronave, transação única do inventário e caixa.
+
+        Reembolsa somente o volume COMPRADO e ainda não consumido nesta
+        versão, evitando explorar combustível inicial gratuito do MSFS.
+        """
+        if not isinstance(target_liters,(int,float)) or not isfinite(target_liters):
+            raise ValueError('Quantidade de litros inválida.')
+        if self.pending(ref):
+            raise ValueError('Abastecimento anterior aguarda confirmação do MSFS.')
         old=self.get(ref)
         if not old or not old['capacities'] or set(old['tanks'])!=set(old['capacities']):
-            raise ValueError('Tanques/capacidades ainda não sincronizados. Conecte a aeronave no solo.')
+            raise ValueError('Calibre tanques no solo antes de abastecer.')
         if self.db.get_setting('fuel_control_enabled')!='1':
-            raise ValueError('Ative o controle de combustível do addon para abastecer.')
-        if self.db.fleet_manager().get(ref) is None:
+            raise ValueError('Ative o controle de combustível.')
+        if not self.db.fleet_manager().get(ref):
             raise ValueError('Aeronave própria/alugada não encontrada.')
         caps=old['capacities']
-        new={k:round(caps[k],4) for k in old['tanks']}
-        if not valid_tanks(new,capacities=caps):
-            raise ValueError('Capacidades inválidas; abastecimento recusado.')
-        added=sum(new.values())-sum(old['tanks'].values())
-        if added<=.03:
-            raise ValueError('Tanques já estão praticamente cheios.')
-        price=max(1,round(added*LITERS_PER_GALLON*FUEL_BRL_PER_LITER))
+        total_capacity=sum(caps.values())*LITERS_PER_GALLON
+        if not (0<=target_liters<=total_capacity+.05):
+            raise ValueError(f'Informe um valor de 0 a {total_capacity:.1f} litros.')
+        target_liters=min(float(target_liters),total_capacity)
+        current=sum(old['tanks'].values())*LITERS_PER_GALLON
+        difference=target_liters-current
+        if abs(difference)<.20:
+            raise ValueError('Quantidade já está no nível selecionado.')
+        # Distribuir conforme capacidade dos tanques, preservando simetria lateral.
+        new={name:round(caps[name]*(target_liters/total_capacity),5) for name in caps}
+        if not valid_tanks(new,capacities=caps):raise ValueError('Balanceamento de tanques inválido.')
+        paid=self._refundable(ref)
+        refund_liters=min(max(0,-difference),paid)
+        amount=(-max(1,round(difference*FUEL_BRL_PER_LITER)) if difference>0
+                else round(refund_liters*FUEL_BRL_PER_LITER))
+        next_credit=(paid+max(difference,0)) if difference>0 else max(0,paid-refund_liters)
+        event_key='fuel-adjust:'+ref+':'+str(time_ns())
         with self.db.conn:
-            self.db._money_movement('refuel:'+ref+':'+str(time_ns()),'abastecimento',-price,
-                                    f'Abastecimento {added:.1f} gal — {ref}')
-            self.db.conn.execute('''UPDATE fleet_fuel SET tanks_json=?,updated_utc=? WHERE aircraft_ref=?''',
-                                 (json.dumps(new,sort_keys=True),self.clock(),ref))
-        return {'added_gal':round(added,2),'cost_brl':price,'total_gal':round(sum(new.values()),2)}
+            if amount:
+                self.db._money_movement(event_key,
+                    'abastecimento' if amount<0 else 'devolucao_combustivel',amount,
+                    f'Combustível {difference:+.1f} L — {ref}')
+            self.db.conn.execute('UPDATE fleet_fuel SET tanks_json=?,updated_utc=? WHERE aircraft_ref=?',
+                (json.dumps(new,sort_keys=True),self.clock(),ref))
+            self.db.conn.execute("""INSERT INTO settings(key,value) VALUES(?,?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value""",
+                ('fuel_pending_adjustment:'+ref,json.dumps({
+                    'event_key':event_key,'amount':amount,'old_tanks':old['tanks'],
+                    'old_credit':paid,'new_tanks':new})))
+            self.db.conn.execute("""INSERT INTO settings(key,value) VALUES(?,?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value""",
+                ('fuel_refundable_liters:'+ref,str(round(next_credit,5))))
+        self.awaiting[ref]=dict(new)
+        self.restore_attempts.pop(ref,None)
+        self.last_correction.pop(ref,None)
+        return {'tanks':new,'delta_liters':round(difference,2),'target_liters':round(target_liters,2),
+                'cost_brl':max(0,-amount),'refund_brl':max(0,amount),
+                'nonrefundable_return_liters':round(max(0,-difference)-refund_liters,2),
+                'event_key':event_key}
+
+    def refuel_full(self,ref):
+        old=self.get(ref)
+        if not old or not old['capacities']:
+            raise ValueError('Calibre tanques antes de completar.')
+        result=self.change_liters(ref,sum(old['capacities'].values())*LITERS_PER_GALLON)
+        return dict(result,added_gal=round(max(0,sum(result['tanks'].values())-sum(old['tanks'].values())),5),
+                    total_gal=round(sum(result['tanks'].values()),5))

@@ -1,3 +1,67 @@
+# FlightSimCarreira v0.7.8.2 Midnight Ops Alpha.3 — aeroportos MSFS e desempenho
+
+Corrige o erro REAL da v0.7.8.1: `pacote=20587 bytes, registros=622`. O MSFS 2020 pode incluir um registro fixo extra de 33 bytes (`rgData[1]`) no comprimento da mensagem, além dos `dwArraySize` registros informados. A validação aceita **apenas um** bloco final de tamanho conhecido e decodifica os registros declarados; nunca adiciona dados do campo extra à base.
+
+- Mercado e navegação seguem **100% dependentes da listagem oficial recebida nesta sessão do MSFS**. Falha de leitura mantém mercado fechado e nenhum destino externo é fabricado.
+- Desempenho: consulta mundial de aeroportos ocorre no máximo uma vez por conexão após 3 s de telemetria válida com aeronave em solo, não em pleno voo; atualizações de estado da UI passam de 250 para 500 ms; desativado antialias e cópias de mundo no mapa MapLibre. O monitor de voo SimConnect **continua a cada 500 ms**, sem alterar lógica de decolagem/pouso.
+- A barra de título **dentro do aplicativo** exibe o ícone aprovado do FlightSimCarreira em vez do antigo SVG de linhas cruzadas. A mesma imagem está disponível como favicon da UI; o ícone do EXE segue aprovado.
+- Regressões: 622 aeroportos/20587 bytes, bloco final não interpretado, limites de layout, logo PNG servido localmente e ausência do SVG antigo.
+
+**MSFS real ainda exige homologação.** Travadas de desempenho têm muitas causas; fazer teste comparativo 2–3 minutos com addon fechado, aberto minimizado e aberto com mapa visível, mantendo cenário e condições iguais. Os ajustes reduzem esforço do addon mas não são garantia de FPS maior.
+
+Antes de atualizar: backup de `%APPDATA%\\AeroCarreira-Lab\\carreira.db` com app fechado. Instale ZIP inteiro em outra pasta. Confira log `AEROPORTOS MSFS: N aeródromos confirmados`. Se houver nova falha, envie o texto completo do erro.
+
+---
+
+# FlightSimCarreira v0.7.8.1 — Hotfix do catálogo de aeroportos do MSFS 2020
+
+Correção localizada do erro **"AEROPORTOS MSFS INDISPONÍVEIS: Lista truncada: tamanho incompatível com contagem"** identificado em teste real da v0.7.8.
+
+- O array de aeroportos retornado via SimConnect pode começar no byte **28 ou 32**; cada registro pode ocupar **33, 36 ou 40 bytes** conforme alinhamento. O leitor agora reconhece as combinações válidas e verifica dados plausíveis antes de aceitar.
+- O mercado só é liberado após receber **todas** as páginas válidas da listagem do MSFS; **nenhuma base externa nem coordenada inventada** é usada.
+- Erro de leitura continua bloqueando ofertas e agora informa bytes/contagem quando o layout não é reconhecido, sem repetir indefinidamente a mesma mensagem no log.
+- Novos testes cobrem o caso que falhava, registro único ambíguo, seis combinações de alinhamento, coordenadas inválidas e respostas incompletas.
+- Regras de contrato, pagamentos, combustível, payload, ícone aprovado e save da v0.7.8 permanecem inalterados.
+
+**Teste MSFS 2020:** instale o ZIP completo em uma pasta nova, preserve o banco SQLite e inicie com o avião em solo. Aguarde o log `AEROPORTOS MSFS: N aeródromos confirmados pelo simulador`. Se a mensagem de layout persistir, envie o texto integral com os valores de pacote e registros: **não use catálogo externo** para contornar o erro. A aprovação por CI não equivale a homologação física no simulador.
+
+---
+
+# FlightSimCarreira v0.7.8 Midnight Ops Alpha.1 — navegação MSFS rigorosa
+
+**Foco:** corrigir as falhas reais detectadas na v0.7.7 (aeroportos inexistentes, popup de abastecimento rejeitado, confusão entre ATC e mapa VFR) preservando a carga confirmada e o save.
+
+- **Aeroportos exclusivamente do simulador, sem exceção no modo MSFS.** `SimConnect_RequestFacilitiesList` pede o inventário mundial ao MSFS 2020. A lista só é aplicada quando **todos os pacotes** forem recebidos e validados. Coordenadas vêm apenas dessa lista da sessão atual. Não aceitamos posições de `airportsdata`, CSV ou SQLite anterior para o mercado, planejamento e aceite; dependência externa retirada do pacote Windows. Antes da resposta, mercado vazio, sem aeronaves fictícias.
+- **Contratos antigos preservados** (não apagar SQLite): um contrato com aeroporto ausente no MSFS fica visível como não validado, mas sem rota/cartografia e bloqueado para despacho até que sua origem e destino sejam confirmados.
+- **Abastecer** envia alvo numérico em litros: protocolo local agora aceita `id` numérico somente na ação `refuel`, finito, >=0, <=200000. As outras ações continuam restritas a texto. O popup de compra/reembolso e rollback seguro da v0.7.7 permanecem.
+- **Plano VFR**: o addon solicita o carregamento do arquivo `.PLN` via SimConnect. No MSFS 2020, a API pública pode carregar somente a rota do **ATC**; **não é garantia de sincronizar GPS, G1000 ou mapa VFR**. A interface exibe "enviado ao ATC" e jamais declara GPS/VFR carregado sem evidência. A linha direta continua disponível no mapa interativo do addon.
+- **Carga**: nenhum ajuste na rotina de payload, que foi confirmada em teste físico.
+- **Ícone aprovado** incorporado ao executável Windows por PNG de origem e ICO multi-resolução gerado antes do PyInstaller.
+
+**Alpha, ainda não homologada no MSFS real**. CI Python, interface e empacotamento verificam lógica e bytes, não a chamada da DLL na tua instalação. Teste primeiro conectado, em solo, aguardando a listagem de aeroportos e verificando se o aeroporto destino realmente existe no mapa do simulador. A lista pode demorar e deve ficar vazia em caso de erro; reporte o log. Faça backup do `%APPDATA%\AeroCarreira-Lab\carreira.db` com o programa fechado.
+
+Ver [validação da v0.7.8](docs/V078_MSFS_ONLY_AIRPORTS.md).
+
+---
+
+# FlightSimCarreira v0.7.7 Alpha.1 — Persistência, despacho e navdata MSFS
+
+- **Combustível por aeronave:** inventário continua no SQLite da carreira e é restaurado no primeiro sample de solo após reinício, sem fingir consumo durante vários dias offline. Desgaste/condição já é persistido por exemplar.
+- Abastecimento na Dashboard abre popup de **litros finais desejados**, capacidade, compra ou devolução. Reembolso somente de combustível pago e ainda não consumido nesta versão (sem converter tanque inicial gratuito em dinheiro). Bloqueio por MTOW. Alterações financeiras são revertidas se a escrita não for confirmada.
+- **Alertas de combustível e condição ≤20%** no painel e log, por aeronave, sem mensagens in-game nesta versão.
+- **Manifestos únicos e determinísticos:** passageiros fictícios identificados por nome ou cargas específicas com peso em kg, persistidos com oferta/contrato.
+- **Carregar automático ao aceitar:** tenta .PLN VFR e carga nas estações de payload do MSFS ao clicar Aceitar, sem mensagem de confirmação adicional. Só marca peso como verificado após leitura de retorno e MTOW válido; aeronave incompatível, falta de telemetria ou carga acima de MTOW deixam preparação pendente, sem mentir sobre sucesso.
+- **Bônus:** peso automaticamente confirmado e dentro do MTOW dá +5 XP no mesmo registro de pouso, uma vez, além de 2,5% sobre pagamento e XP pelo componente de peso no despacho (limite total de realismo antigo mantido).
+- **Clima:** destino usa NOAA sozinho se disponível, ou condições MSFS como fallback. Preferência para exibir ambos fica em chave persistente, futura página de configurações.
+- **Aeródromos MSFS:** cliente SimConnect consulta por ICAO a API Facilities; coordenadas confirmadas são persistidas com proveniência. O sistema só rotula a rota como MSFS quando **origem e destino** forem resolvidos. Sem resposta de navdata, a importação automática do .PLN permanece pendente para não carregar coordenadas erradas; exportação manual com catálogo externo continua disponível, identificada como tal.
+- Ícone de aplicativo **somente como proposta visual para aprovação**, ainda não substituído; o ícone de decolagem foi transformado em símbolo vetorial no botão de despacho.
+
+**Ainda exige homologação física em MSFS 2020/Windows**: facilities por ICAO, estações de payload de cada avião, sincronização e alteração de combustível e UI WebView2. O pipeline CI não substitui o teste físico. Não apague os dados em `%APPDATA%\AeroCarreira-Lab`, faça backup do SQLite com o aplicativo fechado.
+
+Especificações e cenários: [v0.7.7](docs/V077_PERSISTENCIA_CARGA_NAVDATA.md).
+
+---
+
 # FlightSimCarreira v0.7.6 Midnight Ops Alpha.1 — Mapa em contratos, proa e taxiamento
 
 - Menu lateral **Mercado** único; abas internas **Aeronave particular / Serviços freelancer**, preservando as ofertas Nordeste da v0.7.5.

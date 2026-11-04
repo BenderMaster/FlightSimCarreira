@@ -1,5 +1,6 @@
 """Private loopback transport. Token authentication, same-origin writes, bounded queue."""
 import json
+from math import isfinite
 import secrets
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -7,7 +8,7 @@ from pathlib import Path
 from queue import Queue, Full
 
 ACTIONS={'pilot','market','fleet','planning','finance','employment','history','reports','settings','connect','disconnect',
-         'demo','demo_next','legacy','cancel','plan','fuel','refuel','service','avatar','refresh','offer','close','save_log','installed','analyze','locate','local_panel'}
+         'demo','demo_next','legacy','cancel','plan','fuel','refuel','service','avatar','refresh','offer','close','save_log','installed','analyze','locate','local_panel','prepare'}
 ASSETS=Path(__file__).with_name('midnight')
 class DashboardServer:
     def __init__(self):
@@ -30,7 +31,7 @@ class DashboardServer:
                 if not self.valid_host():self.reply(403,b'{}');return
                 if self.path=='/state':
                     self.reply(200,owner.state) if self.authorized() else self.reply(403,b'{}');return
-                paths={'/scenery.jpg':('scenery.jpg','image/jpeg'),'/c152.jpg':('c152.jpg','image/jpeg'),'/':('index.html','text/html; charset=utf-8'),'/style.css':('style.css','text/css'),'/app.js':('app.js','text/javascript'),'/free-map.js':('free-map.js','text/javascript'),'/vendor/maplibre-gl.js':('vendor/maplibre-gl.js','text/javascript'),'/vendor/maplibre-gl.css':('vendor/maplibre-gl.css','text/css'),'/scenery.svg':('scenery.svg','image/svg+xml'),'/fonts/BarlowSemiCondensed-Regular.ttf':('fonts/BarlowSemiCondensed-Regular.ttf','font/ttf'),'/fonts/BarlowSemiCondensed-SemiBold.ttf':('fonts/BarlowSemiCondensed-SemiBold.ttf','font/ttf')}
+                paths={'/brand-icon.png':('brand-icon.png','image/png'),'/scenery.jpg':('scenery.jpg','image/jpeg'),'/c152.jpg':('c152.jpg','image/jpeg'),'/':('index.html','text/html; charset=utf-8'),'/style.css':('style.css','text/css'),'/app.js':('app.js','text/javascript'),'/free-map.js':('free-map.js','text/javascript'),'/vendor/maplibre-gl.js':('vendor/maplibre-gl.js','text/javascript'),'/vendor/maplibre-gl.css':('vendor/maplibre-gl.css','text/css'),'/scenery.svg':('scenery.svg','image/svg+xml'),'/fonts/BarlowSemiCondensed-Regular.ttf':('fonts/BarlowSemiCondensed-Regular.ttf','font/ttf'),'/fonts/BarlowSemiCondensed-SemiBold.ttf':('fonts/BarlowSemiCondensed-SemiBold.ttf','font/ttf')}
                 if self.path not in paths:self.reply(404,b'{}');return
                 name,mime=paths[self.path];asset=ASSETS/name
                 if not asset.is_file():self.reply(404,b'{}');return
@@ -44,7 +45,16 @@ class DashboardServer:
                     if not 0<n<=2048 or self.headers.get('Content-Type')!='application/json':raise ValueError()
                     data=json.loads(self.rfile.read(n))
                     if not isinstance(data,dict) or data.get('action') not in ACTIONS:raise ValueError()
-                    if set(data)-{'action','id'} or ('id' in data and (not isinstance(data['id'],str) or len(data['id'])>200)):raise ValueError()
+                    if set(data)-{'action','id'}:raise ValueError()
+                    if 'id' in data:
+                        value=data['id']
+                        if data['action']=='refuel':
+                            # Litros no popup são números JSON; bool, NaN, infinito
+                            # e valores absurdos não podem chegar ao caixa.
+                            if (type(value) not in (int,float) or not isfinite(value)
+                                    or not 0<=value<=200000):raise ValueError()
+                        elif not isinstance(value,str) or len(value)>200:
+                            raise ValueError()
                     owner.commands.put_nowait(data)
                 except Full:self.reply(429,b'{}');return
                 except (ValueError,TypeError):self.reply(400,b'{}');return

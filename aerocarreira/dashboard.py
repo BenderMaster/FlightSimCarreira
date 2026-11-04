@@ -9,14 +9,20 @@ from .contracts import AirportCatalog, generate_offers, eligibility, TYPE_BY_COD
 from .employment import generate_employer_routes
 from .pilot import level_progress
 from .domain import AIRPORTS, Phase, distance_nm
-from .planning import inspect_preflight
+from .planning import inspect_preflight, Preflight
+from dataclasses import replace
 from .flight_audit import real_clock_verified, assistance_verified
 from .finance import estimated_minutes, AIRCRAFT_ECONOMY
+from .manifest import mission_manifest
+from .msfs_airports import strict_mission, restricted_mission
 from .reputation import pilot_reputation
 from .weather import MetarCache, sim_conditions, within_nm
 
 
 def coordinates(m):
+    # Em modo MSFS, não desenhar coordenadas antigas do catálogo externo.
+    if m.nav_source=='NAO_VERIFICADO':
+        return None,None
     a, b = AIRPORTS.get(m.origin), AIRPORTS.get(m.destination)
     start = [m.origin_lat, m.origin_lon] if m.origin_lat is not None else ([a.latitude,a.longitude] if a else None)
     end = [m.destination_lat, m.destination_lon] if m.destination_lat is not None else ([b.latitude,b.longitude] if b else None)
@@ -24,7 +30,8 @@ def coordinates(m):
 
 
 def mission_data(m, aircraft_code=None):
-    """Tempo aproximado com a aeronave designada, nunca um número inventado pela interface."""
+    """Tempo, manifesto e massa determinística para a aeronave da oferta."""
+    m=mission_manifest(m)
     a,b=coordinates(m)
     distance=distance_nm(*a,*b) if a and b else None
     chosen=m.employer_plane if m.freelance else aircraft_code
@@ -38,7 +45,10 @@ def mission_data(m, aircraft_code=None):
             'cruise_kts':cruise_kts,'aircraft_label':name,
             'freelance':bool(m.freelance),
             'employer_plane':m.employer_plane,
-            'company_code':m.company_code}
+            'company_code':m.company_code,'nav_source':m.nav_source,
+            'manifest_label':m.manifest_label,
+            'manifest_kind':m.manifest_kind,'payload_kg':m.payload_kg,
+            'passenger_count':m.passenger_count}
 
 
 class DashboardPresenter:
@@ -58,6 +68,7 @@ class DashboardPresenter:
         self.position_lookup=None
         self.position_center=None
         self.position_lookup_at=0.0
+        self.nav_requested=set()
 
     def country(self, home):
         if home in self.country_cache:return self.country_cache[home]
@@ -75,8 +86,18 @@ class DashboardPresenter:
         pilot=db.get_pilot()
         if not pilot:
             self.offers={};self.center=None;return
-        if app.airport_catalog is None:app.airport_catalog=AirportCatalog()
-        cat=app.airport_catalog;s=app.last_sample
+        if app.mode!='Demo':
+            if (app.mode!='MSFS' or not app.connected or
+                    not getattr(app,'msfs_airports_ready',False) or not app.airport_catalog):
+                self.offers={}
+                self.center=None
+                self.market_key=None
+                return
+            cat=app.airport_catalog  # somente SIMCONNECT_RECV_ID_AIRPORT_LIST
+        else:
+            if app.airport_catalog is None:app.airport_catalog=AirportCatalog()
+            cat=app.airport_catalog
+        s=app.last_sample
         center=None
         if s and app.connected:
             position=(s.latitude,s.longitude)
@@ -89,9 +110,9 @@ class DashboardPresenter:
         self.center=center
         if not center:self.offers={};return
         stats=db.pilot_stats(); emp=db.employment_state();now=time();day=int(now//86400)
-        generator_version='nordeste-v1'
+        generator_version='msfs-airports-session-v2' if app.mode=='MSFS' else 'nordeste-v1'
         key=(center.icao,day,stats['xp'],tuple(sorted(stats['qualifications'])),emp['mode'],
-             emp['employer_code'],generator_version)
+             emp['employer_code'],generator_version,len(cat.locations))
         if key==self.market_key and not force:
             self.offers={k:v for k,v in self.offers.items() if not db.contract_completed(k)}
             return
@@ -102,8 +123,15 @@ class DashboardPresenter:
                 offers+=generate_employer_routes(emp['employer_code'],center,cat,stats,db.owned_qualifications(),db.family_experience(),day)
             db.save_offers(center.icao,offers,now=now,valid_s=(day+1)*86400-now)
             db.set_setting('offer_generator',generator_version)
-        self.offers={m.id:m for m in db.active_offers(center.icao,now)
-                     if not m.company_code or (emp['mode']=='empregado' and emp['employer_code']==m.company_code)}
+        self.offers={}
+        for m in db.active_offers(center.icao,now):
+            if m.company_code and (emp['mode']!='empregado' or emp['employer_code']!=m.company_code):
+                continue
+            if app.mode=='MSFS':
+                validated=strict_mission(m,cat)
+                if validated is None:continue
+                m=validated
+            self.offers[m.id]=m
 
     def snapshot(self):
         app=self.app;db=app.storage
@@ -122,6 +150,17 @@ class DashboardPresenter:
             fuel=app.fuel_manager.get(plane['ref'])
         verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s)}
                   if s and app.mode=='MSFS' and app.connected and time()-s.timestamp<10 else {})
+        if (m and getattr(app,'dispatch_state',{}).get('mission_id')==m.id and
+                getattr(app,'dispatch_state',{}).get('payload')=='verified' and s
+                and s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None
+                and s.total_weight_lbs<=s.max_gross_weight_lbs):
+            if plan:
+                plan=replace(plan,payload_checked=True,
+                    planned_weight_lbs=s.total_weight_lbs,max_weight_lbs=s.max_gross_weight_lbs)
+            else:
+                plan=Preflight(m.id,s.aircraft_title or '',
+                    payload_checked=True,planned_weight_lbs=s.total_weight_lbs,
+                    max_weight_lbs=s.max_gross_weight_lbs)
         bonus=inspect_preflight(m,plan,verified=verified) if m and plan else None
         if app.tracker.phase==Phase.AIRBORNE:
             bonus= dict(bonus or {},bonus_fraction=app.realism_frozen,frozen=True)
@@ -158,7 +197,8 @@ class DashboardPresenter:
         if close_origin:
             self.origin_observation=dict(reading,icao=m.origin,source='MSFS • aeronave na origem')
         destination_metar=self.metars.get(m.destination) if m and app.mode!='Demo' else None
-        weather=dict(origin=self.origin_observation if m else None,
+        weather=dict(show_sim_with_noaa=db.get_setting('weather_sim_alongside_noaa')=='1',
+                     origin=self.origin_observation if m else None,
                      nearby_origin=close_origin,nearby_destination=close_destination,
                      destination_sim=dict(reading,icao=m.destination,source='MSFS • aeronave perto do destino') if close_destination else None,
                      destination_metar=destination_metar,
@@ -168,15 +208,24 @@ class DashboardPresenter:
             heading_magnetic_deg=s.heading_magnetic_deg,
             on_any_runway=s.on_any_runway,
             stale=app.mode!='Demo' and (not app.connected or time()-s.timestamp>10))
+        fuel_warning=bool(fuel and capacity and quantity is not None and quantity/capacity<=.20)
+        wear_warning=bool(plane and plane.get('condition') is not None and plane['condition']<=20)
         return dict(pilot=pilot,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
             status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,
-            mission=mission_data(m, plane['code'] if plane else None) if m else None,
+            mission=mission_data(restricted_mission(m,app.airport_catalog) if app.mode!='Demo' else m,
+                                 plane['code'] if plane else None) if m else None,
             market=dict(icao=self.center.icao,name=self.center.name,lat=self.center.latitude,lon=self.center.longitude) if self.center else None,offers=offers,
-            plane=plane,fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
+            plane=plane,maintenance_alerts=dict(fuel_low=fuel_warning,condition_low=wear_warning),
+            fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
             capacity=capacity,
+            refundable_liters=app.fuel_manager._refundable(plane['ref']) if plane and fuel else 0,
             live=s.fuel_gallons if s else None),telemetry=telemetry,phase=app.phase_var.get(),bonus=bonus,
+            dispatch_state=getattr(app,'dispatch_state',{}),
+            airports=dict(source='MSFS session only' if app.mode!='Demo' else 'Demo',
+                ready=bool(getattr(app,'msfs_airports_ready',False)) if app.mode!='Demo' else True,
+                count=len(app.airport_catalog.locations) if app.airport_catalog else 0),
             log=app.log_text.get('1.0','end').splitlines()[-50:],
             audit=dict(clock=verified.get('clock'),assists=verified.get('assists'),
                 weather=None,go_arounds=app.tracker.go_arounds,

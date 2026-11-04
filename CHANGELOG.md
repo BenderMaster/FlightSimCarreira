@@ -1,3 +1,42 @@
+## v0.7.8.2 Midnight Ops Alpha.3 — correção de 20.587 bytes e ícone interno
+
+- Recebe pacotes de aeroportos MSFS 2020 com tamanho `28 + N×33 + 33`, reconhecendo o bloco adicional do SDK sem criar aeroporto extra.
+- Cobertura de teste para pacote real de 20.587 bytes e 622 registros; continua proibida qualquer base de aeroportos externa.
+- Solicitação mundial adiada para a aeronave permanecer em solo por 3 segundos e limitada a uma vez por sessão SimConnect.
+- Tick do Dashboard reduzido de 4 para 2 atualizações por segundo e mapa configurado sem antialias nem cópias mundiais para reduzir atividade da interface.
+- Ícone aprovado agora ocupa a barra de título interna do addon, substituindo o avião SVG antigo.
+- Persistência da carreira, combustível, peso e contratos sem mudanças.
+
+## v0.7.8.1 Midnight Ops Alpha.2 — Hotfix de alinhamento SimConnect
+
+- Suporta cabeçalho de 28/32 bytes e registros de aeroporto de 33/36/40 bytes na listagem MSFS 2020.
+- Valida contagem, paginação, ICAO, coordenadas e altitude; rejeita layouts ambíguos/incompletos, mantendo mercado bloqueado em falha.
+- Evita repetir indefinidamente mensagens idênticas de erro durante a importação.
+- Acrescenta testes de regressão que reproduzem os pacotes alinhados reportados na v0.7.8.
+- Preserva payload, combustível, mapa, versão de banco e a restrição a aeroportos da sessão MSFS.
+
+## v0.7.8 Midnight Ops Alpha.1 — catálogo oficial do MSFS e refuel
+- Catálogo de aeroportos restrito ao MSFS 2020 via SimConnect, paginação completa, validação de ICAO/coordenadas, sem fallback externo ou arquivo CSV empacotado. Ofertas e exportação exigem origem/destino existentes na sessão atual.
+- Contratos antigos preservados no save, mas bloqueados quando inexistentes no catálogo entregue pelo MSFS.
+- Corrigido HTTP 400 no abastecimento em litros por incompatibilidade JSON número × string, mantendo controles de autorização e entradas válidas.
+- Diferencia solicitação do plano de voo ao ATC e sincronização do mapa VFR/GPS, que o SimConnect do MSFS 2020 não garante.
+- Ícone principal aprovado incorporado ao executável Windows; conversão em .ico multi-resolução durante build.
+- Mantido payload automatizado confirmado no MSFS da versão anterior.
+- Testes de inventário SimConnect, fonte de coordenadas e protocolo de abastecimento, com CI Windows/Linux.
+
+## v0.7.7 Midnight Ops Alpha.1 — Combustível, peso, manifesto e facilities
+
+- Corrigida persistência de combustível em reaberturas após dias sem uso, sem reset de desgaste individual.
+- Popup de reabastecimento por litros, custo/reembolso e crédito rastreado, bloqueio MTOW e estorno automático em falha de escrita confirmada.
+- Avisos de estado crítico (combustível e condição ≤20%) no painel e log.
+- Manifestos ficcionais de cargas/passageiros com massa por contrato e persistência.
+- Auto despacho após aceitar: exportação e pedido de carregamento de rota e peso pelo MSFS com estado pendente/confirmado.
+- XP extra +5 e bônus de peso do checklist confirmado somente se payload foi carregado e está dentro de MTOW.
+- Preferência NOAA na meteorologia; MSFS somente fallback salvo escolha futura.
+- Nova leitura de coordenadas do MSFS via API SimConnect Facilities por ICAO, cache por origem e destino; fonte externa continua como fallback rotulado.
+- Redesenhado ícone do despacho; ícone principal permanece candidato à aprovação.
+- CI unitário e navegação atualizados; homologação em simulador real pendente.
+
 ## v0.7.6 Midnight Ops Alpha.1 — Proa magnética, mapa de missão e autoconexão
 
 - Mapa MapLibre da Dashboard reutilizado na página de detalhes, com rota real do contrato selecionado, tempo estimado pelo modelo da aeronave e apresentação em cartões.
