@@ -330,6 +330,18 @@ class Storage:
                 # Posicionamento da aeronave é independente do contrato ter sido pago:
                 # inclui starter, exemplares novos/usados, aluguel e voos livres.
                 # Freelancer/emprego não movimenta aeronave pessoal.
+                # Voo livre também acumula desgaste no exemplar utilizado.
+                # Custos monetários continuam condicionados à operação paga.
+                if flight_asset and not company_plane and not charged:
+                    free_costs=flight_operating_cost(model,end['timestamp']-start['timestamp'],
+                        fuel_start,fuel_end,bool(flight_asset['insured']))
+                    wear=float(free_costs.get('wear',0))
+                    if wear>0 and flight_asset['ref'].startswith('legacy:'):
+                        self.conn.execute('UPDATE owned_aircraft SET condition=max(0,condition-?),hours=hours+? WHERE code=?',
+                            (wear,max(0,(end['timestamp']-start['timestamp'])/3600),model))
+                    elif wear>0 and flight_asset['ref'].startswith('unit:'):
+                        self.conn.execute('UPDATE fleet_units SET condition=max(0,condition-?),flight_hours=flight_hours+? WHERE id=?',
+                            (wear,max(0,(end['timestamp']-start['timestamp'])/3600),int(flight_asset['ref'][5:])))
                 if destination and flight_asset and not company_plane:
                     ref = flight_asset['ref']
                     if ref.startswith('legacy:'):
