@@ -1,5 +1,6 @@
 """Private loopback transport. Token authentication, same-origin writes, bounded queue."""
 import json
+from math import isfinite
 import secrets
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -7,7 +8,7 @@ from pathlib import Path
 from queue import Queue, Full
 
 ACTIONS={'pilot','market','fleet','planning','finance','employment','history','reports','settings','connect','disconnect',
-         'demo','demo_next','legacy','cancel','plan','fuel','refuel','service','avatar','refresh','offer','close','save_log','installed','analyze','locate','local_panel'}
+         'demo','demo_next','legacy','cancel','plan','fuel','refuel','service','avatar','refresh','offer','close','save_log','installed','analyze','locate','local_panel','prepare'}
 ASSETS=Path(__file__).with_name('midnight')
 class DashboardServer:
     def __init__(self):
@@ -44,7 +45,16 @@ class DashboardServer:
                     if not 0<n<=2048 or self.headers.get('Content-Type')!='application/json':raise ValueError()
                     data=json.loads(self.rfile.read(n))
                     if not isinstance(data,dict) or data.get('action') not in ACTIONS:raise ValueError()
-                    if set(data)-{'action','id'} or ('id' in data and (not isinstance(data['id'],str) or len(data['id'])>200)):raise ValueError()
+                    if set(data)-{'action','id'}:raise ValueError()
+                    if 'id' in data:
+                        value=data['id']
+                        if data['action']=='refuel':
+                            # Litros no popup são números JSON; bool, NaN, infinito
+                            # e valores absurdos não podem chegar ao caixa.
+                            if (type(value) not in (int,float) or not isfinite(value)
+                                    or not 0<=value<=200000):raise ValueError()
+                        elif not isinstance(value,str) or len(value)>200:
+                            raise ValueError()
                     owner.commands.put_nowait(data)
                 except Full:self.reply(429,b'{}');return
                 except (ValueError,TypeError):self.reply(400,b'{}');return
