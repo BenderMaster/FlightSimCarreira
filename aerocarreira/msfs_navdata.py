@@ -53,4 +53,6 @@ def overlay_mission(m:Mission,db):
         coords=stored_airport(db,key)
         if coords:
             fields[latitude],fields[longitude]=coords
+    if len(fields)==4:fields['nav_source']='MSFS'
+    elif fields:fields['nav_source']='MISTO'
     return replace(m,**fields) if fields else m
