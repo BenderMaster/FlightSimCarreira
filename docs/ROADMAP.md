@@ -1,3 +1,12 @@
+## v0.7.3 — Proa real e operações do mapa / mercado no Midnight Ops
+- [x] Eliminar mapa dimensionado pela metade, manter responsividade e câmera controlada pelo piloto.
+- [x] Separar o botão Satélite do zoom/recentralização e posicionar créditos sem sobreposição.
+- [x] Ler proa verdadeira do MSFS em radianos via SimConnect, converter para graus e rotacionar ícone na posição fixa.
+- [x] Abrir seleção de contratos regionais e freelancer em diálogo HTML do Midnight Ops; filtros e busca.
+- [x] Preservar elegibilidade, aeronave designada, pagamento e motor Python.
+- [x] Validar código e navegador por testes automatizados, incluindo mapa mock 100% de largura e WinForms empacotado.
+- [ ] Homologar mapa WebGL e proa ao vivo em MSFS 2020 no Windows do piloto.
+
 ## v0.7.2 Midnight Ops — hotfix nativo e mapas sem cartão
 - [x] Smoke de importação pythonnet/WinForms no pacote Windows; verificar CI do commit final.
 - [x] Mapa OpenFreeMap e satélite opcional EOxCloudless 2016 CC BY 4.0.

@@ -1,3 +1,17 @@
+# FlightSimCarreira v0.7.3 Midnight Ops Alpha.1 — Mapa e Mercado
+
+Correção do enquadramento do OpenFreeMap, créditos do satélite e proa do avião. **A v0.7.0 continua sendo a base de voo homologada**, preservada através das evoluções do Midnight Ops.
+
+- Mapa MapLibre renderizado no tamanho inteiro da área, com canvas redimensionado após a janela ficar visível; scroll e arraste mantidos.
+- Zoom +/- e botão centralizar separados do botão Satélite, que permanece no canto inferior direito. Créditos EOxCloudless/Sentinel-2 no canto inferior esquerdo, sem cobertura pelos controles.
+- Marcador em ciano segue a proa verdadeira via SimConnect, inclusive com aeronave parada. A SimVar usa **radianos**, convertidos para graus; se indisponível, marcador pode usar direção estimada de deslocamento.
+- Mercado Regional, Missões e Contratos e Ver todas as missões agora abrem um **diálogo dentro da janela Midnight Ops**, com busca e filtros Regionais/Freelancer, seleção de rota e aceite validado pelo mesmo motor Python existente.
+- Nenhuma alteração em pagamentos, XP, detecção de voo, combustível, persistência ou regras de elegibilidade.
+- Testes Windows/Linux, compatibilidade de UI em 15 combinações e smoke WinForms/WebView2 no .exe. A interface permanece nativa, não navegador externo.
+
+Veja [Detalhes e homologação da v0.7.3](docs/V073_MAPA_MERCADO.md). Instale o ZIP Windows **inteiro** em uma pasta nova, sem reutilizar `_internal` de versões anteriores. Preserve `%APPDATA%\AeroCarreira-Lab` e faça backup com o aplicativo fechado.
+
+---
 
 # FlightSimCarreira v0.7.2 Midnight Ops Alpha.1
 

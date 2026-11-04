@@ -11,6 +11,7 @@ const BASE='https://tiles.openfreemap.org/styles/dark';
 const CDN='https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js';
 let map=null,loading=null,active=false,sat=false,missionKey=null,routeSourceReady=false;
 let airportMarkers=[],planeMarker=null,previousPosition=null,bearingDeg=45,latest=null,retryAfter=0;
+let resizeObserver=null,lastWidth=0,lastHeight=0;
 const elem=id=>document.getElementById(id),valid=c=>Array.isArray(c)&&c.length===2&&c.every(Number.isFinite)&&Math.abs(c[0])<=90&&Math.abs(c[1])<=180;
 const latlng=c=>({lat:c[0],lng:c[1]});
 const bearing=(a,b)=>{
@@ -35,6 +36,24 @@ function libraries(){
   return window.maplibregl;
  }).catch(error=>{loading=null;retryAfter=Date.now()+60000;throw error});
  return loading;
+}
+function resizeToContainer(){
+ if(!map||!active)return;
+ const el=elem('free-map');
+ if(!el||!el.clientWidth||!el.clientHeight)return;
+ // O WebView2 inicia o HTML oculto; redimensionar só após torná-lo visível.
+ const w=el.clientWidth,h=el.clientHeight;
+ if(w!==lastWidth||h!==lastHeight){lastWidth=w;lastHeight=h;map.resize();}
+}
+function setupResize(){
+ const target=elem('free-map');
+ if(!target)return;
+ if(typeof ResizeObserver!=='undefined'){
+  resizeObserver=new ResizeObserver(()=>resizeToContainer());
+  resizeObserver.observe(target);
+ }
+ window.addEventListener('resize',resizeToContainer);
+ requestAnimationFrame(()=>{resizeToContainer();requestAnimationFrame(resizeToContainer)});
 }
 function updateCredit(){
  const el=elem('satellite-credit');
@@ -95,9 +114,13 @@ function updateMarkers(s){
    planeMarker=new maplibregl.Marker({element:el,anchor:'center',rotationAlignment:'map'}).setLngLat([pos.lng,pos.lat]).addTo(map);
   }
   planeMarker.setLngLat([pos.lng,pos.lat]);
-  // A silhueta tem orientação diagonal original; corrige para apontar no sentido do deslocamento.
+  // Proa verdadeira lida do SimConnect: funciona parado no pátio.
+  // Recorre ao rumo derivado de posições apenas se a SimVar estiver ausente.
+  if(Number.isFinite(t.heading_deg)&&t.heading_deg>=0&&t.heading_deg<360)
+    bearingDeg=t.heading_deg;
   const svg=planeMarker.getElement().querySelector('svg');
   if(svg)svg.style.transform='rotate('+(bearingDeg-45)+'deg)';
+  planeMarker.getElement().title='Proa verdadeira: '+(Number.isFinite(t.heading_deg)?Math.round(t.heading_deg)+'°':'indisponível');
   planeMarker.getElement().style.opacity=t.stale?'0.5':'1';
  }else{
   if(planeMarker)planeMarker.remove();
@@ -108,6 +131,10 @@ function start(){
  if(map||!window.maplibregl)return;
  try{
   if(typeof maplibregl.supported==='function'&&!maplibregl.supported())return;
+  // Tornar o contêiner visível ANTES de construir o canvas WebGL.
+  const mapArea=document.querySelector('.map-area'),mapNode=elem('free-map');
+  mapArea?.classList.add('free-active');
+  if(mapNode){mapNode.style.display='block';mapNode.style.width='100%';mapNode.style.height='100%';}
   map=new maplibregl.Map({container:'free-map',style:BASE,center:[-34.92,-8.12],zoom:9,
    scrollZoom:true,dragPan:true,touchZoomRotate:true,keyboard:true,
    pitchWithRotate:false,dragRotate:false,maxPitch:0,attributionControl:false,fadeDuration:0});
@@ -119,27 +146,36 @@ function start(){
    map.addLayer({id:'route-main',type:'line',source:'fsc-route',
     paint:{'line-color':'#35d6ff','line-width':3,'line-opacity':0.95}});
    routeSourceReady=true;
-   setSatellite();updateMarkers(latest);
+   resizeToContainer();setSatellite();updateMarkers(latest);
   });
   map.on('error',e=>{if(e?.error)console.warn('FreeMap: tile/style',e.error.message||e.error)});
   active=true;
-  document.querySelector('.map-area')?.classList.add('free-active');
-  const mapNode=elem('free-map');if(mapNode)mapNode.style.display='block';
- }catch(error){console.warn('FreeMap: WebGL indisponível',error);map=null;active=false}
+  setupResize();
+ }catch(error){
+   console.warn('FreeMap: WebGL indisponível',error);map=null;active=false;
+   document.querySelector('.map-area')?.classList.remove('free-active');
+   const mapNode=elem('free-map');if(mapNode)mapNode.style.display='none';
+ }
 }
 function render(s){
  latest=s;
- if(active&&map){updateMarkers(s);return}
+ if(active&&map){resizeToContainer();updateMarkers(s);return}
  if(Date.now()<retryAfter)return;
  libraries().then(()=>start()).catch(()=>{active=false});
 }
 function zoomBy(dir){if(!active||!map)return false;map.zoomTo(Math.max(2,Math.min(20,map.getZoom()+dir)),{duration:120});return true}
 function recenter(s){
  if(!active||!map)return false;
- missionKey=null;
- updateMarkers(s||latest);
+ const current=s||latest,t=current?.telemetry;
+ if(t&&Number.isFinite(t.lat)&&Number.isFinite(t.lon)&&Math.abs(t.lat)<=90&&Math.abs(t.lon)<=180){
+   // Não acompanha a câmera automaticamente; recentraliza só ao clicar.
+   map.easeTo({center:[t.lon,t.lat],duration:250});
+ }else{
+   missionKey=null;
+   updateMarkers(current);
+ }
  return true;
 }
-window.FSCFreeMap={render,isActive:()=>active,zoomBy,recenter,toggleSatellite,
+window.FSCFreeMap={render,isActive:()=>active,zoomBy,recenter,toggleSatellite,resizeToContainer,
  satelliteEnabled:()=>sat,aircraftPath:AIRCRAFT_PATH,bearing};
 })();

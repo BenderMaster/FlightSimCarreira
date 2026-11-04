@@ -95,6 +95,20 @@ class PresenterTests(unittest.TestCase):
         with patch('aerocarreira.dashboard_controller.messagebox.showwarning') as warning:
             controller.dispatch({'action':'fuel'});warning.assert_called_once()
         self.assertEqual(self.db.get_setting('fuel_control_enabled'),old)
+    def test_offer_confirmed_in_webview_skips_invisible_tk_confirmation(self):
+        self.pilot()
+        self.presenter.refresh_market()
+        offer=next(iter(self.presenter.offers.values()))
+        controller=object.__new__(DashboardController)
+        app=Mock()
+        app.storage=self.db
+        controller.app=app
+        controller.presenter=self.presenter
+        with patch('aerocarreira.dashboard_controller.messagebox.askyesno') as ask:
+            controller.dispatch({'action':'offer','id':offer.id})
+            ask.assert_not_called()
+        app._accept_specific.assert_called_once_with(offer)
+
     def test_finance_window_command_calls_existing_handler(self):
         app=Mock();controller=object.__new__(DashboardController);controller.app=app;controller.closed=False
         app.root.winfo_children.return_value=[]

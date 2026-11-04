@@ -43,6 +43,39 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#offers .offer').count()>0
             assert page.locator('#weather-origin').inner_text().endswith('SBRF')
             page.locator('[data-tab="weather"]').first.click();assert page.locator('#details').is_visible();page.locator('#dialog-close').click()
+
+            # O menu deve ser exibido no próprio WebView (inclusive freelancer).
+            page.locator('.nav-item[data-action="market"]').first.click()
+            assert page.locator('#market-dialog').is_visible()
+            assert page.locator('#market-list .market-option').count()>0
+            page.locator('#market-list .market-option').first.click()
+            assert page.locator('#details').is_visible()
+            assert '→' in page.locator('#dialog-text').inner_text()
+            page.locator('#dialog-close').click()
+            page.locator('[data-market-filter="freelance"]').click()
+            assert page.locator('[data-market-filter="freelance"]').get_attribute('aria-pressed')=='true'
+            for offer in page.locator('#market-list .market-option').all():
+                assert 'FREELANCER' in offer.inner_text()
+            page.locator('[data-market-filter="regional"]').click()
+            assert page.locator('#market-list .market-option').count()>0
+            page.locator('#market-dialog-close').click()
+            assert not page.locator('#market-dialog').is_visible()
+            page.locator('.all-missions').click()
+            assert page.locator('#market-dialog').is_visible()
+            page.locator('#market-dialog-done').click()
+
+            # A proa muda mesmo sem deslocar latitude/longitude no mapa local.
+            heading=page.evaluate("""() => {
+              const s={...state,telemetry:{lat:-8.1264,lon:-34.9228,heading_deg:15,stale:false}};
+              renderMap(s);
+              const before=document.querySelector('#route-map g[data-heading]')?.getAttribute('transform');
+              renderMap({...s,telemetry:{...s.telemetry,heading_deg:135}});
+              const after=document.querySelector('#route-map g[data-heading]')?.getAttribute('transform');
+              return {before,after};
+            }""")
+            assert heading['before'] and 'rotate(-30)' in heading['before'],heading
+            assert heading['after'] and 'rotate(90)' in heading['after'],heading
+
             page.locator('#zoom-in').click();page.locator('#recenter').click()
             # Native action routed through the command queue, reflected in telemetry.
             before=page.locator('#metric-alt').inner_text()
@@ -84,6 +117,100 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#route').inner_text()=='SBRF → SIPE'
             assert 'ORIGEM' in page.locator('#weather-origin').inner_text()
             assert 'DESTINO' in page.locator('#weather-destination').inner_text()
+
+            # Mapa MapLibre com backend simulado para testar dimensões reais,
+            # ResizeObserver, ângulo do avião e ausência de sobreposição do HUD.
+            map_page=browser.new_page(viewport={'width':1600,'height':900})
+            map_errors=[]
+            map_page.on('pageerror',lambda error:map_errors.append(str(error)))
+            map_page.add_init_script("""(() => {
+              class FakeMap {
+                constructor(opts){
+                  this.el=document.getElementById(opts.container);
+                  this.startWidth=this.el.clientWidth;
+                  this.startHeight=this.el.clientHeight;
+                  this.canvas=document.createElement('canvas');
+                  this.el.append(this.canvas);
+                  this.sources={};this.layers={};this.zoom=10;this.resizeCalls=0;
+                  window.__fakeMap=this;
+                }
+                on(event,cb){if(event==='load')setTimeout(cb,0);return this}
+                addControl(){}
+                resize(){
+                  this.resizeCalls++;
+                  this.canvas.style.width=this.el.clientWidth+'px';
+                  this.canvas.style.height=this.el.clientHeight+'px';
+                }
+                addSource(id,def){this.sources[id]={...def,setData(data){this.data=data}}}
+                getSource(id){return this.sources[id]}
+                addLayer(layer){this.layers[layer.id]=layer}
+                getLayer(id){return this.layers[id]}
+                setLayoutProperty(id,k,v){if(this.layers[id])this.layers[id][k]=v}
+                fitBounds(){}
+                jumpTo(){}
+                getZoom(){return this.zoom}
+                zoomTo(z){this.zoom=z}
+              }
+              class FakeMarker {
+                constructor(opts){this.el=opts.element}
+                setLngLat(){return this}
+                addTo(){document.getElementById('free-map').append(this.el);return this}
+                getElement(){return this.el}
+                remove(){this.el.remove()}
+              }
+              class FakeBounds {extend(){return this}}
+              window.maplibregl={supported:()=>true,Map:FakeMap,
+                Marker:FakeMarker,AttributionControl:class{},LngLatBounds:FakeBounds};
+            })()""")
+            map_page.goto(url)
+            # CSP do aplicativo proíbe eval; Playwright wait_for_function com string
+            # usa eval internamente. Faça polling via evaluate sem enfraquecer a CSP.
+            ready=False
+            for _ in range(50):
+                ready=map_page.evaluate("""() => Boolean(window.__fakeMap &&
+                    __fakeMap.resizeCalls>0 && __fakeMap.getSource('fsc-route'))""")
+                if ready:break
+                time.sleep(.1)
+            assert ready,"MapLibre simulado não inicializou no tamanho real"
+            dims=map_page.evaluate("""() => {
+              const area=document.querySelector('.map-area').getBoundingClientRect();
+              const box=document.getElementById('free-map').getBoundingClientRect();
+              const canvas=__fakeMap.canvas.getBoundingClientRect();
+              return {area:area.width,box:box.width,canvas:canvas.width,
+                      initial:[__fakeMap.startWidth,__fakeMap.startHeight]};
+            }""")
+            assert dims['initial'][0]>0 and dims['initial'][1]>0,dims
+            assert abs(dims['area']-dims['box'])<2 and abs(dims['box']-dims['canvas'])<2,dims
+            map_page.set_viewport_size({'width':1280,'height':720})
+            map_page.wait_for_timeout(300)
+            resized=map_page.evaluate("""() => ({
+              box:document.getElementById('free-map').getBoundingClientRect().width,
+              canvas:__fakeMap.canvas.getBoundingClientRect().width,
+              calls:__fakeMap.resizeCalls
+            })""")
+            assert abs(resized['box']-resized['canvas'])<2 and resized['calls']>0,resized
+            orientations=map_page.evaluate("""() => {
+              const s={...state,telemetry:{lat:-8.1264,lon:-34.9228,
+                heading_deg:15,stale:false}};
+              FSCFreeMap.render(s);
+              const before=document.querySelector('.fsc-plane-marker svg').style.transform;
+              FSCFreeMap.render({...s,telemetry:{...s.telemetry,heading_deg:135}});
+              const after=document.querySelector('.fsc-plane-marker svg').style.transform;
+              return {before,after};
+            }""")
+            assert 'rotate(-30deg)' in orientations['before'],orientations
+            assert 'rotate(90deg)' in orientations['after'],orientations
+            map_page.locator('#satellite-toggle').click()
+            credit=map_page.evaluate("""() => {
+              const a=document.querySelector('#satellite-toggle').getBoundingClientRect();
+              const b=document.querySelector('#satellite-credit').getBoundingClientRect();
+              return {visible:!document.querySelector('#satellite-credit').hidden,
+                overlap:!(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top)};
+            }""")
+            assert credit['visible'] and not credit['overlap'],credit
+            assert not map_errors,map_errors
+            map_page.close()
+
             # Safe shutdown persists the active contract in the isolated career.
             page.evaluate("() => command('close')")
             process.wait(timeout=10)
