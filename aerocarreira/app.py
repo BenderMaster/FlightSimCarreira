@@ -65,6 +65,7 @@ class Application:
         self.storage = Storage(state_dir() / "carreira.db")
         self.location_recovered=self.storage.recover_legacy_location()
         self.fuel_manager=FuelManager(self.storage)
+        self.pending_fuel_ref=None
         self.dispatch_state={}
         self.weight_bonus_frozen=0
         self.last_resource_warning={}
@@ -1073,6 +1074,17 @@ class Application:
                 self._log('Combustível: monitoramento indisponível: '+str(exc))
                 self.fuel_warning_at=time()
             return
+        if status in ('consuming','calibrated') and self.fuel_manager.confirm_pending(ref):
+            self.pending_fuel_ref=None
+            self._log('ABASTECIMENTO confirmado pelo MSFS e consolidado no save: '+ref)
+        if status=='write_not_confirmed' and self.fuel_manager.pending(ref):
+            old=self.fuel_manager.rollback_pending(ref)
+            self.pending_fuel_ref=None
+            self.career.balance=int(self.storage.get_setting('balance') or 0)
+            self.balance_var.set(brl(self.career.balance))
+            if old and self.sim:self.sim.request_fuel_restore(old)
+            self._log('ABASTECIMENTO ESTORNADO: MSFS não confirmou os tanques após tentativas.')
+            return
         if correction and self.sim and self.connected:
             self.sim.request_fuel_restore(correction)
             if time()-self.fuel_warning_at>=12:
@@ -1329,7 +1341,14 @@ class Application:
                 elif kind=='fuel_sent':
                     self._log('Combustível: solicitação enviada ao MSFS; leitura posterior confirmará.')
                 elif kind=='fuel_error':
-                    self._log('ALERTA combustível: escrita recusada: '+item)
+                    if self.pending_fuel_ref:
+                        old=self.fuel_manager.rollback_pending(self.pending_fuel_ref)
+                        self.pending_fuel_ref=None
+                        self.career.balance=int(self.storage.get_setting('balance') or 0)
+                        self.balance_var.set(brl(self.career.balance))
+                        self._log('ABASTECIMENTO ESTORNADO: '+item)
+                        if old and self.sim:self.sim.request_fuel_restore(old)
+                    else:self._log('ALERTA combustível: escrita recusada: '+item)
                 elif kind=='plan_error':
                     if self.dispatch_state:self.dispatch_state['route']='error'
                     self._log('PLANO VFR: '+item)
