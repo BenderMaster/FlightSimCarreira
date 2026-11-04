@@ -8,7 +8,7 @@ const AIRCRAFT_PATH='M284 44 L273 41 L253 49 L199 99 L180 95 L189 84 L182 74 L16
 const SAT_TILES='https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg';
 const SAT_CREDIT='EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017)';
 const BASE='https://tiles.openfreemap.org/styles/dark';
-const CDN='https://cdn.jsdelivr.net/npm/maplibre-gl@6.16.0/dist/maplibre-gl.js';
+const CDN='https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js';
 let map=null,loading=null,active=false,sat=false,missionKey=null,routeSourceReady=false;
 let airportMarkers=[],planeMarker=null,previousPosition=null,bearingDeg=45,latest=null,retryAfter=0;
 const elem=id=>document.getElementById(id),valid=c=>Array.isArray(c)&&c.length===2&&c.every(Number.isFinite)&&Math.abs(c[0])<=90&&Math.abs(c[1])<=180;

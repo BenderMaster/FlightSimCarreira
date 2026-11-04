@@ -6,7 +6,7 @@ Os tiles continuam online e o mapa geométrico offline não depende dele.
 from pathlib import Path
 from urllib.request import urlopen, Request
 
-VERSION='6.16.0'
+VERSION='5.24.0'
 ROOT=Path(__file__).resolve().parents[1]/'aerocarreira'/'midnight'/'vendor'
 BASE='https://cdn.jsdelivr.net/npm/maplibre-gl@'+VERSION+'/dist/'
 FILES={'maplibre-gl.js':150000,'maplibre-gl.css':4000}
