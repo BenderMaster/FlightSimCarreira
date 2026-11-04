@@ -1,2 +1,2 @@
 """FlightSimCarreira — carreira independente para MSFS 2020."""
-__version__ = "0.7.7-midnight.alpha.1"
+__version__ = "0.7.8-midnight.alpha.1"
