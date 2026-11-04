@@ -44,25 +44,33 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#weather-origin').inner_text().endswith('SBRF')
             page.locator('[data-tab="weather"]').first.click();assert page.locator('#details').is_visible();page.locator('#dialog-close').click()
 
-            # O menu deve ser exibido no próprio WebView (inclusive freelancer).
-            page.locator('.nav-item[data-action="market"]').first.click()
-            assert page.locator('#market-dialog').is_visible()
+            # Sidebar persistente: os mercados são páginas separadas, não diálogos.
+            page.locator('.nav-item[data-action="regional"]').click()
+            assert page.locator('#market-page').is_visible()
+            assert page.locator('.sidebar').is_visible()
+            assert not page.locator('.left-column').is_visible()
+            assert page.locator('[data-market-view="regional"]').get_attribute('aria-pressed')=='true'
             assert page.locator('#market-list .market-option').count()>0
             page.locator('#market-list .market-option').first.click()
             assert page.locator('#details').is_visible()
             assert '→' in page.locator('#dialog-text').inner_text()
             page.locator('#dialog-close').click()
-            page.locator('[data-market-filter="freelance"]').click()
-            assert page.locator('[data-market-filter="freelance"]').get_attribute('aria-pressed')=='true'
+            assert page.locator('#market-page').is_visible()
+            page.locator('.nav-item[data-action="freelance"]').click()
+            assert page.locator('[data-market-view="freelance"]').get_attribute('aria-pressed')=='true'
             for offer in page.locator('#market-list .market-option').all():
                 assert 'FREELANCER' in offer.inner_text()
-            page.locator('[data-market-filter="regional"]').click()
+            page.locator('[data-market-view="regional"]').click()
             assert page.locator('#market-list .market-option').count()>0
-            page.locator('#market-dialog-close').click()
-            assert not page.locator('#market-dialog').is_visible()
+            page.locator('.nav-item[data-action="planning"]').click()
+            assert page.locator('#module-page').is_visible()
+            assert 'PLANEJAMENTO' in page.locator('#module-title').inner_text()
+            assert page.locator('.sidebar').is_visible()
+            page.locator('.nav-item[data-action="dashboard"]').click()
+            assert page.locator('.center-column').is_visible()
             page.locator('.all-missions').click()
-            assert page.locator('#market-dialog').is_visible()
-            page.locator('#market-dialog-done').click()
+            assert page.locator('#market-page').is_visible()
+            page.locator('.nav-item[data-action="dashboard"]').click()
 
             # A proa muda mesmo sem deslocar latitude/longitude no mapa local.
             heading=page.evaluate("""() => {
@@ -89,7 +97,7 @@ with tempfile.TemporaryDirectory() as temp:
                     audit=page.evaluate('''() => {
                       const required=['.header','.sidebar','.market','.summary','.contract','.map-card','.telemetry','.flight-log','.realism','.aircraft','.dispatch'];
                       const out=required.filter(s=>{const r=document.querySelector(s).getBoundingClientRect();return r.x<-.5||r.y<-.5||r.right>innerWidth+.5||r.bottom>innerHeight+.5||r.width<1||r.height<1});
-                      const buttons=[...document.querySelectorAll('main button')].filter(e=>!e.closest('dialog')).filter(e=>{const r=e.getBoundingClientRect();return r.bottom>innerHeight+.5||r.right>innerWidth+.5});
+                      const buttons=[...document.querySelectorAll('main button')].filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden').filter(e=>{const r=e.getBoundingClientRect();return r.bottom>innerHeight+.5||r.right>innerWidth+.5});
                       const clipped=[...document.querySelectorAll('.nav-item,.map-tabs button,.dispatch button')].filter(e=>e.scrollWidth>e.clientWidth+2).map(e=>e.innerText);const metrics=document.querySelector('.metrics').getBoundingClientRect(),weather=document.querySelector('.weather-row').getBoundingClientRect();const overlap=metrics.bottom>weather.top+.5;return {out,clipped,overlap,buttons:buttons.map(e=>e.innerText),scrollX:document.documentElement.scrollWidth>innerWidth,scrollY:document.documentElement.scrollHeight>innerHeight};
                     }''')
                     filename=f'{width}x{height}-{int(scale*100)}pct.png'

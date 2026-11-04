@@ -1,3 +1,11 @@
+## 0.7.4 Midnight Ops Alpha.1 — Menu persistente e mercados em páginas
+
+- Navegação no conteúdo principal mantendo sidebar no lugar; mercados Regional e Freelancer separados no menu e acessíveis por abas, sem modal.
+- Busca e seleção de contratos com detalhes/aceite em página própria; backend Python/SQLite/SimConnect e validações de oferta preservados.
+- Planejamento, Frota, Piloto, Finanças, Companhias, Logbook, Relatórios e Configurações ganham páginas de consulta de dados existentes. Edição avançada ainda depende do botão de ferramenta clássica, sem abrir janelas automaticamente ao navegar.
+- HUD do mapa reorganizado: satélite no canto superior direito, crédito EOxCloudless compacto com atribuição completa disponível, e controles de zoom livres de obstrução.
+- Regressão de navegador e testes estáticos atualizados; homologação MSFS real ainda necessária.
+
 ## 0.7.3 Midnight Ops Alpha.1 — Layout full-map, heading verdadeiro e mercado WebView2
 
 - **Mapa full-width**: contêiner MapLibre visível antes da inicialização do canvas; observador e resize após janela/área mudarem de tamanho. Pan, scroll e zoom preservados.
