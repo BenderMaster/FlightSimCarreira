@@ -1,3 +1,17 @@
+# FlightSimCarreira v0.7.4 Midnight Ops Alpha.1 — Navegação por páginas
+
+A barra lateral permanece visível enquanto o conteúdo central muda entre **Dashboard**, **Mercado Regional**, **Mercado Freelancer**, **Planejamento** e os demais módulos. Os dois mercados têm entradas separadas no menu e abas de acesso rápido no topo. Seleção e detalhes dos contratos agora são **páginas do aplicativo**, não modais.
+
+- As missões de aeronave particular e os trabalhos freelancer são filtrados dos contratos reais produzidos pelo motor Python/SQLite; aceite e elegibilidade continuam no backend, sem alterações.
+- Painéis dos módulos ainda em migração mostram os dados atuais da carreira em páginas próprias; um botão explícito permite abrir a ferramenta clássica quando uma operação avançada ainda não foi migrada. Clicar no menu lateral nunca abre uma janela Tk.
+- Botão de satélite reposicionado para o alto à direita, distante do zoom/centralizar. Crédito EOxCloudless compacto no canto inferior direito, com texto completo e licença acessíveis ao clicar. Atribuições MapLibre/OpenFreeMap mantidas no mapa.
+- Proa verdadeira, mapa/rotas e fallback offline preservados. **Nenhuma migração do banco**, cobrança de API ou mudança das regras do voo.
+- **Homologação física pendente:** navegação, responsividade e contratos precisam ser verificados no WebView2 do Windows com o MSFS 2020 real.
+
+Veja [Especificação e testes da v0.7.4](docs/V074_NAVEGACAO_PAGINAS.md). Instale o ZIP Windows **inteiro** em uma pasta limpa, preservando o diretório de dados `%APPDATA%\AeroCarreira-Lab`. A v0.7.0 continua sendo referência funcional homologada.
+
+---
+
 # FlightSimCarreira v0.7.3 Midnight Ops Alpha.1 — Mapa e Mercado
 
 Correção do enquadramento do OpenFreeMap, créditos do satélite e proa do avião. **A v0.7.0 continua sendo a base de voo homologada**, preservada através das evoluções do Midnight Ops.

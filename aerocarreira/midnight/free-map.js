@@ -57,7 +57,7 @@ function setupResize(){
 }
 function updateCredit(){
  const el=elem('satellite-credit');
- if(el){el.hidden=!(sat&&map&&routeSourceReady&&map.getLayer('eox-satellite-layer'));el.textContent=sat?'EOxCloudless • Sentinel‑2 2016 • CC BY 4.0':null;el.title=SAT_CREDIT}
+ if(el){el.hidden=!(sat&&map&&routeSourceReady&&map.getLayer('eox-satellite-layer'));if(!sat)el.open=false;el.title=SAT_CREDIT}
  const btn=elem('satellite-toggle');if(btn)btn.textContent=sat?'Satélite: ON':'Satélite: OFF';
 }
 function setSatellite(){
@@ -65,7 +65,7 @@ function setSatellite(){
  if(!map||!routeSourceReady)return;
  if(sat&&!map.getSource('eox-satellite')){
   map.addSource('eox-satellite',{type:'raster',tiles:[SAT_TILES],tileSize:256,maxzoom:14,
-   attribution:SAT_CREDIT+' • CC BY 4.0'});
+   attribution:'EOxCloudless · CC BY 4.0'});
   map.addLayer({id:'eox-satellite-layer',type:'raster',source:'eox-satellite',paint:{'raster-opacity':1}},'route-glow');
  }
  if(map.getLayer('eox-satellite-layer')){

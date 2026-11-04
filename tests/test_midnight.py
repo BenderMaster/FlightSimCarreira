@@ -12,7 +12,7 @@ from aerocarreira.storage import Storage
 from aerocarreira.fuel import FuelManager
 from aerocarreira.domain import Career, FlightTracker, MISSIONS, Phase
 from aerocarreira.dashboard import DashboardPresenter, mission_data
-from aerocarreira.midnight_server import DashboardServer
+from aerocarreira.midnight_server import DashboardServer, ASSETS
 from aerocarreira.dashboard_controller import DashboardController
 
 class PresenterTests(unittest.TestCase):
@@ -108,6 +108,21 @@ class PresenterTests(unittest.TestCase):
             controller.dispatch({'action':'offer','id':offer.id})
             ask.assert_not_called()
         app._accept_specific.assert_called_once_with(offer)
+
+    def test_native_navigation_has_separate_market_pages_and_compact_satellite_credits(self):
+        html=(ASSETS/'index.html').read_text(encoding='utf-8')
+        js=(ASSETS/'app.js').read_text(encoding='utf-8')
+        css=(ASSETS/'style.css').read_text(encoding='utf-8')
+        self.assertIn('id="market-page"',html)
+        self.assertIn('data-market-view="regional"',html)
+        self.assertIn('data-market-view="freelance"',html)
+        self.assertIn('id="module-page"',html)
+        self.assertNotIn('<dialog id="market-dialog"',html)
+        self.assertIn('function navigate(destination)',js)
+        self.assertIn('Boolean(o.freelance)===freelance',js)
+        self.assertIn('id="satellite-credit" class="satellite-credit"',html)
+        self.assertIn('EOX IT Services GmbH',html)
+        self.assertIn('.workspace:not([data-view="dashboard"])',css)
 
     def test_finance_window_command_calls_existing_handler(self):
         app=Mock();controller=object.__new__(DashboardController);controller.app=app;controller.closed=False
