@@ -11,6 +11,7 @@ from random import Random
 import hashlib
 from .domain import Airport, AIRPORTS, Mission, distance_nm
 from .finance import market_reward, mission_radius_by_level, AIRCRAFT_ECONOMY
+from .manifest import assign_manifest
 
 
 @dataclass(frozen=True)
@@ -239,10 +240,10 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
         target, dist = found
         seen.add((kind.code,target.icao,False))
         reward = market_reward(dist, kind.pay_factor)
-        offers.append(Mission(f"REG-{origin.icao}-{period}-{slot:02}",origin.icao,target.icao,
+        offers.append(assign_manifest(Mission(f"REG-{origin.icao}-{period}-{slot:02}",origin.icao,target.icao,
             f"{kind.title} • {target.name[:24]}",reward,category=kind.code,
             origin_lat=origin.latitude,origin_lon=origin.longitude,
-            destination_lat=target.latitude,destination_lon=target.longitude))
+            destination_lat=target.latitude,destination_lon=target.longitude)))
     allowed_planes = [p for p in EMPLOYER_FLEET if eligibility(
         Mission("x",origin.icao,origin.icao,"",0,category="cargo",freelance=True,employer_plane=p.code),
         stats,qualifications,family_flights)[0]]
@@ -268,8 +269,8 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
         target,dist=rng.choice(choices_for_type[lo:hi])
         salary=market_reward(dist,1+kind.min_level*.09,freelance=True,
                              cruise_kts=AIRCRAFT_ECONOMY[plane.code].cruise_kts)
-        offers.append(Mission(f"FREE-{origin.icao}-{period}-{slot:02}",origin.icao,target.icao,
+        offers.append(assign_manifest(Mission(f"FREE-{origin.icao}-{period}-{slot:02}",origin.icao,target.icao,
             f"Freelancer • {kind.title} • {plane.name}",salary,category=kind.code,freelance=True,
             employer_plane=plane.code,origin_lat=origin.latitude,origin_lon=origin.longitude,
-            destination_lat=target.latitude,destination_lon=target.longitude))
+            destination_lat=target.latitude,destination_lon=target.longitude)))
     return offers
