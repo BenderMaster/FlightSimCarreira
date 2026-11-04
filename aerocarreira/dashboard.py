@@ -38,6 +38,8 @@ class DashboardPresenter:
         self.market_key=None
         self.avatar_key=None
         self.avatar=None
+        self.reputation_stamp=None
+        self.reputation_value=None
         self.country_cache={}
         self.position_lookup=None
         self.position_center=None
@@ -108,8 +110,13 @@ class DashboardPresenter:
         ledger=dict(rows)
         # Only flight revenues/expenses, excluding starting cash, loans, purchases and sales.
         flight_kinds=('contrato','bonus_realismo','penalidade_combustivel','combustivel','taxa_aeroporto','taxa_simulada','seguro','abastecimento','manutencao','aluguel')
+        # O Dashboard consulta a cada 250 ms: recalcular apenas quando entra voo novo.
+        flight_stamp=db.conn.execute('SELECT COALESCE(MAX(id),0),COUNT(*) FROM flights').fetchone()
+        if self.reputation_stamp!=flight_stamp:
+            self.reputation_value=pilot_reputation(db.conn)
+            self.reputation_stamp=flight_stamp
         summary=dict(stats,net=sum(ledger.get(k,0) for k in flight_kinds),bonus=ledger.get('bonus_realismo',0),
-                     reputation=pilot_reputation(db.conn))
+                     reputation=self.reputation_value)
         offers=[]
         for offer in self.offers.values():
             allowed,reason=eligibility(offer,stats,db.owned_qualifications(),db.family_experience())

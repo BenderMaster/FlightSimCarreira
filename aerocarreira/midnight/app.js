@@ -59,8 +59,8 @@ document.querySelector('.map-caption').textContent=s.google_maps_key
  ? 'GOOGLE SATÉLITE INDISPONÍVEL • MAPA LOCAL'
  : 'MAPA LOCAL • CONFIGURE GOOGLE SATÉLITE';
 for(let x=30;x<900;x+=60)svg.append(svgNode('line',{x1:x,y1:0,x2:x,y2:340,stroke:'#49636b','stroke-width':.5,opacity:loaded?.18:1}));for(let y=20;y<340;y+=40)svg.append(svgNode('line',{x1:0,y1:y,x2:900,y2:y,stroke:'#49636b','stroke-width':.5,opacity:loaded?.18:1}));
-for(let x=90;x<900;x+=180)svg.append(svgNode('text',{x,y:328,fill:'#557f8c',stroke:'none','font-size':10,'text-anchor':'middle'},(lon0+(x-450)/cos/scale).toFixed(2)+'°'));
-for(let y=60;y<300;y+=80)svg.append(svgNode('text',{x:8,y,fill:'#557f8c',stroke:'none','font-size':10},(lat0-(y-170)/scale).toFixed(2)+'°'));
+for(let x=90;x<900;x+=180)svg.append(svgNode('text',{x,y:328,fill:'#557f8c',stroke:'none','font-size':10,'text-anchor':'middle'},(lon0+(x-450-mapPanX)/cos/scale).toFixed(2)+'°'));
+for(let y=60;y<300;y+=80)svg.append(svgNode('text',{x:8,y,fill:'#557f8c',stroke:'none','font-size':10},(lat0-(y-170-mapPanY)/scale).toFixed(2)+'°'));
 if(m?.start&&m?.end){const a=xy(points[0]),b=xy(points[1]);svg.append(svgNode('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'#00e9f9','stroke-width':9,opacity:.12}));svg.append(svgNode('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'#00e9f9','stroke-width':3}))}
 for(const p of points){const [x,y]=xy(p);if(x<20||x>880||y<20||y>315)continue;if(p.type==='plane'){
   const current={lat:p.lat,lng:p.lon};
