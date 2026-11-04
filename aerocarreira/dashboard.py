@@ -10,6 +10,7 @@ from .employment import generate_employer_routes
 from .pilot import level_progress
 from .domain import AIRPORTS, Phase, distance_nm
 from .planning import inspect_preflight
+from .flight_audit import real_clock_verified, assistance_verified
 from .finance import estimated_minutes
 from .reputation import pilot_reputation
 from .weather import MetarCache, sim_conditions, within_nm
@@ -113,7 +114,9 @@ class DashboardPresenter:
             plane={'ref':'contract:'+m.id,'code':m.employer_plane,'title':assigned.name,
                    'condition':None,'airport':m.origin,'kind':'Aeronave do contratante'}
             fuel=app.fuel_manager.get(plane['ref'])
-        bonus=inspect_preflight(m,plan) if m and plan else None
+        verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s)}
+                  if s and app.mode=='MSFS' and app.connected and time()-s.timestamp<10 else {})
+        bonus=inspect_preflight(m,plan,verified=verified) if m and plan else None
         if app.tracker.phase==Phase.AIRBORNE:
             bonus= dict(bonus or {},bonus_fraction=app.realism_frozen,frozen=True)
         rows=db.conn.execute("SELECT kind, SUM(amount) FROM finance_ledger GROUP BY kind").fetchall()
@@ -163,4 +166,9 @@ class DashboardPresenter:
             plane=plane,fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
             capacity=capacity,
             live=s.fuel_gallons if s else None),telemetry=telemetry,phase=app.phase_var.get(),bonus=bonus,
-            log=app.log_text.get('1.0','end').splitlines()[-50:])
+            log=app.log_text.get('1.0','end').splitlines()[-50:],
+            audit=dict(clock=verified.get('clock'),assists=verified.get('assists'),
+                weather=None,go_arounds=app.tracker.go_arounds,
+                touch_and_go=app.tracker.touch_and_go,
+                taxi_violations=app.tracker.taxi_violations,
+                hard_g_events=app.tracker.hard_g_events))

@@ -86,6 +86,17 @@ class FlightSample:
     visibility_m: float | None = None
     sea_level_pressure_hpa: float | None = None
     heading_true_deg: float | None = None  # proa geográfica real, graus, opcional
+    # None indica dado indisponível; nunca significa opção desligada.
+    assistance_landing: bool | None = None
+    assistance_takeoff: bool | None = None
+    ai_controls: bool | None = None
+    zulu_time_s: float | None = None
+    light_beacon: bool | None = None
+    light_nav: bool | None = None
+    light_taxi: bool | None = None
+    light_landing: bool | None = None
+    light_strobe: bool | None = None
+    g_force: float | None = None
 
 
 class Phase(str, Enum):

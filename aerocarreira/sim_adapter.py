@@ -112,7 +112,7 @@ class SampleReader:
 
     def _optional_bool(self,key):
         value=self._get(OPTIONAL[key])
-        return None if value is None else value>=0.5
+        return None if value is None or not isfinite(value) else value>=0.5
 
     def read(self):
         values = {key: self._get(var) for key, var in REQUIRED.items()}
