@@ -189,7 +189,7 @@ class FuelManager:
                 ).fetchall()
                 bought_gal=0.0
                 for (description,) in earlier:
-                    match=re.fullmatch(r'Abastecimento ([0-9]+(?:\\.[0-9]+)?) gal — '+re.escape(ref),description)
+                    match=re.fullmatch(r'Abastecimento ([0-9]+(?:\.[0-9]+)?) gal — '+re.escape(ref),description)
                     if match:
                         bought_gal+=float(match.group(1))
                 paid=min(current*LITERS_PER_GALLON,bought_gal*LITERS_PER_GALLON)
