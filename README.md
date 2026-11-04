@@ -1,3 +1,22 @@
+# FlightSimCarreira v0.7.5 Midnight Ops Alpha.1 — Realismo e mercado Nordeste
+
+**Mudanças**
+- Uma entrada **Mercado de Contratos** no menu lateral e duas abas: Regional (aeroportos próximos à base) e Freelancer (busca aproximada sobre o Nordeste brasileiro).
+- Freelancer oferece até 6 contratos por dia, possivelmente para outros estados, com **autonomia estimada por aeronave**. A origem continua sendo o aeroporto do piloto; sem teleporte.
+- Leitura opcional de assistências de pouso/decolagem, controle por IA, combustível ilimitado, horário Zulu, luzes, motor e força G. Dado ausente não equivale a opção desligada.
+- Bônus de realismo da missão: +3% por relógio Zulu próximo do UTC real em simulação 1x e +3% quando assistências individuais verificadas estão desligadas. Estes sinais não comprovam todos os presets globais.
+- Clima ao vivo **não pode ser comprovado** pelo SimConnect externo do MSFS 2020. Declaração manual não rende mais os antigos +3%.
+- XP operacional: +4 por pouso final suave (-150 < toque estimado < 0 ft/min) **sem arremetida**; até +3 por luzes observadas; penalidades limitadas por estol, G extremo, episódios de táxi rápido e luzes desligadas após terem sido vistas funcionando.
+- Arremetida **não penaliza** o piloto; toque-e-arremetida não encerra a missão e não gera pagamento intermediário.
+- Checkpoint inclui estado de segurança e continua retrocompatível com voos salvos anteriormente. Nenhuma migração destrutiva de banco.
+- **Homologação física pendente:** ainda precisamos confirmar cada SimVar no MSFS 2020 real com C152 e outros modelos.
+
+Consulte [as regras e ressalvas da v0.7.5](docs/V075_PROCEDIMENTOS_NORDESTE.md).
+
+Instale o ZIP inteiro numa pasta limpa. Preserve e faça backup de `%APPDATA%\AeroCarreira-Lab`.
+
+---
+
 # FlightSimCarreira v0.7.4 Midnight Ops Alpha.1 — Navegação por páginas
 
 A barra lateral permanece visível enquanto o conteúdo central muda entre **Dashboard**, **Mercado Regional**, **Mercado Freelancer**, **Planejamento** e os demais módulos. Os dois mercados têm entradas separadas no menu e abas de acesso rápido no topo. Seleção e detalhes dos contratos agora são **páginas do aplicativo**, não modais.

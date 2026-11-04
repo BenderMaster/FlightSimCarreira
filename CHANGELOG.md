@@ -1,3 +1,12 @@
+## v0.7.5 Midnight Ops Alpha.1 — Procedimentos e mercado freelancer Nordeste
+
+- Mercado lateral consolidado com abas internas Regional/Freelancer; buscador freelancer sobre polígono aproximado Nordeste e autonomia por modelo, até seis ofertas.
+- SimConnect opcional lê assistências específicas, IA, Zulu, luzes, motor e G sem forçar controles.
+- Despacho: bônus +3% relógio Zulu sincronizado e +3% assistências monitoradas desligadas. Clima ao vivo não verificável, sem premiação por declaração.
+- XP segurança entre -15 e +7, incluindo pouso suave +4 só sem arremetida. Arremetida e toque-e-arremetida não liquidam contrato.
+- Checkpoint mantém novos indicadores; XP/receita de cada voo continuam atômicos e idempotentes por decolagem.
+- Atualizados testes de sensor, arremetida, táxi, iluminação, XP e mercado; CI e homologação MSFS real são etapas distintas.
+
 ## 0.7.4 Midnight Ops Alpha.1 — Menu persistente e mercados em páginas
 
 - Navegação no conteúdo principal mantendo sidebar no lugar; mercados Regional e Freelancer separados no menu e acessíveis por abas, sem modal.

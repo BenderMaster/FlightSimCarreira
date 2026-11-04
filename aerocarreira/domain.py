@@ -117,11 +117,82 @@ class FlightTracker:
         self.stalls = 0
         self._stall_active = False
         self._last_event_timestamp: Optional[float] = None
+        # Indicadores de segurança acumulados no voo e serializados no checkpoint.
+        self.go_arounds = 0
+        self.touch_and_go = 0
+        self._max_agl = 0.0
+        self._approach_min_agl: Optional[float] = None
+        self.taxi_violations = 0
+        self._taxi_fast_since: Optional[float] = None
+        self._taxi_fast_marked = False
+        self._taxi_suspects: list[float] = []
+        self.hard_g_events = 0
+        self._g_since: Optional[float] = None
+        self._g_counted = False
+        self.light_beacon_taxi_ok = False
+        self.light_taxi_ok = False
+        self.light_landing_approach_ok = False
+        self.light_landing_approach_off = False
+        self.light_beacon_taxi_off = False
+        self._seen_beacon_on = False
+        self._seen_landing_on = False
+        self._beacon_off_since: Optional[float] = None
+        self._landing_off_since: Optional[float] = None
 
     def update(self, s: FlightSample) -> list[dict]:
         if self.last and s.timestamp <= self.last.timestamp:
             return []
         out: list[dict] = []
+        if self.phase == Phase.GROUND and s.on_ground and not s.groundspeed_estimated:
+            # A corrida de decolagem NÃO é táxi. Incidentes recentes ao
+            # decolar serão descartados; velocidade isolada não prova infração.
+            fast=(25<s.groundspeed_kt<75 and s.ias_kt<45)
+            if fast:
+                if self._taxi_fast_since is None:
+                    self._taxi_fast_since=s.timestamp
+                if not self._taxi_fast_marked and s.timestamp-self._taxi_fast_since>=8:
+                    self._taxi_suspects.append(s.timestamp)
+                    self._taxi_fast_marked=True
+            else:
+                self._taxi_fast_since=None
+                self._taxi_fast_marked=False
+            if s.engine_running is True and 2<=s.groundspeed_kt<=22:
+                self._seen_beacon_on |= s.light_beacon is True
+                if s.light_beacon is True:self.light_beacon_taxi_ok=True
+                if s.light_taxi is True:self.light_taxi_ok=True
+                if self._seen_beacon_on and s.light_beacon is False:
+                    if self._beacon_off_since is None:self._beacon_off_since=s.timestamp
+                    if s.timestamp-self._beacon_off_since>=4:self.light_beacon_taxi_off=True
+                else:self._beacon_off_since=None
+        if self.phase == Phase.AIRBORNE and not s.on_ground:
+            self._max_agl=max(self._max_agl,s.agl_ft)
+            # Arremetida: aeronave já atingiu 800 ft AGL, aproximou
+            # descendo abaixo de 600 ft e retomou subida >=170 ft.
+            if self._max_agl>=800 and 30<=s.agl_ft<=600 and s.vs_fpm<=-150:
+                if self._approach_min_agl is None:self._approach_min_agl=s.agl_ft
+                self._approach_min_agl=min(self._approach_min_agl,s.agl_ft)
+            if (self._approach_min_agl is not None and s.vs_fpm>=250
+                    and s.agl_ft>=self._approach_min_agl+170):
+                self.go_arounds+=1
+                self._approach_min_agl=None
+                out.append({"type":"go_around","timestamp":s.timestamp})
+            if s.g_force is not None and s.agl_ft>200 and (s.g_force>=2.2 or s.g_force<=-0.2):
+                if self._g_since is None:self._g_since=s.timestamp
+                if not self._g_counted and s.timestamp-self._g_since>=1:
+                    self.hard_g_events+=1;self._g_counted=True
+                    out.append({"type":"hard_maneuver","timestamp":s.timestamp})
+            else:
+                self._g_since=None;self._g_counted=False
+            if 30<=s.agl_ft<=600 and s.vs_fpm<0:
+                if s.light_landing is True:
+                    self._seen_landing_on=True
+                    self.light_landing_approach_ok=True
+                    self._landing_off_since=None
+                elif s.light_landing is False and self._seen_landing_on:
+                    if self._landing_off_since is None:self._landing_off_since=s.timestamp
+                    if s.timestamp-self._landing_off_since>=4:
+                        self.light_landing_approach_off=True
+            if s.light_landing is True:self._seen_landing_on=True
         if self.phase == Phase.WAITING:
             if s.on_ground:
                 self.phase = Phase.GROUND
@@ -129,10 +200,19 @@ class FlightTracker:
             if not s.on_ground and s.agl_ft >= 3 and s.groundspeed_kt >= 25:
                 self.phase = Phase.AIRBORNE
                 self.takeoff_sample = s
+                self.taxi_violations=min(2,len([t for t in self._taxi_suspects if t<=s.timestamp-50]))
+                self._taxi_suspects.clear()
+                self._taxi_fast_since=None
                 out.append({"type": "takeoff", "timestamp": s.timestamp,
                             "lat": s.latitude, "lon": s.longitude})
         elif self.phase == Phase.AIRBORNE:
             if not s.on_ground:
+                if (self.pending_landing is not None and self.last is not None
+                        and self.last.on_ground and
+                        self.last.timestamp-self.pending_landing.timestamp>=1
+                        and s.agl_ft>=15):
+                    self.touch_and_go+=1
+                    out.append({"type":"touch_and_go","timestamp":s.timestamp})
                 self.last_airborne_vs = s.vs_fpm
                 self.last_airborne_timestamp = s.timestamp
                 self.pending_landing = None
@@ -149,7 +229,9 @@ class FlightTracker:
                     descent = self.pending_vs_fpm
                     out.append({"type": "landing", "timestamp": s.timestamp,
                                 "lat": s.latitude, "lon": s.longitude,
-                                "touchdown_fpm_est": descent})
+                                "touchdown_fpm_est": descent,
+                                "go_arounds": self.go_arounds,
+                                "touch_and_go": self.touch_and_go})
         if self.phase == Phase.AIRBORNE and s.stall_warning is True and not self._stall_active:
             self.stalls += 1
             out.append({"type": "stall_warning", "timestamp": s.timestamp})
@@ -170,6 +252,16 @@ class FlightTracker:
             "last_airborne_timestamp": self.last_airborne_timestamp,
             "events": list(self.events), "stalls": self.stalls,
             "stall_active": self._stall_active,
+            "safety_v1": {
+                k:getattr(self,k) for k in (
+                    "go_arounds","touch_and_go","_max_agl","_approach_min_agl",
+                    "taxi_violations","_taxi_fast_since","_taxi_fast_marked",
+                    "_taxi_suspects","hard_g_events","_g_since","_g_counted",
+                    "light_beacon_taxi_ok","light_taxi_ok","light_landing_approach_ok",
+                    "light_landing_approach_off","light_beacon_taxi_off",
+                    "_seen_beacon_on","_seen_landing_on",
+                    "_beacon_off_since","_landing_off_since")
+            },
         }
 
     @classmethod
@@ -186,6 +278,9 @@ class FlightTracker:
         tr.events = list(data.get("events", []))
         tr.stalls = int(data.get("stalls", 0))
         tr._stall_active = bool(data.get("stall_active", False))
+        safety=data.get("safety_v1") or {}
+        for key in tr.snapshot()["safety_v1"]:
+            if key in safety:setattr(tr,key,safety[key])
         return tr
 
     def reset(self):

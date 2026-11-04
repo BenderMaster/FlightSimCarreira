@@ -29,7 +29,18 @@ OPTIONAL = {"stall_warning": "STALL_WARNING", "fuel_gallons": "FUEL_TOTAL_QUANTI
             "wind_direction_deg":"AMBIENT_WIND_DIRECTION",
             "visibility_m":"AMBIENT_VISIBILITY",
             "sea_level_pressure_hpa":"SEA_LEVEL_PRESSURE",
-            "heading_true_rad":"PLANE_HEADING_DEGREES_TRUE"}
+            "heading_true_rad":"PLANE_HEADING_DEGREES_TRUE",
+            "assistance_landing":"ASSISTANCE_LANDING_ENABLED",
+            "assistance_takeoff":"ASSISTANCE_TAKEOFF_ENABLED",
+            "ai_controls":"AI_CONTROLS",
+            "zulu_time_s":"ZULU_TIME",
+            "light_beacon":"LIGHT_BEACON",
+            "light_nav":"LIGHT_NAV",
+            "light_taxi":"LIGHT_TAXI",
+            "light_landing":"LIGHT_LANDING",
+            "light_strobe":"LIGHT_STROBE",
+            "engine_running":"GENERAL_ENG_COMBUSTION:1",
+            "g_force":"G_FORCE"}
 
 
 
@@ -99,6 +110,10 @@ class SampleReader:
             caps[name]=cap
         return (tanks or None),(caps or None)
 
+    def _optional_bool(self,key):
+        value=self._get(OPTIONAL[key])
+        return None if value is None else value>=0.5
+
     def read(self):
         values = {key: self._get(var) for key, var in REQUIRED.items()}
         missing = [REQUIRED[key] for key, val in values.items() if val is None]
@@ -143,7 +158,18 @@ class SampleReader:
             heading_true_deg=true_heading_degrees(self._get(OPTIONAL['heading_true_rad'])),
             sim_rate=self._get(OPTIONAL['sim_rate']),
             fuel_tanks=tanks, fuel_tank_capacities=cap,
-            unlimited_fuel=(None if (limit:=self._get(OPTIONAL['unlimited_fuel'])) is None else limit >= .5))
+            unlimited_fuel=self._optional_bool('unlimited_fuel'),
+            engine_running=self._optional_bool('engine_running'),
+            assistance_landing=self._optional_bool('assistance_landing'),
+            assistance_takeoff=self._optional_bool('assistance_takeoff'),
+            ai_controls=self._optional_bool('ai_controls'),
+            zulu_time_s=self._get(OPTIONAL['zulu_time_s']),
+            light_beacon=self._optional_bool('light_beacon'),
+            light_nav=self._optional_bool('light_nav'),
+            light_taxi=self._optional_bool('light_taxi'),
+            light_landing=self._optional_bool('light_landing'),
+            light_strobe=self._optional_bool('light_strobe'),
+            g_force=self._get(OPTIONAL['g_force']))
         self.last = s
         return s, []
 

@@ -82,16 +82,19 @@ class DashboardPresenter:
         self.center=center
         if not center:self.offers={};return
         stats=db.pilot_stats(); emp=db.employment_state();now=time();day=int(now//86400)
-        key=(center.icao,day,stats['xp'],tuple(sorted(stats['qualifications'])),emp['mode'],emp['employer_code'])
+        generator_version='nordeste-v1'
+        key=(center.icao,day,stats['xp'],tuple(sorted(stats['qualifications'])),emp['mode'],
+             emp['employer_code'],generator_version)
         if key==self.market_key and not force:
             self.offers={k:v for k,v in self.offers.items() if not db.contract_completed(k)}
             return
         self.market_key=key
-        if force or not db.offer_cache_valid(center.icao,now):
+        if force or db.get_setting('offer_generator')!=generator_version or not db.offer_cache_valid(center.icao,now):
             offers=generate_offers(center,cat,stats,db.owned_qualifications(),db.family_experience(),day)
             if emp['mode']=='empregado':
                 offers+=generate_employer_routes(emp['employer_code'],center,cat,stats,db.owned_qualifications(),db.family_experience(),day)
             db.save_offers(center.icao,offers,now=now,valid_s=(day+1)*86400-now)
+            db.set_setting('offer_generator',generator_version)
         self.offers={m.id:m for m in db.active_offers(center.icao,now)
                      if not m.company_code or (emp['mode']=='empregado' and emp['employer_code']==m.company_code)}
 

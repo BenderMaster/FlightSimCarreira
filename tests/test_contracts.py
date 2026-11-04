@@ -57,7 +57,7 @@ class ContractTests(unittest.TestCase):
 
     def test_local_only_limited_deterministic_and_freelance(self):
         offers = self.generated()
-        self.assertLessEqual(len(offers),13)
+        self.assertLessEqual(len(offers),16)
         self.assertGreater(len(offers),0)
         self.assertTrue(all(m.origin=='SIPE' and m.destination in ('SIFC','SBRF','SBJP') for m in offers))
         self.assertEqual(len({m.id for m in offers}),len(offers))
@@ -113,7 +113,7 @@ class ContractTests(unittest.TestCase):
         new=generate_offers(AIRPORTS['SBRF'],self.catalog,self.db.pilot_stats(),{'PPA'},{},21490)
         self.db.save_offers('SBRF',new,now=100100,valid_s=3600)
         self.assertEqual(self.db.active_offers('SIPE',100101),[])
-        self.assertLessEqual(self.db.conn.execute('SELECT COUNT(*) FROM contract_offers').fetchone()[0],13)
+        self.assertLessEqual(self.db.conn.execute('SELECT COUNT(*) FROM contract_offers').fetchone()[0],16)
 
     def test_cannot_store_unbounded_or_wrong_region(self):
         m=self.generated()[0]

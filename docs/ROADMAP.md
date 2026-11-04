@@ -161,3 +161,11 @@ Consulte [Bloco 3](BLOCO_3_CARREIRAS.md).
 - [ ] Validar escrita de tanques do Cessna 152 **no MSFS Steam real**, inclusive menu de combustível e desligamento do controle.
 - [ ] Validar retroposição SBRF → SNAE no banco existente do piloto e persistência em Windows real.
 - [ ] Ampliar suporte a complexos sistemas de combustível de addons sem injetar dados em tanques não identificados.
+
+## v0.7.5 — Segurança e freelancer Nordeste
+- [x] SimVars opcionais de luzes, assistências de decolagem/pouso, controle por IA, relógio UTC Zulu e G.
+- [x] XP operacional atômico com bônus de toque suave e continuidade de missão após arremetida.
+- [x] Freelancer em recorte geográfico Nordeste com alcance por aeronave e 6 ofertas; menu com aba Regional/Freelancer.
+- [ ] Homologar sensores no C152/aviação complexa no MSFS 2020 físico.
+- [ ] Melhorar identificação de taxiway/runway para pontuação precisa de velocidade antes e depois do pouso.
+- [ ] Verificar preset de clima ao vivo e assistências gerais somente quando API oficial pública disponível.

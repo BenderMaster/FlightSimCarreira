@@ -10,7 +10,7 @@ from math import isfinite
 from random import Random
 import hashlib
 from .domain import Airport, AIRPORTS, Mission, distance_nm
-from .finance import market_reward, mission_radius_by_level
+from .finance import market_reward, mission_radius_by_level, AIRCRAFT_ECONOMY
 
 
 @dataclass(frozen=True)
@@ -178,18 +178,47 @@ class AirportCatalog:
         return sorted(around, key=lambda x: (x[1], x[0].icao))
 
 
+
+# Recorte geográfico aproximado do Nordeste brasileiro; não é limite legal de
+# estados. Usar ICAO brasileiro e alcance por modelo evita rotas globais irreais.
+_NORDESTE_POLYGON=((-45.9,-1.0),(-42.0,-1.0),(-38.0,-2.0),
+    (-34.0,-4.0),(-34.0,-11.3),(-37.7,-14.4),(-39.0,-18.5),
+    (-41.7,-19.0),(-45.3,-16.1),(-46.8,-12.2),(-48.2,-7.0),
+    (-47.5,-3.5))
+
+def northeast_airport(airport: Airport) -> bool:
+    """Ponto aproximado em Nordeste; depende de catálogo com ICAO/coord válidos."""
+    if not airport.icao.startswith('S') or len(airport.icao)!=4:
+        return False
+    x,y=airport.longitude,airport.latitude
+    vertices=_NORDESTE_POLYGON
+    inside=False
+    for i in range(len(vertices)):
+        ax,ay=vertices[i]
+        bx,by=vertices[(i+1)%len(vertices)]
+        if (ay>y)!=(by>y) and x < (bx-ax)*(y-ay)/(by-ay)+ax:
+            inside=not inside
+    return inside
+
+def freelance_range_nm(model_code: str) -> float:
+    """Estimativa conservadora com 30% de reserva do tanque no motor do jogo."""
+    p=AIRCRAFT_ECONOMY[model_code]
+    endurance_h=p.fuel_capacity_gal*3.785411784/p.fuel_lph
+    return round(min(1300,endurance_h*p.cruise_kts*.70),1)
+
 def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
                     qualifications: set[str], family_flights: dict[str, int],
-                    period: int, max_regional: int = 10, max_freelance: int = 3) -> list[Mission]:
-    """Gera somente propostas da região atual. Period determinístico (dia UTC).
+                    period: int, max_regional: int = 10, max_freelance: int = 6) -> list[Mission]:
+    """Regional permanece local; Freelancer procura o Nordeste por alcance realista.
 
-    Não consulta serviços externos nem cria ofertas para cada aeroporto mundial.
-    Propostas não persistem até Storage.refresh_offers() confirmar a gravação.
+    Ambas modalidades partem do aeroporto de posição/base do piloto, pois
+    aceitar a missão requer estar em solo na origem (sem teleporte).
     """
-    choices = catalog.around(origin, mission_radius_by_level(int(stats.get("level", pilot_level(int(stats.get("xp", 0)))))))
-    if not choices:
-        return []
-    seed = int.from_bytes(hashlib.sha256(f"{origin.icao}:{period}:v1".encode()).digest()[:8], 'big')
+    choices=catalog.around(origin,mission_radius_by_level(
+        int(stats.get("level",pilot_level(int(stats.get("xp",0)))))))
+    broad=[(a,distance_nm(origin.latitude,origin.longitude,a.latitude,a.longitude))
+           for a in catalog.locations.values() if a.icao!=origin.icao and northeast_airport(a)]
+    seed = int.from_bytes(hashlib.sha256(f"{origin.icao}:{period}:nordeste-v1".encode()).digest()[:8], 'big')
     rng = Random(seed)
     allowed = [t for t in TYPES if eligibility(Mission("x",origin.icao,origin.icao,"",0,
                   category=t.code),stats,qualifications,family_flights)[0]]
@@ -227,11 +256,18 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
             break
         kind = freelance_kinds[slot % len(freelance_kinds)]
         plane = allowed_planes[slot % len(allowed_planes)]
-        choices_for_type = [(a,d) for a,d in choices if kind.min_nm <= d <= kind.max_nm]
+        range_limit=freelance_range_nm(plane.code)
+        choices_for_type=[(a,d) for a,d in broad if kind.min_nm<=d<=range_limit]
         if not choices_for_type:
             continue
-        target,dist = rng.choice(choices_for_type[:min(len(choices_for_type), 35)])
-        salary = market_reward(dist, 1 + kind.min_level*.09, freelance=True)
+        # Distribuir destinos pelo Nordeste em vez de somente os mais próximos.
+        choices_for_type.sort(key=lambda pair:pair[1])
+        bucket=min(2,slot%3)
+        lo=bucket*len(choices_for_type)//3
+        hi=max(lo+1,(bucket+1)*len(choices_for_type)//3)
+        target,dist=rng.choice(choices_for_type[lo:hi])
+        salary=market_reward(dist,1+kind.min_level*.09,freelance=True,
+                             cruise_kts=AIRCRAFT_ECONOMY[plane.code].cruise_kts)
         offers.append(Mission(f"FREE-{origin.icao}-{period}-{slot:02}",origin.icao,target.icao,
             f"Freelancer • {kind.title} • {plane.name}",salary,category=kind.code,freelance=True,
             employer_plane=plane.code,origin_lat=origin.latitude,origin_lon=origin.longitude,

@@ -24,6 +24,7 @@ from .contracts import aircraft_model
 from .fuel import FuelManager
 from .fleet import used_market, resale_price
 from .planning import Preflight, inspect_preflight, aircraft_title_matches
+from .flight_audit import real_clock_verified, assistance_verified, flight_safety_xp
 from .aircraft_catalog import scan_installed_aircraft, detect_package_roots
 from .ingame_bridge import PanelState, LocalPanelServer
 from . import __version__
@@ -982,25 +983,34 @@ class Application:
                 if self.fuel_penalty_frozen:
                     self._log('Combustível sob controle do MSFS: penalidade -30% sobre R$ e XP deste voo.')
                 plan=self._saved_preflight()
-                if plan and self.career.mission:
-                    try:
-                        # São usados valores DO INÍCIO DO VOO, não leituras antigas
-                        # do checklist. Se o piloto mudou aeronave, não há bônus.
-                        if not aircraft_title_matches(plan.aircraft_title, s.aircraft_title):
-                            self._log('Despacho: avião diferente da seleção; bônus desativado.')
-                        else:
-                            snapshot=replace(plan,
-                                planned_fuel_gal=s.fuel_gallons,
+                if self.career.mission:
+                    # Autoavaliação: só dados SimConnect válidos valem bônus.
+                    # Clima ao vivo não pode ser provado por esta API.
+                    verified=({'clock':real_clock_verified(s),
+                               'assists':assistance_verified(s)}
+                              if self.mode=='MSFS' else {})
+                    auto_fraction=.03*int(verified.get('clock') is True)+.03*int(verified.get('assists') is True)
+                    if plan and not aircraft_title_matches(plan.aircraft_title,s.aircraft_title):
+                        self._log('Despacho: modelo divergente; sem bônus de checklist.')
+                        self.realism_frozen=round(auto_fraction,4)
+                        self.realism_mission=self.career.mission.id
+                    elif plan:
+                        try:
+                            snapshot=replace(plan,planned_fuel_gal=s.fuel_gallons,
                                 planned_weight_lbs=s.total_weight_lbs,
-                                max_weight_lbs=s.max_gross_weight_lbs,
-                                real_time_declared=(plan.real_time_declared and
-                                    (s.sim_rate is None or 0.99 <= s.sim_rate <= 1.01)))
-                            details=inspect_preflight(self.career.mission,snapshot)
+                                max_weight_lbs=s.max_gross_weight_lbs)
+                            details=inspect_preflight(self.career.mission,snapshot,verified=verified)
                             self.realism_frozen=details['bonus_fraction']
                             self.realism_mission=self.career.mission.id
-                            self._log(f'Despacho: bônus de {self.realism_frozen:.0%} congelado na decolagem (dados disponíveis).')
-                    except ValueError as exc:
-                        self._log('Despacho indisponível: '+str(exc))
+                        except ValueError as exc:
+                            self._log('Despacho indisponível: '+str(exc))
+                    else:
+                        self.realism_frozen=round(auto_fraction,4)
+                        self.realism_mission=self.career.mission.id
+                    self._log(f'Realismo confirmado pelo MSFS/checklist: +{self.realism_frozen*100:.1f}% de XP e pagamento.')
+                    if verified.get('clock') is None:self._log('Horário UTC: telemetria indisponível, sem bônus automático.')
+                    if verified.get('assists') is None:self._log('Assistências: telemetria incompleta, sem bônus automático.')
+                    self._log('Preset de clima ao vivo: não verificável por SimConnect; sem bônus automático.')
                 if self.career.mission and self.career.mission.freelance and not self.career.employer_aircraft_confirmed:
                     self._log("ALERTA FREELANCER: modelo não confirmado na decolagem; sem pagamento até próximo voo correto.")
                 self._checkpoint(force=True)
@@ -1022,6 +1032,8 @@ class Application:
                 checkpoint_after['fuel_ref_frozen']=None
                 realism_fraction=(self.realism_frozen if payment and
                                   self.realism_mission==payment['mission'] else 0.0)
+                safety_xp=flight_safety_xp(self.tracker,v)
+                if self.mode=='Demo':safety_xp=0  # demo nunca dá bônus/penalidade por procedimento
                 # Detecta aeródromo realmente alcançado mesmo em voo sem contrato.
                 if self.airport_catalog is None:
                     from .contracts import AirportCatalog
@@ -1040,7 +1052,8 @@ class Application:
                                         realism_fraction=realism_fraction,
                                         destination=landing_icao,
                                         fuel_penalty_fraction=self.fuel_penalty_frozen,
-                                        fuel_prepaid=self.fuel_mode_at_takeoff)
+                                        fuel_prepaid=self.fuel_mode_at_takeoff,
+                                        flight_xp_extra=safety_xp)
                 except Exception as exc:
                     self._log(f"FALHA AO SALVAR pouso: {exc}. Não feche antes de exportar log.")
                     self.status_var.set("Erro ao salvar voo")
@@ -1064,7 +1077,8 @@ class Application:
                     # valor congelado antes de limpar o estado
                     earned=self.storage.conn.execute('SELECT xp FROM pilot_xp_ledger WHERE flight_key=?',
                         (f"takeoff:{float(start['timestamp']):.6f}:{float(start['lat']):.7f}:{float(start['lon']):.7f}",)).fetchone()
-                    self._log(f"PROGRESSO DO PILOTO: +{earned[0] if earned else 0} XP ({bonus_xp} potencial do despacho).")
+                    self._log(f"PROGRESSO DO PILOTO: +{earned[0] if earned else 0} XP ({bonus_xp} do despacho, {safety_xp:+d} de segurança).")
+                    if v is not None:self._log(f'Toque estimado: {v:+.0f} ft/min; arremetidas: {self.tracker.go_arounds}; toque-e-arremetidas: {self.tracker.touch_and_go}.')
                     self._refresh_pilot_summary()
                 if not inserted:
                     self._log("Pouso já salvo anteriormente: pagamento duplicado bloqueado.")
@@ -1085,7 +1099,13 @@ class Application:
                 self._refresh_history()
                 self.last_checkpoint_time = time()
             elif e["type"] == "stall_warning":
-                self._log("AVISO DE ESTOL detectado (não é penalidade automática).")
+                self._log("ESTOL: aviso registrado; poderá reduzir XP deste voo após o pouso.")
+            elif e["type"] == "go_around":
+                self._log("ARREMETIDA detectada: sem penalidade; bônus de pouso suave cancelado neste voo.")
+            elif e["type"] == "touch_and_go":
+                self._log("TOQUE E ARREMETIDA detectado: voo continua, sem pagamento ou encerramento antecipado.")
+            elif e["type"] == "hard_maneuver":
+                self._log("MANOBRA BRUSCA: força G extrema sustentada; evento contabilizado.")
         if previous_phase != self.tracker.phase or self.career.mission and events:
             self._checkpoint(force=True)
         else:
@@ -1311,10 +1331,7 @@ class Application:
         if m.freelance:
             self.label(body,'Freelancer: usar aeronave do contratante. A troca de avião no MSFS ainda é manual.',9,GOLD).pack(anchor='w')
         self.label(body,'CHECKLIST: confirme somente o que realmente foi configurado/conferido no MSFS.',9,MUTED).pack(anchor='w',pady=(9,7))
-        items=[('real_weather_declared','Clima ao vivo (confirmação manual)'),
-            ('real_time_declared','Horário real (confirmação manual)'),
-            ('assists_realistic_declared','Assistências realistas (confirmação manual)'),
-            ('runway_checked','Pista e iluminação verificadas no mapa/aviação'),
+        items=[('runway_checked','Pista e iluminação revisadas (declaração manual)'),
             ('route_checked','Rota e altitude revisadas no mapa VFR/GPS'),
             ('fuel_checked','Combustível e reserva conferidos'),
             ('payload_checked','Peso e balanceamento verificados')]
@@ -1347,14 +1364,16 @@ class Application:
                 details=inspect_preflight(m,plan)
                 if save:
                     self.storage.set_setting('preflight_v1',json.dumps(plan.snapshot(),ensure_ascii=False))
-                    self._log(f'Despacho salvo para {m.origin} → {m.destination}, bônus previsto até {details["bonus_fraction"]:.0%} (condicionado ao pouso).')
+                    self._log(f'Despacho salvo para {m.origin} → {m.destination}; componentes automáticos serão verificados na decolagem.')
                 report.delete('1.0',END)
                 report.insert(END,f'Distância: {details["distance_nm"]} NM\nDuração estimada: {details["minutes"]} min\n')
                 report.insert(END,f'Combustível mínimo estimado (inclui margem): {details["fuel_required_gal"]} gal\n')
                 for key,val in details['components'].items():
                     report.insert(END,f'{"OK" if val["ok"] else "PENDENTE"}: {key} (+{val["rate"]*100:g}%)\n')
                 report.insert(END,f'\nBônus previsto: +{details["bonus_fraction"]*100:.1f}% sobre pagamento e XP do contrato\n')
-                report.insert(END,'Clima/horário/assistências/pista são declarações do piloto, NÃO telemetria validada.\n')
+                report.insert(END,'Clima ao vivo: preset não verificável, bônus indisponível.\n')
+                report.insert(END,'Relógio UTC e assistência de voo: pontuados automaticamente apenas se o MSFS fornecer dados válidos.\n')
+                report.insert(END,'Pista/rota são declarações revisadas pelo piloto, não sensores de aeroporto.\n')
                 if save:
                     messagebox.showinfo('Despacho','Checklist salvo. Os valores medidos foram congelados em solo; confirme as opções declaradas.',parent=window)
             except (ValueError,TypeError) as exc:

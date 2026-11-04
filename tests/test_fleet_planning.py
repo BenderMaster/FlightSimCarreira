@@ -42,11 +42,14 @@ class PlanningTests(unittest.TestCase):
     def setUp(self):
         self.m=next(m for m in MISSIONS if m.id=='ITA-IGA')
 
-    def test_all_confirmed_instrumented_max_18_percent(self):
+    def test_declared_weather_time_assistances_never_count_as_verified(self):
         p=Preflight(self.m.id,'Cessna 152',True,True,True,True,True,True,True,
                     planned_fuel_gal=12.0,planned_weight_lbs=1500,max_weight_lbs=1670)
         report=inspect_preflight(self.m,p)
-        self.assertAlmostEqual(report['bonus_fraction'],.18)
+        self.assertAlmostEqual(report['bonus_fraction'],.09)
+        confirmed=inspect_preflight(self.m,p,verified={'clock':True,'assists':True})
+        self.assertAlmostEqual(confirmed['bonus_fraction'],.15)
+        self.assertFalse(confirmed['components']['Clima ao vivo (não verificável)']['ok'])
         self.assertTrue(report['fuel_ok'])
         self.assertTrue(report['weight_ok'])
         self.assertFalse(report['manual_verified'])
