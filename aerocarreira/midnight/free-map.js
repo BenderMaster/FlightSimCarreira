@@ -1,0 +1,144 @@
+/* FlightSimCarreira FreeMap — OpenFreeMap + MapLibre, sem chave nem cartão.
+ * Sentinel-2 2016 EOxCloudless: CC BY 4.0; créditos na área do mapa.
+ * Rotas e posição vêm do domínio/SimConnect, nunca de uma rota fabricada.
+ */
+(() => {
+'use strict';
+const AIRCRAFT_PATH='M284 44 L273 41 L253 49 L199 99 L180 95 L189 84 L182 74 L160 92 L142 89 L153 74 L146 63 L122 85 L41 72 L28 86 L153 143 L84 218 L75 220 L42 215 L28 228 L66 244 L95 291 L107 280 L103 241 L182 168 L236 290 L251 275 L244 217 L265 195 L256 186 L241 198 L238 176 L260 155 L251 145 L234 156 L230 123 L275 77 L285 58 Z';
+const SAT_TILES='https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg';
+const SAT_CREDIT='EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017)';
+const BASE='https://tiles.openfreemap.org/styles/dark';
+const CDN='https://cdn.jsdelivr.net/npm/maplibre-gl@6.16.0/dist/maplibre-gl.js';
+let map=null,loading=null,active=false,sat=false,missionKey=null,routeSourceReady=false;
+let airportMarkers=[],planeMarker=null,previousPosition=null,bearingDeg=45,latest=null,retryAfter=0;
+const elem=id=>document.getElementById(id),valid=c=>Array.isArray(c)&&c.length===2&&c.every(Number.isFinite)&&Math.abs(c[0])<=90&&Math.abs(c[1])<=180;
+const latlng=c=>({lat:c[0],lng:c[1]});
+const bearing=(a,b)=>{
+ const r=Math.PI/180,p1=a.lat*r,p2=b.lat*r,d=(b.lng-a.lng)*r;
+ return (Math.atan2(Math.sin(d)*Math.cos(p2),Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(d))*180/Math.PI+360)%360;
+};
+function loadScript(url){
+ return new Promise((resolve,reject)=>{
+  const sc=document.createElement('script');sc.src=url;sc.async=true;
+  const alarm=setTimeout(()=>{sc.remove();reject(new Error('tempo limite'))},9000);
+  sc.onload=()=>{clearTimeout(alarm);resolve()};
+  sc.onerror=()=>{clearTimeout(alarm);reject(new Error('falha de carregamento'))};
+  document.head.append(sc);
+ });
+}
+function libraries(){
+ if(window.maplibregl)return Promise.resolve(window.maplibregl);
+ if(loading)return loading;
+ if(Date.now()<retryAfter)return Promise.reject(new Error('mapa temporariamente indisponível'));
+ loading=loadScript('/vendor/maplibre-gl.js').catch(()=>loadScript(CDN)).then(()=>{
+  if(!window.maplibregl)throw new Error('MapLibre indisponível');
+  return window.maplibregl;
+ }).catch(error=>{loading=null;retryAfter=Date.now()+60000;throw error});
+ return loading;
+}
+function updateCredit(){
+ const el=elem('satellite-credit');
+ if(el){el.hidden=!sat;el.textContent=sat?'EOxCloudless • Sentinel‑2 2016 • CC BY 4.0':null;el.title=SAT_CREDIT}
+ const btn=elem('satellite-toggle');if(btn)btn.textContent=sat?'Satélite: ON':'Satélite: OFF';
+}
+function setSatellite(){
+ updateCredit();
+ if(!map||!routeSourceReady)return;
+ if(sat&&!map.getSource('eox-satellite')){
+  map.addSource('eox-satellite',{type:'raster',tiles:[SAT_TILES],tileSize:256,maxzoom:14,
+   attribution:SAT_CREDIT+' • CC BY 4.0'});
+  map.addLayer({id:'eox-satellite-layer',type:'raster',source:'eox-satellite',paint:{'raster-opacity':1}},'route-glow');
+ }
+ if(map.getLayer('eox-satellite-layer')){
+  map.setLayoutProperty('eox-satellite-layer','visibility',sat?'visible':'none');
+ }
+}
+function toggleSatellite(){sat=!sat;setSatellite();return sat}
+function updateMarkers(s){
+ if(!map||!routeSourceReady)return;
+ const m=s?.mission;
+ const key=m?.id||('base:'+ (s?.market?.icao||''));
+ if(key!==missionKey){
+  missionKey=key;
+  for(const item of airportMarkers)item.remove();airportMarkers=[];
+  const start=valid(m?.start)?latlng(m.start):null,end=valid(m?.end)?latlng(m.end):null;
+  const line=start&&end?{type:'Feature',properties:{},
+   geometry:{type:'LineString',coordinates:[[start.lng,start.lat],[end.lng,end.lat]]}}:
+   {type:'FeatureCollection',features:[]};
+  map.getSource('fsc-route').setData(line);
+  if(start&&end){
+   for(const [p,label] of [[start,m.origin],[end,m.destination]]){
+    const el=document.createElement('div');el.className='fsc-airport-marker';el.textContent=label;
+    airportMarkers.push(new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([p.lng,p.lat]).addTo(map));
+   }
+   const bounds=new maplibregl.LngLatBounds();
+   bounds.extend([start.lng,start.lat]).extend([end.lng,end.lat]);
+   map.fitBounds(bounds,{padding:35,maxZoom:12,duration:0});
+  }else if(s?.telemetry&&Number.isFinite(s.telemetry.lat)&&Number.isFinite(s.telemetry.lon)){
+   map.jumpTo({center:[s.telemetry.lon,s.telemetry.lat],zoom:11});
+  }else if(s?.market&&Number.isFinite(s.market.lat)&&Number.isFinite(s.market.lon)){
+   map.jumpTo({center:[s.market.lon,s.market.lat],zoom:11});
+  }
+ }
+ const t=s?.telemetry;
+ if(t&&Number.isFinite(t.lat)&&Number.isFinite(t.lon)&&Math.abs(t.lat)<=90&&Math.abs(t.lon)<=180){
+  const pos={lat:t.lat,lng:t.lon};
+  if(previousPosition){
+   const meters=111000*Math.hypot(pos.lat-previousPosition.lat,(pos.lng-previousPosition.lng)*Math.cos(pos.lat*Math.PI/180));
+   if(meters>25)bearingDeg=bearing(previousPosition,pos);
+  }
+  previousPosition=pos;
+  if(!planeMarker){
+   const el=document.createElement('div');el.className='fsc-plane-marker';
+   el.innerHTML='<svg viewBox="0 0 315 320" aria-label="Aeronave"><path d="'+AIRCRAFT_PATH+'"/></svg>';
+   planeMarker=new maplibregl.Marker({element:el,anchor:'center',rotationAlignment:'map'}).setLngLat([pos.lng,pos.lat]).addTo(map);
+  }
+  planeMarker.setLngLat([pos.lng,pos.lat]);
+  // A silhueta tem orientação diagonal original; corrige para apontar no sentido do deslocamento.
+  const svg=planeMarker.getElement().querySelector('svg');
+  if(svg)svg.style.transform='rotate('+(bearingDeg-45)+'deg)';
+  planeMarker.getElement().style.opacity=t.stale?'0.5':'1';
+ }else{
+  if(planeMarker)planeMarker.remove();
+  planeMarker=null;previousPosition=null;
+ }
+}
+function start(){
+ if(map||!window.maplibregl)return;
+ try{
+  if(typeof maplibregl.supported==='function'&&!maplibregl.supported())return;
+  map=new maplibregl.Map({container:'google-map',style:BASE,center:[-34.92,-8.12],zoom:9,
+   scrollZoom:true,dragPan:true,touchZoomRotate:true,keyboard:true,
+   pitchWithRotate:false,dragRotate:false,maxPitch:0,attributionControl:false,fadeDuration:0});
+  map.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-left');
+  map.on('load',()=>{
+   map.addSource('fsc-route',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+   map.addLayer({id:'route-glow',type:'line',source:'fsc-route',
+    paint:{'line-color':'#35d6ff','line-width':10,'line-opacity':0.2}});
+   map.addLayer({id:'route-main',type:'line',source:'fsc-route',
+    paint:{'line-color':'#35d6ff','line-width':3,'line-opacity':0.95}});
+   routeSourceReady=true;
+   setSatellite();updateMarkers(latest);
+  });
+  map.on('error',e=>{if(e?.error)console.warn('FreeMap: tile/style',e.error.message||e.error)});
+  active=true;
+  document.querySelector('.map-area')?.classList.add('free-active');
+  const mapNode=elem('google-map');if(mapNode)mapNode.style.display='block';
+ }catch(error){console.warn('FreeMap: WebGL indisponível',error);map=null;active=false}
+}
+function render(s){
+ latest=s;
+ if(active&&map){updateMarkers(s);return}
+ if(Date.now()<retryAfter)return;
+ libraries().then(()=>start()).catch(()=>{active=false});
+}
+function zoomBy(dir){if(!active||!map)return false;map.zoomTo(Math.max(2,Math.min(20,map.getZoom()+dir)),{duration:120});return true}
+function recenter(s){
+ if(!active||!map)return false;
+ missionKey=null;
+ updateMarkers(s||latest);
+ return true;
+}
+window.FSCFreeMap={render,isActive:()=>active,zoomBy,recenter,toggleSatellite,
+ satelliteEnabled:()=>sat,aircraftPath:AIRCRAFT_PATH,bearing};
+})();
