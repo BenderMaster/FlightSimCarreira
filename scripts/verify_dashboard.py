@@ -113,6 +113,92 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#route').inner_text()=='SBRF → SIPE'
             assert 'ORIGEM' in page.locator('#weather-origin').inner_text()
             assert 'DESTINO' in page.locator('#weather-destination').inner_text()
+
+            # Mapa MapLibre com backend simulado para testar dimensões reais,
+            # ResizeObserver, ângulo do avião e ausência de sobreposição do HUD.
+            map_page=browser.new_page(viewport={'width':1600,'height':900})
+            map_errors=[]
+            map_page.on('pageerror',lambda error:map_errors.append(str(error)))
+            map_page.add_init_script("""(() => {
+              class FakeMap {
+                constructor(opts){
+                  this.el=document.getElementById(opts.container);
+                  this.startWidth=this.el.clientWidth;
+                  this.startHeight=this.el.clientHeight;
+                  this.canvas=document.createElement('canvas');
+                  this.el.append(this.canvas);
+                  this.sources={};this.layers={};this.zoom=10;this.resizeCalls=0;
+                  window.__fakeMap=this;
+                }
+                on(event,cb){if(event==='load')setTimeout(cb,0);return this}
+                addControl(){}
+                resize(){
+                  this.resizeCalls++;
+                  this.canvas.style.width=this.el.clientWidth+'px';
+                  this.canvas.style.height=this.el.clientHeight+'px';
+                }
+                addSource(id,def){this.sources[id]={...def,setData(data){this.data=data}}}
+                getSource(id){return this.sources[id]}
+                addLayer(layer){this.layers[layer.id]=layer}
+                getLayer(id){return this.layers[id]}
+                setLayoutProperty(id,k,v){if(this.layers[id])this.layers[id][k]=v}
+                fitBounds(){}
+                jumpTo(){}
+                getZoom(){return this.zoom}
+                zoomTo(z){this.zoom=z}
+              }
+              class FakeMarker {
+                constructor(opts){this.el=opts.element}
+                setLngLat(){return this}
+                addTo(){document.getElementById('free-map').append(this.el);return this}
+                getElement(){return this.el}
+                remove(){this.el.remove()}
+              }
+              class FakeBounds {extend(){return this}}
+              window.maplibregl={supported:()=>true,Map:FakeMap,
+                Marker:FakeMarker,AttributionControl:class{},LngLatBounds:FakeBounds};
+            })()""")
+            map_page.goto(url)
+            map_page.wait_for_function("window.__fakeMap && __fakeMap.resizeCalls>0 && __fakeMap.getSource('fsc-route')")
+            dims=map_page.evaluate("""() => {
+              const area=document.querySelector('.map-area').getBoundingClientRect();
+              const box=document.getElementById('free-map').getBoundingClientRect();
+              const canvas=__fakeMap.canvas.getBoundingClientRect();
+              return {area:area.width,box:box.width,canvas:canvas.width,
+                      initial:[__fakeMap.startWidth,__fakeMap.startHeight]};
+            }""")
+            assert dims['initial'][0]>0 and dims['initial'][1]>0,dims
+            assert abs(dims['area']-dims['box'])<2 and abs(dims['box']-dims['canvas'])<2,dims
+            map_page.set_viewport_size({'width':1280,'height':720})
+            map_page.wait_for_timeout(300)
+            resized=map_page.evaluate("""() => ({
+              box:document.getElementById('free-map').getBoundingClientRect().width,
+              canvas:__fakeMap.canvas.getBoundingClientRect().width,
+              calls:__fakeMap.resizeCalls
+            })""")
+            assert abs(resized['box']-resized['canvas'])<2 and resized['calls']>0,resized
+            orientations=map_page.evaluate("""() => {
+              const s={...state,telemetry:{lat:-8.1264,lon:-34.9228,
+                heading_deg:15,stale:false}};
+              FSCFreeMap.render(s);
+              const before=document.querySelector('.fsc-plane-marker svg').style.transform;
+              FSCFreeMap.render({...s,telemetry:{...s.telemetry,heading_deg:135}});
+              const after=document.querySelector('.fsc-plane-marker svg').style.transform;
+              return {before,after};
+            }""")
+            assert 'rotate(-30deg)' in orientations['before'],orientations
+            assert 'rotate(90deg)' in orientations['after'],orientations
+            map_page.locator('#satellite-toggle').click()
+            credit=map_page.evaluate("""() => {
+              const a=document.querySelector('#satellite-toggle').getBoundingClientRect();
+              const b=document.querySelector('#satellite-credit').getBoundingClientRect();
+              return {visible:!document.querySelector('#satellite-credit').hidden,
+                overlap:!(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top)};
+            }""")
+            assert credit['visible'] and not credit['overlap'],credit
+            assert not map_errors,map_errors
+            map_page.close()
+
             # Safe shutdown persists the active contract in the isolated career.
             page.evaluate("() => command('close')")
             process.wait(timeout=10)
