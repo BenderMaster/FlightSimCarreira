@@ -1052,6 +1052,8 @@ class Application:
     def _process_sample(self,s):
         self.last_sample=s
         self._sync_fuel(s)
+        self._verify_payload(s)
+        self._warn_resources(s)
         fmt=lambda n: f"{n:,.0f}"
         for key,val in {
             "ias":fmt(s.ias_kt),"gs":fmt(s.groundspeed_kt) + ("~" if s.groundspeed_estimated else ""),
@@ -1086,6 +1088,7 @@ class Application:
                 self._log("DECOLAGEM detectada. Diário iniciado e salvo para recuperação.")
                 self.realism_frozen=0.0
                 self.realism_mission=None
+                self.weight_bonus_frozen=0
                 self.fuel_penalty_frozen=(.3 if self.storage.get_setting('fuel_control_enabled')=='0' else 0.0)
                 ref,model=self._fuel_ref_for_sample(s)
                 self.fuel_ref_frozen=ref
@@ -1093,6 +1096,18 @@ class Application:
                 if self.fuel_penalty_frozen:
                     self._log('Combustível sob controle do MSFS: penalidade -30% sobre R$ e XP deste voo.')
                 plan=self._saved_preflight()
+                if (self.career.mission and self.dispatch_state.get('mission_id')==self.career.mission.id
+                    and self.dispatch_state.get('payload')=='verified'
+                    and s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None
+                    and s.total_weight_lbs<=s.max_gross_weight_lbs):
+                    self.weight_bonus_frozen=5
+                    if plan is None:
+                        plan=Preflight(self.career.mission.id,s.aircraft_title or '',
+                            payload_checked=True,planned_weight_lbs=s.total_weight_lbs,
+                            max_weight_lbs=s.max_gross_weight_lbs)
+                    else:
+                        plan=replace(plan,payload_checked=True)
+                    self._log('PESO DENTRO DO MTOW: +5 XP e bônus de pagamento/XP previsto no despacho.')
                 if self.career.mission:
                     # Autoavaliação: só dados SimConnect válidos valem bônus.
                     # Clima ao vivo não pode ser provado por esta API.
@@ -1138,6 +1153,8 @@ class Application:
                 checkpoint_after = self._checkpoint_data(tracker=next_tracker,post_landing=next_post)
                 checkpoint_after['realism_frozen']=0.0
                 checkpoint_after['realism_mission']=None
+                checkpoint_after['weight_bonus_frozen']=0
+                checkpoint_after['dispatch_state']={}
                 checkpoint_after['fuel_penalty_frozen']=0.0
                 checkpoint_after['fuel_mode_at_takeoff']=False
                 checkpoint_after['fuel_ref_frozen']=None
@@ -1164,7 +1181,8 @@ class Application:
                                         destination=landing_icao,
                                         fuel_penalty_fraction=self.fuel_penalty_frozen,
                                         fuel_prepaid=self.fuel_mode_at_takeoff,
-                                        flight_xp_extra=safety_xp)
+                                        flight_xp_extra=safety_xp,
+                                        flight_xp_weight_bonus=(self.weight_bonus_frozen if payment else 0))
                 except Exception as exc:
                     self._log(f"FALHA AO SALVAR pouso: {exc}. Não feche antes de exportar log.")
                     self.status_var.set("Erro ao salvar voo")
@@ -1177,6 +1195,8 @@ class Application:
                 self.post_landing_taxi=next_post
                 self.realism_frozen=0.0
                 self.realism_mission=None
+                self.weight_bonus_frozen=0
+                self.dispatch_state={}
                 self.fuel_penalty_frozen=0.0
                 self.fuel_mode_at_takeoff=False
                 self.fuel_ref_frozen=None
@@ -1269,15 +1289,21 @@ class Application:
                     self.status_var.set("Monitorando / recuperação")
                     self._log(item)
                 elif kind=='plan_loaded':
+                    if self.dispatch_state:self.dispatch_state['route']='loaded'
                     self._log(item)
-                    messagebox.showinfo('SimConnect / plano VFR',item)
                 elif kind=='fuel_sent':
                     self._log('Combustível: solicitação enviada ao MSFS; leitura posterior confirmará.')
                 elif kind=='fuel_error':
                     self._log('ALERTA combustível: escrita recusada: '+item)
                 elif kind=='plan_error':
+                    if self.dispatch_state:self.dispatch_state['route']='error'
                     self._log('PLANO VFR: '+item)
-                    messagebox.showwarning('Plano VFR',item)
+                elif kind=='payload_sent':
+                    self._log('Peso enviado ao simulador; aguardando leitura de confirmação.')
+                elif kind=='payload_error':
+                    if self.dispatch_state:
+                        self.dispatch_state.update(payload='error',message=item)
+                    self._log('CARGA: '+item)
                 elif kind=="disconnected":
                     self.connected=False
                     self.status_var.set(item)
