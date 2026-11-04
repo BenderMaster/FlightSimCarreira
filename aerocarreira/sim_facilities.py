@@ -17,45 +17,68 @@ REQUEST_ID = 6001
 
 
 def decode_airport_list_packet(raw: bytes, request_id: int = REQUEST_ID):
-    """Lê cabeçalho 7xDWORD + payload de aeroportos packed(1) de 33 bytes.
+    """Decodifica uma página recebida do MSFS, respeitando alinhamento nativo.
 
-    SDK MSFS2020: ident[6], region[3], latitude, longitude, altitude (double).
-    Valida a contagem, paginação, comprimento e números antes de retornar.
+    Cabeçalho SIMCONNECT_RECV_FACILITIES_LIST: 28 bytes; dependendo do
+    alinhamento do SDK, o array rgData começa no offset 28 OU 32.
+    Cada entrada MSFS 2020 contém ident[6], region[3], três doubles:
+    offsets de latitude 9 (33 bytes), 12 (36 bytes) ou 16 (40 bytes).
+    Não se usam aeroportos de fontes externas como fallback.
     """
     if len(raw) < 28:
         raise ValueError("Pacote SimConnect de aeroportos incompleto")
-    size,version,kind,rid,count,part,parts=struct.unpack_from("<7I",raw)
-    if kind!=AIRPORT_LIST_ID or rid!=request_id:
+    size, version, kind, rid, count, part, parts = struct.unpack_from("<7I", raw)
+    if kind != AIRPORT_LIST_ID or rid != request_id:
         raise ValueError("ID de pacote SimConnect inesperado")
-    if size!=len(raw) or count>25000 or not 1<=parts<=5000 or part>=parts:
+    if size != len(raw) or count > 25000 or not 1 <= parts <= 5000 or part >= parts:
         raise ValueError("Cabeçalho do catálogo de aeroportos inválido")
-    payload=raw[28:]
-    if count==0:
-        if payload:
+    if not count:
+        # Bytes adicionais de alinhamento podem existir mesmo numa página vazia.
+        if len(raw) > 32:
             raise ValueError("Lista vazia com dados extras")
-        return part,parts,{}
-    if len(payload)%count:
-        raise ValueError("Lista truncada: tamanho incompatível com contagem")
-    stride=len(payload)//count
-    if stride not in (33,36,40):
-        raise ValueError(f"Formato de aeroporto não reconhecido: {stride} bytes")
-    # 33 é o formato 2020; 36/40 também são aceitos para evitar falha
-    # de leitura se o SDK acrescentar padding ou ident mais longo.
-    lat_offset=stride-24
-    airports={}
-    for i in range(count):
-        item=payload[i*stride:(i+1)*stride]
-        ident=item[:6 if stride==33 else 9].split(b"\0",1)[0]
-        try:code=ident.decode("ascii").strip().upper()
-        except UnicodeDecodeError:continue
-        if not ICAO.fullmatch(code):
-            continue
-        lat,lon,alt=struct.unpack_from("<ddd",item,lat_offset)
-        if not (math.isfinite(lat) and math.isfinite(lon) and
-                -90<=lat<=90 and -180<=lon<=180 and math.isfinite(alt)):
-            continue
-        airports[code]=(lat,lon)
-    return part,parts,airports
+        return part, parts, {}
+
+    candidates = []
+    for start in (28, 32):
+        for stride, latitude_offset in ((33, 9), (36, 12), (40, 16)):
+            remaining = size - start - count * stride
+            if not 0 <= remaining <= 7:
+                continue
+            # Não interpretar bytes extras arbitrários como aeroportos.
+            if remaining and any(raw[size - remaining:]):
+                continue
+            plausible = 0
+            airports = {}
+            for index in range(count):
+                item = raw[start + index * stride:start + (index + 1) * stride]
+                try:
+                    ident = item[:6].split(b"\x00", 1)[0].decode("ascii").strip().upper()
+                    lat, lon, altitude = struct.unpack_from("<ddd", item, latitude_offset)
+                except (UnicodeDecodeError, struct.error):
+                    continue
+                if (not 1 <= len(ident) <= 6 or not ident.isalnum()
+                        or not math.isfinite(lat) or not math.isfinite(lon)
+                        or not math.isfinite(altitude)
+                        or not -90 <= lat <= 90 or not -180 <= lon <= 180
+                        or not -1500 <= altitude <= 12000):
+                    continue
+                plausible += 1
+                if ICAO.fullmatch(ident):
+                    airports[ident] = (lat, lon)
+            # Verificação forte: o layout correto deve decodificar uma
+            # fração substancial das coordenadas, inclusive ICAOs não-4.
+            if plausible >= max(1, count // 2):
+                candidates.append((plausible, len(airports), -remaining, start,
+                                   stride, airports))
+    if not candidates:
+        raise ValueError(
+            f"Layout do catálogo MSFS não reconhecido: pacote={size} bytes, "
+            f"registros={count}; esperados offsets 28/32, entradas 33/36/40")
+    candidates.sort(reverse=True, key=lambda x: x[:3])
+    if len(candidates) > 1 and candidates[0][:3] == candidates[1][:3]:
+        # Melhor bloquear o mercado que confundir coordenadas entre layouts.
+        raise ValueError("Layout de aeroportos MSFS ambíguo; nenhum dado externo será usado")
+    return part, parts, candidates[0][-1]
 
 
 class AirportCatalogCollector:
@@ -88,6 +111,7 @@ def connection_class():
             self._on_catalog=on_catalog
             self._on_error=on_error or (lambda msg:None)
             self._airport_collector=AirportCatalogCollector()
+            self._airport_errors_seen=set()
             self._catalog_requested=False
             super().__init__()
             try:
@@ -97,7 +121,12 @@ def connection_class():
                 self._airport_list_function=func
             except (AttributeError,OSError) as exc:
                 self._airport_list_function=None
-                self._on_error("DLL SimConnect sem listagem de aeroportos: "+str(exc))
+                self._report_airport_error("DLL SimConnect sem listagem de aeroportos: "+str(exc))
+
+        def _report_airport_error(self, message):
+            if message not in self._airport_errors_seen:
+                self._airport_errors_seen.add(message)
+                self._on_error(message)
 
         def request_airport_catalog(self):
             if self._catalog_requested:return True
@@ -105,7 +134,7 @@ def connection_class():
             self._airport_collector=AirportCatalogCollector()
             hr=self._airport_list_function(self.hSimConnect,0,REQUEST_ID)
             if hr!=0:
-                self._on_error(f"SimConnect_RequestFacilitiesList recusou: HRESULT {hr}")
+                self._report_airport_error(f"SimConnect_RequestFacilitiesList recusou: HRESULT {hr}")
                 return False
             self._catalog_requested=True
             return True
@@ -120,7 +149,7 @@ def connection_class():
                     airports=self._airport_collector.feed(buf)
                     if airports is not None:self._on_catalog(airports)
                 except (ValueError,struct.error,ctypes.ArgumentError) as exc:
-                    self._on_error(str(exc))
+                    self._report_airport_error(str(exc))
                 return
             super().my_dispatch_proc(pData,cbData,pContext)
 
