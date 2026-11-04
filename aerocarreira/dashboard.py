@@ -12,6 +12,7 @@ from .domain import AIRPORTS, Phase, distance_nm
 from .planning import inspect_preflight
 from .flight_audit import real_clock_verified, assistance_verified
 from .finance import estimated_minutes, AIRCRAFT_ECONOMY
+from .manifest import mission_manifest
 from .reputation import pilot_reputation
 from .weather import MetarCache, sim_conditions, within_nm
 
@@ -24,7 +25,8 @@ def coordinates(m):
 
 
 def mission_data(m, aircraft_code=None):
-    """Tempo aproximado com a aeronave designada, nunca um número inventado pela interface."""
+    """Tempo, manifesto e massa determinística para a aeronave da oferta."""
+    m=mission_manifest(m)
     a,b=coordinates(m)
     distance=distance_nm(*a,*b) if a and b else None
     chosen=m.employer_plane if m.freelance else aircraft_code
@@ -38,7 +40,9 @@ def mission_data(m, aircraft_code=None):
             'cruise_kts':cruise_kts,'aircraft_label':name,
             'freelance':bool(m.freelance),
             'employer_plane':m.employer_plane,
-            'company_code':m.company_code}
+            'company_code':m.company_code,'manifest_label':m.manifest_label,
+            'manifest_kind':m.manifest_kind,'payload_kg':m.payload_kg,
+            'passenger_count':m.passenger_count}
 
 
 class DashboardPresenter:
@@ -158,7 +162,8 @@ class DashboardPresenter:
         if close_origin:
             self.origin_observation=dict(reading,icao=m.origin,source='MSFS • aeronave na origem')
         destination_metar=self.metars.get(m.destination) if m and app.mode!='Demo' else None
-        weather=dict(origin=self.origin_observation if m else None,
+        weather=dict(show_sim_with_noaa=db.get_setting('weather_sim_alongside_noaa')=='1',
+                     origin=self.origin_observation if m else None,
                      nearby_origin=close_origin,nearby_destination=close_destination,
                      destination_sim=dict(reading,icao=m.destination,source='MSFS • aeronave perto do destino') if close_destination else None,
                      destination_metar=destination_metar,
@@ -168,15 +173,20 @@ class DashboardPresenter:
             heading_magnetic_deg=s.heading_magnetic_deg,
             on_any_runway=s.on_any_runway,
             stale=app.mode!='Demo' and (not app.connected or time()-s.timestamp>10))
+        fuel_warning=bool(fuel and capacity and quantity is not None and quantity/capacity<=.20)
+        wear_warning=bool(plane and plane.get('condition') is not None and plane['condition']<=20)
         return dict(pilot=pilot,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
             status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,
             mission=mission_data(m, plane['code'] if plane else None) if m else None,
             market=dict(icao=self.center.icao,name=self.center.name,lat=self.center.latitude,lon=self.center.longitude) if self.center else None,offers=offers,
-            plane=plane,fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
+            plane=plane,maintenance_alerts=dict(fuel_low=fuel_warning,condition_low=wear_warning),
+            fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
             capacity=capacity,
+            refundable_liters=app.fuel_manager._refundable(plane['ref']) if plane and fuel else 0,
             live=s.fuel_gallons if s else None),telemetry=telemetry,phase=app.phase_var.get(),bonus=bonus,
+            dispatch_state=getattr(app,'dispatch_state',{}),
             log=app.log_text.get('1.0','end').splitlines()[-50:],
             audit=dict(clock=verified.get('clock'),assists=verified.get('assists'),
                 weather=None,go_arounds=app.tracker.go_arounds,
