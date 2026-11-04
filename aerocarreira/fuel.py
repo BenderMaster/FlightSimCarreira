@@ -57,6 +57,15 @@ class FuelManager:
                 tanks_json=excluded.tanks_json,caps_json=excluded.caps_json,updated_utc=excluded.updated_utc''',
                 (ref,model,json.dumps(tanks,sort_keys=True),json.dumps(capacities,sort_keys=True),self.clock()))
 
+    def _debit_prepaid_on_consumption(self,ref,consumed_gal):
+        """Pago disponível diminui quando combustível é consumido em voo."""
+        if consumed_gal<=.0001:return
+        with self.db.conn:
+            self.db.conn.execute("""UPDATE refundable_fuel_v077
+                SET paid_liters=max(0,paid_liters-?)
+                WHERE aircraft_ref=?""",
+                (consumed_gal*LITERS_PER_GALLON,ref))
+
     def observe(self, ref, model, observed, total, on_ground, capacities=None, enabled=True):
         """Retorna (status, correção?) ou None; a correção contém nomes de tanques.
 
@@ -93,6 +102,8 @@ class FuelManager:
             reduced={k:min(expected[k],float(observed[k])) for k in expected}
             if reduced!=expected or caps:
                 self._save(ref,model,reduced,old['capacities'])
+                self._debit_prepaid_on_consumption(ref,
+                    sum(expected.values())-sum(reduced.values()))
             return 'disabled',None
         per_second=AIRCRAFT_ECONOMY[model].fuel_lph/LITERS_PER_GALLON/3600
         max_drop=max(.12,elapsed*per_second*4+.12)
@@ -106,6 +117,8 @@ class FuelManager:
             reduced={k:min(expected[k],float(observed[k])) for k in expected}
             if reduced!=expected or caps:
                 self._save(ref,model,reduced,old['capacities'])
+                self._debit_prepaid_on_consumption(ref,
+                    sum(expected.values())-sum(reduced.values()))
             return 'consuming',None
         if not old['capacities'] or set(old['capacities'])!=set(expected):
             return 'read_only',None
