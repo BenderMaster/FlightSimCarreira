@@ -71,6 +71,16 @@ class V077Tests(unittest.TestCase):
             self.fuel.set_target_liters(ref,999999)
         self.assertLessEqual(int(self.db.get_setting('balance')),start)
 
+    def test_legacy_paid_liters_can_be_refunded_but_not_exceeded(self):
+        with self.db.conn:
+            self.db._money_movement('legacy-refuel','abastecimento',-106,
+                'Abastecimento 4.0 gal — legacy:c152')
+        returned=self.fuel.set_target_liters('legacy:c152',12*LITERS_PER_GALLON)
+        self.assertEqual(returned['refund_brl'],round(4*LITERS_PER_GALLON*7))
+        self.assertAlmostEqual(self.fuel.refundable_liters('legacy:c152'),0,places=2)
+        drained=self.fuel.set_target_liters('legacy:c152',0)
+        self.assertEqual(drained['refund_brl'],0)
+
     def test_fleet_independence_for_fuel_and_wear(self):
         first=self.fuel.get('legacy:c152')
         with self.db.conn:
