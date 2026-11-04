@@ -734,6 +734,13 @@ class Application:
                 sample.on_ground and sample.groundspeed_kt<=2 and time()-sample.timestamp<8):
             self._log('DESPACHO PENDENTE: conecte o MSFS com aeronave parada no solo.')
             return
+        ap=AIRPORTS.get(m.origin)
+        origin_lat=m.origin_lat if m.origin_lat is not None else (ap.latitude if ap else None)
+        origin_lon=m.origin_lon if m.origin_lon is not None else (ap.longitude if ap else None)
+        if (origin_lat is None or origin_lon is None or
+                distance_nm(sample.latitude,sample.longitude,origin_lat,origin_lon)>3):
+            self._log('DESPACHO PENDENTE: aeronave fora do aeroporto de origem do contrato.')
+            return
         expected=(m.employer_plane if m.freelance else
                   (self.storage.fleet_manager().selected() or {}).get('code'))
         if aircraft_model(sample.aircraft_title)!=expected:
