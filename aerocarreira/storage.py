@@ -129,10 +129,33 @@ class Storage:
                 finally:
                     target.close()
         init_fleet(self.conn)
+
         self.conn.execute("""CREATE TABLE IF NOT EXISTS fleet_fuel (
             aircraft_ref TEXT PRIMARY KEY, model TEXT NOT NULL,
             tanks_json TEXT NOT NULL, caps_json TEXT NOT NULL,
             updated_utc REAL NOT NULL)""")
+        self.conn.execute("""CREATE TABLE IF NOT EXISTS fleet_fuel_credit (
+            aircraft_ref TEXT PRIMARY KEY, refundable_liters REAL NOT NULL DEFAULT 0,
+            CHECK(refundable_liters >= 0))""")
+        # Migração aditiva: crédito limitado ao combustível existente e
+        # a compras antigas comprovadas no ledger; tanque inicial não é reembolsável.
+        if self.get_setting('fuel_credit_migrated_v077')!='1':
+            from .finance import FUEL_BRL_PER_LITER, LITERS_PER_GALLON
+            for ref,tanks_json in self.conn.execute(
+                    'SELECT aircraft_ref,tanks_json FROM fleet_fuel').fetchall():
+                paid=self.conn.execute(
+                    "SELECT COALESCE(SUM(-amount),0) FROM finance_ledger "
+                    "WHERE kind='abastecimento' AND description LIKE ?",
+                    ('% — '+ref,)).fetchone()[0]
+                try:
+                    current=sum(json.loads(tanks_json).values())*LITERS_PER_GALLON
+                except (ValueError,TypeError,AttributeError):
+                    current=0.0
+                credit=min(max(0.0,current),max(0.0,paid/max(.001,FUEL_BRL_PER_LITER)))
+                self.conn.execute('INSERT OR IGNORE INTO fleet_fuel_credit(aircraft_ref,refundable_liters) VALUES(?,?)',
+                                  (ref,round(credit,3)))
+            self.conn.execute("INSERT INTO settings(key,value) VALUES('fuel_credit_migrated_v077','1') "
+                              "ON CONFLICT(key) DO UPDATE SET value='1'")
         self.conn.commit()
         if self.get_setting("balance") is None:
             self.set_setting("balance", "5000")
