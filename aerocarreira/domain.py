@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from math import radians, cos, sin, asin, sqrt
 from typing import Optional
+from .taxi import DepartureTaxi
 
 
 @dataclass(frozen=True)
@@ -136,7 +137,8 @@ class FlightTracker:
         self.taxi_violations = 0
         self._taxi_fast_since: Optional[float] = None
         self._taxi_fast_marked = False
-        self._taxi_suspects: list[float] = []
+        self._taxi_suspects: list[float] = []  # legado checkpoint v0.7.5
+        self.departure_taxi = DepartureTaxi()
         self.hard_g_events = 0
         self._g_since: Optional[float] = None
         self._g_counted = False
@@ -154,20 +156,10 @@ class FlightTracker:
         if self.last and s.timestamp <= self.last.timestamp:
             return []
         out: list[dict] = []
-        if self.phase == Phase.GROUND and s.on_ground and not s.groundspeed_estimated:
-            # A corrida de decolagem NÃO é táxi. Incidentes recentes ao
-            # decolar serão descartados; velocidade isolada não prova infração.
-            fast=(25<s.groundspeed_kt<75 and s.ias_kt<45)
-            if fast:
-                if self._taxi_fast_since is None:
-                    self._taxi_fast_since=s.timestamp
-                if not self._taxi_fast_marked and s.timestamp-self._taxi_fast_since>=8:
-                    self._taxi_suspects.append(s.timestamp)
-                    self._taxi_fast_marked=True
-            else:
-                self._taxi_fast_since=None
-                self._taxi_fast_marked=False
-            if s.engine_running is True and 2<=s.groundspeed_kt<=22:
+        if self.phase == Phase.GROUND and s.on_ground:
+            self.departure_taxi.observe(s)
+            # Monitoramento das luzes independente da infração de táxi.
+            if not s.groundspeed_estimated and s.engine_running is True and 2<=s.groundspeed_kt<=22:
                 self._seen_beacon_on |= s.light_beacon is True
                 if s.light_beacon is True:self.light_beacon_taxi_ok=True
                 if s.light_taxi is True:self.light_taxi_ok=True
@@ -211,7 +203,7 @@ class FlightTracker:
             if not s.on_ground and s.agl_ft >= 3 and s.groundspeed_kt >= 25:
                 self.phase = Phase.AIRBORNE
                 self.takeoff_sample = s
-                self.taxi_violations=min(2,len([t for t in self._taxi_suspects if t<=s.timestamp-50]))
+                self.taxi_violations=self.departure_taxi.takeoff(s)
                 self._taxi_suspects.clear()
                 self._taxi_fast_since=None
                 out.append({"type": "takeoff", "timestamp": s.timestamp,
@@ -263,6 +255,7 @@ class FlightTracker:
             "last_airborne_timestamp": self.last_airborne_timestamp,
             "events": list(self.events), "stalls": self.stalls,
             "stall_active": self._stall_active,
+            "taxi_v2":self.departure_taxi.snapshot(),
             "safety_v1": {
                 k:getattr(self,k) for k in (
                     "go_arounds","touch_and_go","_max_agl","_approach_min_agl",
@@ -289,6 +282,7 @@ class FlightTracker:
         tr.events = list(data.get("events", []))
         tr.stalls = int(data.get("stalls", 0))
         tr._stall_active = bool(data.get("stall_active", False))
+        tr.departure_taxi=DepartureTaxi.from_snapshot(data.get('taxi_v2'))
         safety=data.get("safety_v1") or {}
         for key in tr.snapshot()["safety_v1"]:
             if key in safety:setattr(tr,key,safety[key])

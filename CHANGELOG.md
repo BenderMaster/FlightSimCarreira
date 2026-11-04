@@ -1,3 +1,14 @@
+## v0.7.6 Midnight Ops Alpha.1 — Proa magnética, mapa de missão e autoconexão
+
+- Mapa MapLibre da Dashboard reutilizado na página de detalhes, com rota real do contrato selecionado, tempo estimado pelo modelo da aeronave e apresentação em cartões.
+- Menu lateral mantém somente Mercado; alternância Regional / Freelancer nas abas internas.
+- Proa magnética e verdadeira via SimConnect sem correção fixa; avião desenhado com proa verdadeira e bússola MAG no HUD.
+- App se conecta ao MSFS automaticamente e tenta reconectar sem interromper a UI quando ele abre depois.
+- Clima ao vivo não possui verificação de preset; campo removido da apresentação e do cálculo de pontuação, com leitura retrocompatível de planos antigos.
+- Classificador de táxi utiliza ON ANY RUNWAY quando disponível, aceleração e curva como fallback, e janela separada para taxiamento após frenagem de pouso.
+- Penalidade pós-pouso registra até −2 XP no voo recém-encerrado (nunca voos anteriores), transação SQLite idempotente e checkpoint recuperável.
+- Testes de navegador, estimativa, sensores, runway, partida, toque e frenagem; homologação do MSFS físico pendente.
+
 ## v0.7.5 Midnight Ops Alpha.1 — Procedimentos e mercado freelancer Nordeste
 
 - Mercado lateral consolidado com abas internas Regional/Freelancer; buscador freelancer sobre polígono aproximado Nordeste e autonomia por modelo, até seis ofertas.

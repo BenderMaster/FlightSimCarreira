@@ -11,7 +11,7 @@ from .pilot import level_progress
 from .domain import AIRPORTS, Phase, distance_nm
 from .planning import inspect_preflight
 from .flight_audit import real_clock_verified, assistance_verified
-from .finance import estimated_minutes
+from .finance import estimated_minutes, AIRCRAFT_ECONOMY
 from .reputation import pilot_reputation
 from .weather import MetarCache, sim_conditions, within_nm
 
@@ -23,13 +23,19 @@ def coordinates(m):
     return start,end
 
 
-def mission_data(m):
+def mission_data(m, aircraft_code=None):
+    """Tempo aproximado com a aeronave designada, nunca um número inventado pela interface."""
     a,b=coordinates(m)
     distance=distance_nm(*a,*b) if a and b else None
+    chosen=m.employer_plane if m.freelance else aircraft_code
+    model=AIRCRAFT_ECONOMY.get(chosen or '')
+    cruise_kts=model.cruise_kts if model else 90
+    name=model.title if model else 'Aeronave não identificada • referência 90 kt'
     return {'id':m.id,'origin':m.origin,'destination':m.destination,'title':m.title,
             'category': TYPE_BY_CODE[m.category].title if m.category in TYPE_BY_CODE else m.title,
             'reward':m.reward,'start':a,'end':b,'distance':distance,
-            'minutes':estimated_minutes(distance) if distance is not None else None,
+            'minutes':estimated_minutes(distance,cruise_kts) if distance is not None else None,
+            'cruise_kts':cruise_kts,'aircraft_label':name,
             'freelance':bool(m.freelance),
             'employer_plane':m.employer_plane,
             'company_code':m.company_code}
@@ -133,7 +139,8 @@ class DashboardPresenter:
         offers=[]
         for offer in self.offers.values():
             allowed,reason=eligibility(offer,stats,db.owned_qualifications(),db.family_experience())
-            offers.append(dict(mission_data(offer),allowed=allowed,reason=reason))
+            offers.append(dict(mission_data(offer, plane['code'] if plane else None),
+                               allowed=allowed,reason=reason))
         avatar_path=db.get_setting('pilot_avatar_v1')
         if avatar_path!=self.avatar_key:
             self.avatar_key=avatar_path;self.avatar=None
@@ -157,11 +164,15 @@ class DashboardPresenter:
                      destination_metar=destination_metar,
                      source_note='SimConnect lê condições na aeronave; não o METAR integral do aeroporto.')
         telemetry=None if s is None else dict(ias=s.ias_kt,gs=s.groundspeed_kt,alt=s.altitude_ft,agl=s.agl_ft,vs=s.vs_fpm,
-            lat=s.latitude,lon=s.longitude,heading_deg=s.heading_true_deg,stale=app.mode!='Demo' and (not app.connected or time()-s.timestamp>10))
+            lat=s.latitude,lon=s.longitude,heading_deg=s.heading_true_deg,
+            heading_magnetic_deg=s.heading_magnetic_deg,
+            on_any_runway=s.on_any_runway,
+            stale=app.mode!='Demo' and (not app.connected or time()-s.timestamp>10))
         return dict(pilot=pilot,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
-            status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,mission=mission_data(m) if m else None,
+            status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,
+            mission=mission_data(m, plane['code'] if plane else None) if m else None,
             market=dict(icao=self.center.icao,name=self.center.name,lat=self.center.latitude,lon=self.center.longitude) if self.center else None,offers=offers,
             plane=plane,fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
             capacity=capacity,

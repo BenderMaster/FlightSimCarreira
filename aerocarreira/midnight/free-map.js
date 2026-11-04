@@ -120,7 +120,7 @@ function updateMarkers(s){
     bearingDeg=t.heading_deg;
   const svg=planeMarker.getElement().querySelector('svg');
   if(svg)svg.style.transform='rotate('+(bearingDeg-45)+'deg)';
-  planeMarker.getElement().title='Proa verdadeira: '+(Number.isFinite(t.heading_deg)?Math.round(t.heading_deg)+'°':'indisponível');
+  planeMarker.getElement().title='Proa magnética (painel): '+(Number.isFinite(t.heading_magnetic_deg)?Math.round(t.heading_magnetic_deg)+'°':'indisponível')+' • proa verdadeira (mapa): '+(Number.isFinite(t.heading_deg)?Math.round(t.heading_deg)+'°':'indisponível');
   planeMarker.getElement().style.opacity=t.stale?'0.5':'1';
  }else{
   if(planeMarker)planeMarker.remove();

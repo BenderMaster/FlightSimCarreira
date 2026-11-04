@@ -76,7 +76,7 @@ def inspect_preflight(mission: Mission, data: Preflight, cruise_kts: float = 90.
     # SimConnect externo. Declarações NÃO pontuam como dados automáticos.
     checked=verified or {}
     components = {
-        'Clima ao vivo (não verificável)':(.03, False),
+        # Nenhuma seleção ou prêmio de clima real: preset não verificável.
         'Relógio UTC sincronizado (telemetria)':(.03, checked.get('clock') is True),
         'Assistência de voo desativada (telemetria)':(.03, checked.get('assists') is True),
         'Pista e iluminação conferidas (declaração)':(.02, data.runway_checked),

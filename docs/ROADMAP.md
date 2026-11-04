@@ -169,3 +169,13 @@ Consulte [Bloco 3](BLOCO_3_CARREIRAS.md).
 - [ ] Homologar sensores no C152/aviação complexa no MSFS 2020 físico.
 - [ ] Melhorar identificação de taxiway/runway para pontuação precisa de velocidade antes e depois do pouso.
 - [ ] Verificar preset de clima ao vivo e assistências gerais somente quando API oficial pública disponível.
+
+## v0.7.6 — Navegação de contrato, rumo e classificação do táxi
+- [x] Mercado único no sidebar, com abas Regionais e Freelancer.
+- [x] Detalhes com cards, mapa interativo MapLibre reutilizado e ETA pela aeronave.
+- [x] Proa magnética do cockpit + proa verdadeira do mapa, sem offset arbitrário.
+- [x] Conexão automática ao MSFS com mecanismo de reconexão existente.
+- [x] Clima real sem opção ou bônus não verificável; manter migração de planos.
+- [x] Classificação conservadora com ON ANY RUNWAY, heading/aceleração e monitor pós-pouso.
+- [ ] Homologar fisicamente em pistas e táxis do MSFS 2020; confirmar suporte a ON ANY RUNWAY nos cenários personalizados.
+- [ ] Completar planejamento e aceitações integralmente em páginas nativas WebView2, eliminando telas Tk legadas.

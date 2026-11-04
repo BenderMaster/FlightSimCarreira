@@ -1,3 +1,21 @@
+# FlightSimCarreira v0.7.6 Midnight Ops Alpha.1 — Mapa em contratos, proa e taxiamento
+
+- Menu lateral **Mercado** único; abas internas **Aeronave particular / Serviços freelancer**, preservando as ofertas Nordeste da v0.7.5.
+- Detalhes do contrato redesenhados em cards: origem/destino, distância em NM, duração de voo calculada com velocidade de cruzeiro do modelo da missão, remuneração, aeronave e requisitos.
+- Mapa do contrato: a mesma instância MapLibre e controles da Dashboard são movidos para a página do voo selecionado, sem duplicar API, créditos, canvas ou rota; zoom, pan e satélite permanecem disponíveis.
+- Proa do simulador: passa a ler **PLANE_HEADING_DEGREES_MAGNETIC** além da verdadeira; HUD apresenta ambas como MAG / TRUE. Marcador continua girando segundo a orientação verdadeira do mapa geográfico. Não é aplicada correção fixa de 20 graus.
+- **Autoconexão SimConnect na inicialização**, com reconexão automática do worker se o MSFS ainda não estiver disponível. Testes headless não abrem SimConnect.
+- Clima ao vivo: removido da interface de bônus de realismo e do cálculo de XP/pagamento. Campos antigos do checklist continuam aceitos no banco para compatibilidade, mas não são exibidos nem premiados.
+- Táxi: leitura opcional de ON ANY RUNWAY; velocidade >25 kt em pista não é punida como táxi. Sem sinal confiável, aceleração em linha reta rumo à decolagem reduz risco de falso positivo; curva em alta velocidade pode pontuar.
+- Pós-pouso: frenagem é isenta até diminuir a velocidade, sair da pista ou entrar em curva significativa. Após essa transição, táxi rápido sustentado gera **−2 XP**, debitados uma única vez do mesmo voo já registrado. Sem alterar R$ ou outros voos.
+- Preservados pagamentos idempotentes, recuperação de checkpoints e regras da carreira.
+
+**Alpha em homologação:** SimVars de runway, diferença entre MAG e TRUE, comportamento do WebView2 após mover mapa e monitor pós-pouso precisam de teste físico no MSFS 2020. Fazer backup com o app fechado de `%APPDATA%\AeroCarreira-Lab\carreira.db`. Instalar o ZIP inteiro em pasta separada.
+
+Ver [documentação técnica v0.7.6](docs/V076_MAPA_PROA_TAXI.md).
+
+---
+
 # FlightSimCarreira v0.7.5 Midnight Ops Alpha.1 — Realismo e mercado Nordeste
 
 **Mudanças**
