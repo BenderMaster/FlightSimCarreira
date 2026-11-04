@@ -163,7 +163,15 @@ with tempfile.TemporaryDirectory() as temp:
                 Marker:FakeMarker,AttributionControl:class{},LngLatBounds:FakeBounds};
             })()""")
             map_page.goto(url)
-            map_page.wait_for_function("window.__fakeMap && __fakeMap.resizeCalls>0 && __fakeMap.getSource('fsc-route')")
+            # CSP do aplicativo proíbe eval; Playwright wait_for_function com string
+            # usa eval internamente. Faça polling via evaluate sem enfraquecer a CSP.
+            ready=False
+            for _ in range(50):
+                ready=map_page.evaluate("""() => Boolean(window.__fakeMap &&
+                    __fakeMap.resizeCalls>0 && __fakeMap.getSource('fsc-route'))""")
+                if ready:break
+                time.sleep(.1)
+            assert ready,"MapLibre simulado não inicializou no tamanho real"
             dims=map_page.evaluate("""() => {
               const area=document.querySelector('.map-area').getBoundingClientRect();
               const box=document.getElementById('free-map').getBoundingClientRect();
