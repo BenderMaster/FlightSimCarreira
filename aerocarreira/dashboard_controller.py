@@ -93,6 +93,12 @@ class DashboardController:
             if not self.closed:
                 for child in app.root.winfo_children():
                     if isinstance(child,Toplevel):child.lift();child.focus_force()
+        elif action=='prepare':
+            if not app.career.mission:
+                app._log('DESPACHO: aceite um contrato antes de preparar plano e carga.');return
+            app._prepare_active_plan(automatic=True)
+            app._queue_payload_load()
+            app._checkpoint(force=True)
         elif action=='refresh':self.presenter.refresh_market(True)
         elif action=='history':self.show_text('Diário de bordo',app.history_text.get('1.0','end'))
         elif action=='reports':self.show_text('Análise e relatórios','Módulo de análise avançada em desenvolvimento.\n\nREGISTRO DA SESSÃO\n\n'+app.log_text.get('1.0','end'))
