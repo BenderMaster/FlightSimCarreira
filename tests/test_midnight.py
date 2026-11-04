@@ -178,7 +178,7 @@ class TransportTests(unittest.TestCase):
     def test_approved_brand_icon_served_by_local_app(self):
         code,body=self.request('/brand-icon.png')
         self.assertEqual(code,200)
-        self.assertTrue(body.startswith(b'\\x89PNG\\r\\n\\x1a\\n'))
+        self.assertTrue(body.startswith(b'\x89PNG\r\n\x1a\n'))
         self.assertGreater(len(body),100)
 
 if __name__=='__main__':unittest.main()
