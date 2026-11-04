@@ -223,10 +223,12 @@ class SimConnectWorker:
         self.thread = Thread(target=self._run, name="simconnect-reader", daemon=True)
         self.thread.start()
 
-    def request_airports(self, codes):
-        valid=[x.upper() for x in codes if isinstance(x,str) and
-               len(x)==4 and x.isalnum()]
-        if valid:self.actions.put(('airports',valid[:35]))
+    def request_airports(self, codes=()):
+        """Compatibilidade: sempre consulta a lista INTEIRA do MSFS 2020.
+
+        Códigos do catálogo externo nunca entram na consulta nem na oferta.
+        """
+        self.actions.put(('airports',None))
 
     def request_plan_load(self, path):
         """Somente sob clique explícito e com o simulador conectado."""
@@ -263,13 +265,17 @@ class SimConnectWorker:
             sm = None
             try:
                 try:
-                    sm=connection_class()(lambda airport:self._send('facility',airport))
-                except (AttributeError,OSError,ValueError,RuntimeError):
-                    sm=SimConnect()  # fallback oficial sem facilities
+                    sm=connection_class()(
+                        lambda airports:self._send('airport_catalog',airports),
+                        lambda error:self._send('airport_catalog_error',error))
+                except (AttributeError,OSError,ValueError,RuntimeError) as exc:
+                    sm=SimConnect()  # mantém monitor, mas NÃO libera mercado
+                    self._send('airport_catalog_error','Listagem MSFS indisponível: '+str(exc))
                 aq = AircraftRequests(sm, _time=200)
-                requested_airports=set()
                 reader = SampleReader(aq)
                 self._send("connected", "SimConnect conectado")
+                if not getattr(sm,'request_airport_catalog',lambda:False)():
+                    self._send('airport_catalog_error','Aguardando suporte à API de aeroportos do MSFS; mercado bloqueado.')
                 missing_runs = 0
                 last_warning = 0.0
                 while not self.stop_event.is_set():
@@ -277,10 +283,10 @@ class SimConnectWorker:
                         while True:
                             action, path = self.actions.get_nowait()
                             if action=='airports':
-                                for airport in path:
-                                    if airport in requested_airports:continue
-                                    if hasattr(sm,'request_airport') and sm.request_airport(airport):
-                                        requested_airports.add(airport)
+                                # Nova consulta explícita apenas se o primeiro
+                                # pedido não conseguiu ser iniciado.
+                                if hasattr(sm,'request_airport_catalog'):
+                                    sm.request_airport_catalog()
                             if action == 'fuel_restore':
                                 # Ações de escrita somente pela thread SimConnect.
                                 # Settable: quantidades individuais; total é read-only.
@@ -313,7 +319,7 @@ class SimConnectWorker:
                                         # O adaptador Python-SimConnect implementa esta API do SDK.
                                         accepted = sm.load_flight_plan(str(file))
                                         if accepted:
-                                            self._send('plan_loaded', f'Comando de carga enviado: {file.name}. Verifique o mapa VFR/GPS.')
+                                            self._send('plan_atc_sent', f'Plano enviado ao ATC do MSFS: {file.name}. O mapa VFR/GPS NÃO é sincronizado pelo SimConnect do MSFS 2020.')
                                         else:
                                             self._send('plan_error', 'SimConnect recusou a solicitação de plano VFR.')
                                     except (OSError, AttributeError, ValueError, RuntimeError) as exc:
