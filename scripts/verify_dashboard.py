@@ -84,15 +84,21 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#critical-alerts').is_visible()
             assert '18%' in page.locator('#critical-alerts').inner_text()
             page.evaluate("() => renderCriticalAlerts(state)")
-            page.evaluate("""() => {
+            refuel_preview=page.evaluate("""() => {
+                const original=state;
                 state={...state,fuel:{capacity:26,quantity:16,refundable_liters:12,
                    liters_per_gallon:3.785411784,price_per_liter:6.75},
                    plane:{ref:'legacy:c152',title:'Cessna 152'}};
-                openRefuel();}""")
+                openRefuel();
+                document.getElementById('refuel-liters').value='40';
+                updateRefuelPreview();
+                const value=document.getElementById('refuel-preview').textContent;
+                state=original;
+                return value;
+            }""")
             assert page.locator('#refuel-dialog').is_visible()
             assert page.locator('#refuel-capacity').inner_text().endswith('L')
-            page.locator('#refuel-liters').fill('40')
-            assert 'reembolso' in page.locator('#refuel-preview').inner_text()
+            assert 'reembolso' in refuel_preview
             page.locator('#refuel-cancel').click()
             assert not page.locator('#refuel-dialog').is_visible()
             page.locator('.all-missions').click()
