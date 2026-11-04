@@ -1548,8 +1548,7 @@ class Application:
         self.label(body,'CHECKLIST: confirme somente o que realmente foi configurado/conferido no MSFS.',9,MUTED).pack(anchor='w',pady=(9,7))
         items=[('runway_checked','Pista e iluminação revisadas (declaração manual)'),
             ('route_checked','Rota e altitude revisadas no mapa VFR/GPS'),
-            ('fuel_checked','Combustível e reserva conferidos'),
-            ('payload_checked','Peso e balanceamento verificados')]
+            ('fuel_checked','Combustível e reserva conferidos')]
         flags={key:IntVar(value=int(bool(getattr(saved,key,False)))) for key,_ in items}
         for key,caption in items:
             Checkbutton(body,text=caption,variable=flags[key],bg=BG,fg=FG,
@@ -1576,7 +1575,13 @@ class Application:
                 messagebox.showwarning('Despacho','Conclua o voo antes de mudar os critérios do contrato.',parent=window);return
             try:
                 plan=build()
-                details=inspect_preflight(m,plan)
+                sample=self.last_sample
+                checked=({'weight':self._weight_verified(sample),
+                          'clock':real_clock_verified(sample),
+                          'assists':assistance_verified(sample)}
+                         if self.mode=='MSFS' and self.connected and sample
+                         and time()-sample.timestamp<10 else {})
+                details=inspect_preflight(m,plan,verified=checked)
                 if save:
                     self.storage.set_setting('preflight_v1',json.dumps(plan.snapshot(),ensure_ascii=False))
                     self._log(f'Despacho salvo para {m.origin} → {m.destination}; componentes automáticos serão verificados na decolagem.')
@@ -1586,7 +1591,7 @@ class Application:
                 for key,val in details['components'].items():
                     report.insert(END,f'{"OK" if val["ok"] else "PENDENTE"}: {key} (+{val["rate"]*100:g}%)\n')
                 report.insert(END,f'\nBônus previsto: +{details["bonus_fraction"]*100:.1f}% sobre pagamento e XP do contrato\n')
-                report.insert(END,'Clima ao vivo: preset não verificável, bônus indisponível.\n')
+                report.insert(END,'Peso da carga recebe bônus somente após confirmação de estação e MTOW pelo MSFS.\n')
                 report.insert(END,'Relógio UTC e assistência de voo: pontuados automaticamente apenas se o MSFS fornecer dados válidos.\n')
                 report.insert(END,'Pista/rota são declarações revisadas pelo piloto, não sensores de aeroporto.\n')
                 if save:
