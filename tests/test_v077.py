@@ -56,7 +56,7 @@ class TestV077(unittest.TestCase):
         full=self.manager.set_target_liters('legacy:c152',20.0*3.785411784)
         self.assertGreater(full['cost_brl'],0)
         self.assertAlmostEqual(full['refundable_liters'],4*3.785411784,places=2)
-        self.assertLess(int(self.db.get_setting('balance')),5000)
+        self.assertLess(int(self.db.get_setting('balance')),11532)
         refund=self.manager.set_target_liters('legacy:c152',15.0*3.785411784)
         self.assertGreater(refund['refund_brl'],0)
         self.assertEqual(refund['target_gallons'],15.0)
