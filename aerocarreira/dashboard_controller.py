@@ -136,6 +136,7 @@ class DashboardController:
                     if projected>sample.max_gross_weight_lbs-1:
                         raise ValueError('Combustível deixaria o avião acima do MTOW. Reduza a quantidade.')
                 result=app.fuel_manager.change_liters(plane['ref'],litres)
+                app.pending_fuel_ref=plane['ref']
                 app.sim.request_fuel_restore(result['tanks'])
                 app.career.balance=int(app.storage.get_setting('balance') or 0)
                 app.balance_var.set(brl(app.career.balance))
