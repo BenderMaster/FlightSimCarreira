@@ -48,7 +48,10 @@ function navigate(destination){
 document.querySelector('.workspace').dataset.view=view;
 document.addEventListener('click',e=>{
  const b=e.target.closest('[data-action]');
- if(b){const action=b.dataset.action;if(routeActions.has(action)||action==='market'){navigate(action);return;}command(action);return;}
+ if(b){const action=b.dataset.action;
+  if(action==='refuel'){openRefuelDialog();return;}
+  if(routeActions.has(action)||action==='market'){navigate(action);return;}
+  command(action);return;}
  const tab=e.target.closest('[data-tab]');
  if(tab&&tab.dataset.tab==='weather')showDetails('METEOROLOGIA • MSFS / NOAA',weatherDetails());
 });
@@ -63,6 +66,8 @@ function showDetails(title,body,offer){
   text('detail-origin',offer.origin);
   text('detail-destination',offer.destination);
   text('detail-mission-title',offer.title||offer.category||title);
+  text('detail-manifest-name',offer.manifest_label||'Manifesto não cadastrado');
+  text('detail-payload',(offer.passenger_count?offer.passenger_count+' passageiro(s) • ':'Carga • ')+number(offer.payload_kg||0,1)+' kg');
   text('detail-distance',offer.distance==null?'—':number(offer.distance,1)+' NM');
   text('detail-duration',offer.minutes==null?'—':'~ '+Math.floor(offer.minutes/60)+'h'+String(offer.minutes%60).padStart(2,'0'));
   text('detail-cruise',offer.cruise_kts!=null?number(offer.cruise_kts)+' kt':'—');
@@ -114,7 +119,8 @@ function renderMarketView(s,force=false){
   const title=node('div','offer-line');
   title.append(node('strong','',o.origin+' → '+o.destination),node('span','market-pay',money(o.reward)));
   const chip=node('div','type-chip'+(freelance?' freelance':''),o.category+(freelance?' • FREELANCER':' • AERONAVE PARTICULAR'));
-  item.append(title,chip,node('small','',o.title||'Missão regional'));
+  item.append(title,chip,node('small','',o.title||'Missão regional'),
+    node('small','manifest-preview',(o.manifest_label||'Manifesto pendente')+' • '+number(o.payload_kg||0,1)+' kg'));
   const plane=freelance?(' • Aeronave do contratante: '+(o.employer_plane||'conforme contrato')):'';
   const duration=o.minutes!=null?' • ~'+Math.floor(o.minutes/60)+'h'+String(o.minutes%60).padStart(2,'0'):'';
   item.append(node('small','',duration+plane));
@@ -191,21 +197,27 @@ function weatherSummary(w){
  return parts.join(' • ')||'Dados parciais';
 }
 function weatherDetails(){
- const w=state.weather||{},a=state.mission?.origin||'—',b=state.mission?.destination||'—';
- const o=w.origin,n=w.destination_metar,d=w.destination_sim;
- return 'ORIGEM '+a+' — MSFS (condições junto à aeronave)\n'+(o?weatherSummary(o):'Sem leitura perto da origem')+
-  '\n\nDESTINO '+b+' — NOAA METAR OFICIAL\n'+(n?(n.raw||weatherSummary(n)):'Sem METAR disponível para este aeroporto')+
-  (n?.stale?'\nObservação em cache (pode estar desatualizada).':'')+
-  '\n\nDESTINO — MSFS (ao aproximar-se até 10 NM)\n'+(d?weatherSummary(d):'Aguardando aproximação')+
-  '\n\nSimConnect não fornece texto METAR completo; clima selecionado no MSFS pode diferir da NOAA.';
+ const w=state.weather||{},o=w.origin,n=w.destination_metar,d=w.destination_sim;
+ const origin=state.mission?.origin||'—',dest=state.mission?.destination||'—';
+ const useSim=!n||w.show_sim_with_noaa;
+ return 'ORIGEM '+origin+' — MSFS (condições na aeronave)\\n'+(o?weatherSummary(o):'Sem leitura na origem')+
+  '\\n\\nDESTINO '+dest+' — NOAA METAR\\n'+(n?(n.raw||weatherSummary(n)):'NOAA indisponível')+
+  (n?.stale?'\\nBoletim em cache; pode estar desatualizado.':'')+
+  (useSim?'\\n\\nDESTINO — MSFS (fallback ou preferência)\\n'+(d?weatherSummary(d):'Aguardando aproximação'):'')+
+  '\\n\\nO MSFS não informa o METAR integral via SimVars.';
 }
 function renderWeather(s){
  const w=s.weather||{},o=w.origin,n=w.destination_metar,d=w.destination_sim;
  text('weather-origin','ORIGEM • MSFS '+(s.mission?.origin||'—'));
  text('weather-origin-values',o?weatherSummary(o):'Aguardando condições do MSFS na origem');
- text('weather-destination','DESTINO • NOAA '+(s.mission?.destination||'—'));
- text('weather-destination-values',d?'MSFS: '+weatherSummary(d)+' • NOAA: '+(n?.raw||'indisponível').slice(0,55):
-  n?(n.raw||'METAR disponível').slice(0,80):'Aguardando METAR NOAA • sem estação?');
+ if(n){
+  text('weather-destination','DESTINO • NOAA '+(s.mission?.destination||'—'));
+  text('weather-destination-values',(n.raw||weatherSummary(n)).slice(0,105)+
+    (w.show_sim_with_noaa&&d?' • MSFS: '+weatherSummary(d):''));
+ }else{
+  text('weather-destination','DESTINO • '+(d?'MSFS':'NOAA')+' '+(s.mission?.destination||'—'));
+  text('weather-destination-values',d?weatherSummary(d):'Aguardando METAR NOAA • MSFS ainda indisponível');
+ }
 }
 function render(s){state=s;if(!s.progress)return;const p=s.pilot;const country=s.country==='BR'?'':s.country?' · '+s.country:'';text('callsign',(p?.callsign||'CADASTRAR PILOTO')+country);if(s.country==='BR'){const flag=node('span','flag-br');flag.title='Brasil • país da base';$('callsign').append(flag)}text('qualification',p?({autonomo:'Piloto autônomo',empregado:'Piloto empregado',proprietario:'Companhia própria'}[s.employment]||s.employment)+' • '+s.summary.qualifications.join(' / '):'Crie sua carreira');text('level',p?'NÍVEL '+s.progress.level:'NÍVEL —');text('xp',p?'XP '+s.progress.xp+' / '+s.progress.target+' ('+Math.round(s.progress.fraction*100)+'%)':'XP —');bar('xpbar',s.progress.fraction);text('balance',money(s.balance));text('connection',{connected:'Conectado',reconnecting:'Reconectando',disconnected:'Desconectado'}[s.connection]);$('led').style.background={connected:'#86fc24',reconnecting:'#ffc400',disconnected:'#e06a75'}[s.connection];$('avatar').hidden=!s.avatar;if(s.avatar&&$('avatar').src!==s.avatar)$('avatar').src=s.avatar;
 text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderMarketView(s);renderModuleView(s);renderSummary(s);
@@ -216,7 +228,14 @@ const ok=i<2?sensor===true:components[i]?.ok;
 const e=node('div',ok?'ok':'');e.append(icon('check'),node('span','',label));
 e.title=i<2?(sensor==null?'Sensor indisponível • sem bônus':sensor?'Verificado pelo MSFS':'Condição não atendida'):
  (components[i]?'+'+number(components[i].rate*100,1)+'% • ':'')+(i<4?'Conferência manual':'Telemetria/estimativa');$('checklist').append(e)});text('edit-plan',s.bonus?.frozen?'Congelado na decolagem • Ver despacho':'Revisar no despacho →');
-const a=s.plane;const photo=a?.code==='c152';$('aircraft-photo').hidden=!photo;$('photo-credit').hidden=!photo;document.querySelector('.aircraft-art').classList.toggle('has-photo',photo);document.querySelector('.aircraft-art>svg').style.display=photo?'none':'';document.querySelector('.aircraft-art>span').hidden=photo;text('aircraft-name',a?.title||'Nenhuma aeronave');text('aircraft-ref',a?a.ref+' • '+a.kind:'Selecione no Hangar');document.querySelectorAll('[data-action=refuel],[data-action=service]').forEach(b=>{b.disabled=!!a?.ref.startsWith('contract:');b.title=b.disabled?'Aeronave fornecida pelo contratante':''});text('location',a?.airport||'—');text('condition',a?.condition!==null&&a?number(a.condition,1)+'%':'Indisponível');bar('conditionbar',a?a.condition/100:0);$('conditionbar').style.background=a?.condition<40?'#ef6464':a?.condition<75?'#ffc400':'';const f=s.fuel;const q=f.quantity;const ratio=q!==null&&f.capacity?q/f.capacity:null;text('fuel-value',q!==null?number(q,1)+' gal'+(ratio!==null?' ('+number(ratio*100)+'%)':''):'Sem leitura validada');bar('fuelbar',ratio);text('fuel-title','Controle: '+(f.enabled?'ATIVO':'DESLIGADO'));text('fuel-status',f.enabled?(s.connection==='connected'?'Confira a confirmação no registro':'Aguardando MSFS • sem confirmação'):'Penalidade de 30% em R$ e XP');$('fuel-toggle').classList.toggle('on',f.enabled);text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?s.status:'Conecte ao MSFS em Configurações.');renderMap(s)}
+const a=s.plane;const photo=a?.code==='c152';$('aircraft-photo').hidden=!photo;$('photo-credit').hidden=!photo;document.querySelector('.aircraft-art').classList.toggle('has-photo',photo);document.querySelector('.aircraft-art>svg').style.display=photo?'none':'';document.querySelector('.aircraft-art>span').hidden=photo;text('aircraft-name',a?.title||'Nenhuma aeronave');text('aircraft-ref',a?a.ref+' • '+a.kind:'Selecione no Hangar');document.querySelectorAll('[data-action=refuel],[data-action=service]').forEach(b=>{b.disabled=!!a?.ref.startsWith('contract:');b.title=b.disabled?'Aeronave fornecida pelo contratante':''});text('location',a?.airport||'—');text('condition',a?.condition!==null&&a?number(a.condition,1)+'%':'Indisponível');bar('conditionbar',a?a.condition/100:0);$('conditionbar').style.background=a?.condition<40?'#ef6464':a?.condition<75?'#ffc400':'';const f=s.fuel;const q=f.quantity;const ratio=q!==null&&f.capacity?q/f.capacity:null;text('fuel-value',q!==null?number(q,1)+' gal'+(ratio!==null?' ('+number(ratio*100)+'%)':''):'Sem leitura validada');bar('fuelbar',ratio);text('fuel-title','Controle: '+(f.enabled?'ATIVO':'DESLIGADO'));text('fuel-status',f.enabled?(s.connection==='connected'?'Confira a confirmação no registro':'Aguardando MSFS • sem confirmação'):'Penalidade de 30% em R$ e XP');$('fuel-toggle').classList.toggle('on',f.enabled);const alerts=$('resource-alerts');alerts.replaceChildren();
+if(s.maintenance_alerts?.fuel_low)alerts.append(node('div','alert-fuel','⚠ Combustível ≤20% • Abasteça antes de decolar'));
+if(s.maintenance_alerts?.condition_low)alerts.append(node('div','alert-wear','⚠ Aeronave ≤20% de condição • Revisão recomendada'));
+alerts.hidden=!alerts.childElementCount;
+const ds=s.dispatch_state||{};
+text('dispatch-progress',m?('Plano VFR: '+(ds.route||'não preparado')+' • Carga: '+(ds.payload||'não preparada')+
+ (ds.message?' • '+ds.message:'')):'Aceite uma missão para preparar plano e carga automaticamente.');
+text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?s.status:'Conecte ao MSFS em Configurações.');renderMap(s)}
 function svgNode(tag,attrs,textValue){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs||{}))e.setAttribute(k,v);if(textValue!==undefined)e.textContent=textValue;return e}
 function headingDisplay(t){
  if(t?.stale)return 'POSIÇÃO DESATUALIZADA';
@@ -287,3 +306,52 @@ async function poll(){try{const response=await fetch('/state',{headers:{'X-Fligh
 $('minimize').onclick=()=>{if(window.pywebview?.api)window.pywebview.api.minimize();else toast('Minimizar disponível na janela Windows.');};
 
 $('photo-credit').onclick=()=>showDetails('Fotografia • Cessna 152','Md Shaifuzzaman Ayon — Cessna 152 Aircraft, Wikimedia Commons.\nCC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/\nFonte: https://commons.wikimedia.org/wiki/File:Cessna_152_Aircraft.jpg\nArquivo original preservado; exibição com recorte e tonalização CSS. A apresentação adaptada mantém CC BY-SA 4.0.\nFoto ilustrativa do modelo, não do exemplar virtual do piloto.');
+
+/* Abastecimento: popup intencional, separado da navegação por páginas. */
+let refuelSnapshot=null;
+const refuelDialog=$('refuel-dialog');
+function openRefuelDialog(){
+ const f=state.fuel||{},p=state.plane||{};
+ if(!Number.isFinite(f.quantity)||!Number.isFinite(f.capacity)||f.capacity<=0){
+  toast('Tanques não calibrados; conecte MSFS com o avião no solo.');return;
+ }
+ if(state.mission?.freelance){toast('Avião do contratante não pode ser abastecido com o caixa pessoal.');return}
+ if(state.phase==='EM VOO'||state.connection!=='connected'){
+  toast('Abastecimento exige MSFS conectado e aeronave no solo.');return}
+ refuelSnapshot={current:f.quantity*3.785411784,capacity:f.capacity*3.785411784,
+                 credit:f.refundable_liters||0,plane:p.title||'Aeronave'};
+ text('refuel-aircraft',refuelSnapshot.plane+' • capacidade '+number(refuelSnapshot.capacity,1)+' L');
+ text('refuel-current',number(refuelSnapshot.current,1)+' L');
+ text('refuel-capacity',number(refuelSnapshot.capacity,1)+' L');
+ $('refuel-target').max=String(refuelSnapshot.capacity);
+ $('refuel-range').max=String(refuelSnapshot.capacity);
+ $('refuel-target').value=refuelSnapshot.current.toFixed(1);
+ $('refuel-range').value=refuelSnapshot.current.toFixed(1);
+ updateRefuelEstimate();
+ refuelDialog.showModal();
+}
+function updateRefuelEstimate(){
+ if(!refuelSnapshot)return;
+ const target=Math.max(0,Math.min(refuelSnapshot.capacity,Number($('refuel-target').value)||0));
+ $('refuel-range').value=String(target);
+ const delta=target-refuelSnapshot.current;
+ text('refuel-delta',(delta>=0?'+':'')+number(delta,1)+' L');
+ const refundable=Math.min(Math.max(0,-delta),refuelSnapshot.credit);
+ const charge=delta>0?-Math.max(1,Math.round(delta*7)):Math.round(refundable*7);
+ text('refuel-price',(charge<0?'Custo: ':'Crédito: ')+money(Math.abs(charge)));
+ $('refuel-confirm').disabled=Math.abs(delta)<.2;
+}
+$('refuel-target').addEventListener('input',updateRefuelEstimate);
+$('refuel-range').addEventListener('input',()=>{$('refuel-target').value=$('refuel-range').value;updateRefuelEstimate()});
+$('refuel-max').onclick=()=>{$('refuel-target').value=refuelSnapshot.capacity.toFixed(1);updateRefuelEstimate()};
+$('refuel-half').onclick=()=>{$('refuel-target').value=(refuelSnapshot.capacity/2).toFixed(1);updateRefuelEstimate()};
+for(const id of ['refuel-cancel','refuel-cancel-top'])$(id).onclick=()=>refuelDialog.close();
+$('refuel-confirm').onclick=()=>{
+ if(!refuelSnapshot)return;
+ const target=Number($('refuel-target').value);
+ if(!Number.isFinite(target)||target<0||target>refuelSnapshot.capacity+.05){
+  toast('Informe uma quantidade válida em litros.');return;
+ }
+ refuelDialog.close();
+ command('refuel',target);
+};
