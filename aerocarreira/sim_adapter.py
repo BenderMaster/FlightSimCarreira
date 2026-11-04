@@ -223,6 +223,11 @@ class SimConnectWorker:
         self.thread = Thread(target=self._run, name="simconnect-reader", daemon=True)
         self.thread.start()
 
+    def request_airports(self, codes):
+        valid=[x.upper() for x in codes if isinstance(x,str) and
+               len(x)==4 and x.isalnum()]
+        if valid:self.actions.put(('airports',valid[:35]))
+
     def request_plan_load(self, path):
         """Somente sob clique explícito e com o simulador conectado."""
         self.actions.put(("load_pln", str(path)))
@@ -249,6 +254,7 @@ class SimConnectWorker:
     def _run(self):
         try:
             from SimConnect import SimConnect, AircraftRequests
+            from .sim_facilities import connection_class
         except Exception as exc:
             self._send("error", f"SimConnect indisponível: {exc}. Verifique a instalação do adaptador.")
             self._send("disconnected", "Adaptador não instalado")
@@ -256,8 +262,12 @@ class SimConnectWorker:
         while not self.stop_event.is_set():
             sm = None
             try:
-                sm = SimConnect()
+                try:
+                    sm=connection_class()(lambda airport:self._send('facility',airport))
+                except (AttributeError,OSError,ValueError,RuntimeError):
+                    sm=SimConnect()  # fallback oficial sem facilities
                 aq = AircraftRequests(sm, _time=200)
+                requested_airports=set()
                 reader = SampleReader(aq)
                 self._send("connected", "SimConnect conectado")
                 missing_runs = 0
@@ -266,6 +276,11 @@ class SimConnectWorker:
                     try:
                         while True:
                             action, path = self.actions.get_nowait()
+                            if action=='airports':
+                                for airport in path:
+                                    if airport in requested_airports:continue
+                                    if hasattr(sm,'request_airport') and sm.request_airport(airport):
+                                        requested_airports.add(airport)
                             if action == 'fuel_restore':
                                 # Ações de escrita somente pela thread SimConnect.
                                 # Settable: quantidades individuais; total é read-only.
