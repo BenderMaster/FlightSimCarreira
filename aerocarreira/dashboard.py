@@ -28,7 +28,10 @@ def mission_data(m):
     return {'id':m.id,'origin':m.origin,'destination':m.destination,'title':m.title,
             'category': TYPE_BY_CODE[m.category].title if m.category in TYPE_BY_CODE else m.title,
             'reward':m.reward,'start':a,'end':b,'distance':distance,
-            'minutes':estimated_minutes(distance) if distance is not None else None}
+            'minutes':estimated_minutes(distance) if distance is not None else None,
+            'freelance':bool(m.freelance),
+            'employer_plane':m.employer_plane,
+            'company_code':m.company_code}
 
 
 class DashboardPresenter:
@@ -148,7 +151,7 @@ class DashboardPresenter:
                      destination_metar=destination_metar,
                      source_note='SimConnect lê condições na aeronave; não o METAR integral do aeroporto.')
         telemetry=None if s is None else dict(ias=s.ias_kt,gs=s.groundspeed_kt,alt=s.altitude_ft,agl=s.agl_ft,vs=s.vs_fpm,
-            lat=s.latitude,lon=s.longitude,stale=app.mode!='Demo' and (not app.connected or time()-s.timestamp>10))
+            lat=s.latitude,lon=s.longitude,heading_deg=s.heading_true_deg,stale=app.mode!='Demo' and (not app.connected or time()-s.timestamp>10))
         return dict(pilot=pilot,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),

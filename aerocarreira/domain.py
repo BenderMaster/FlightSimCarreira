@@ -85,6 +85,7 @@ class FlightSample:
     wind_direction_deg: float | None = None
     visibility_m: float | None = None
     sea_level_pressure_hpa: float | None = None
+    heading_true_deg: float | None = None  # proa geográfica real, graus, opcional
 
 
 class Phase(str, Enum):

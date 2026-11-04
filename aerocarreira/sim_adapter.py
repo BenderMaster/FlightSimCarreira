@@ -6,6 +6,7 @@ from __future__ import annotations
 from queue import Queue, Empty
 from threading import Thread, Event
 from time import time
+from math import degrees, isfinite
 from .domain import FlightSample
 from .contracts import aircraft_model
 from .fuel import TANK_QUANTITY, TANK_CAPACITY
@@ -27,7 +28,23 @@ OPTIONAL = {"stall_warning": "STALL_WARNING", "fuel_gallons": "FUEL_TOTAL_QUANTI
             "sim_rate": "SIMULATION_RATE", "unlimited_fuel":"UNLIMITED_FUEL",
             "wind_direction_deg":"AMBIENT_WIND_DIRECTION",
             "visibility_m":"AMBIENT_VISIBILITY",
-            "sea_level_pressure_hpa":"SEA_LEVEL_PRESSURE"}
+            "sea_level_pressure_hpa":"SEA_LEVEL_PRESSURE",
+            "heading_true_rad":"PLANE_HEADING_DEGREES_TRUE"}
+
+
+
+def true_heading_degrees(radians):
+    """SimVar PLANE HEADING DEGREES TRUE usa radianos (SDK/MSFS).
+
+    Não usar track/GPS: orientação do nariz muda até com avião parado no solo.
+    """
+    if radians is None:
+        return None
+    try:
+        value=float(radians)
+    except (ValueError,TypeError,OverflowError):
+        return None
+    return degrees(value)%360.0 if isfinite(value) else None
 
 
 class SampleReader:
@@ -123,6 +140,7 @@ class SampleReader:
             wind_direction_deg=self._get(OPTIONAL['wind_direction_deg']),
             visibility_m=self._get(OPTIONAL['visibility_m']),
             sea_level_pressure_hpa=self._get(OPTIONAL['sea_level_pressure_hpa']),
+            heading_true_deg=true_heading_degrees(self._get(OPTIONAL['heading_true_rad'])),
             sim_rate=self._get(OPTIONAL['sim_rate']),
             fuel_tanks=tanks, fuel_tank_capacities=cap,
             unlimited_fuel=(None if (limit:=self._get(OPTIONAL['unlimited_fuel'])) is None else limit >= .5))
