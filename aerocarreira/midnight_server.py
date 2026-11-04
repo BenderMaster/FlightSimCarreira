@@ -32,7 +32,9 @@ class DashboardServer:
                     self.reply(200,owner.state) if self.authorized() else self.reply(403,b'{}');return
                 paths={'/scenery.jpg':('scenery.jpg','image/jpeg'),'/c152.jpg':('c152.jpg','image/jpeg'),'/':('index.html','text/html; charset=utf-8'),'/style.css':('style.css','text/css'),'/app.js':('app.js','text/javascript'),'/free-map.js':('free-map.js','text/javascript'),'/vendor/maplibre-gl.js':('vendor/maplibre-gl.js','text/javascript'),'/vendor/maplibre-gl.css':('vendor/maplibre-gl.css','text/css'),'/scenery.svg':('scenery.svg','image/svg+xml'),'/fonts/BarlowSemiCondensed-Regular.ttf':('fonts/BarlowSemiCondensed-Regular.ttf','font/ttf'),'/fonts/BarlowSemiCondensed-SemiBold.ttf':('fonts/BarlowSemiCondensed-SemiBold.ttf','font/ttf')}
                 if self.path not in paths:self.reply(404,b'{}');return
-                name,mime=paths[self.path];self.reply(200,(ASSETS/name).read_bytes(),mime)
+                name,mime=paths[self.path];asset=ASSETS/name
+                if not asset.is_file():self.reply(404,b'{}');return
+                self.reply(200,asset.read_bytes(),mime)
             def do_POST(self):
                 if not self.authorized() or self.headers.get('Origin')!=owner.origin:
                     self.reply(403,b'{}');return
