@@ -919,6 +919,9 @@ class Application:
         self.realism_frozen=0.0
         self.realism_mission=None
         self.fuel_company_guard=None
+        self.payload_confirmed=None
+        self.payload_pending=None
+        self.auto_prepare_due=False
         self._show_mission()
         self._checkpoint(force=True)
         self._log("Contrato cancelado. Não houve pagamento.")
