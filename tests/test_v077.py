@@ -49,14 +49,30 @@ class V077Tests(unittest.TestCase):
         old=int(self.db.get_setting('balance'))
         bought=self.fuel.change_liters(self.ref,85.)
         self.assertGreater(bought['cost_brl'],0)
+        self.assertTrue(self.fuel.confirm_pending(self.ref))
         returned=self.fuel.change_liters(self.ref,40.)
         self.assertGreater(returned['refund_brl'],0)
+        self.assertTrue(self.fuel.confirm_pending(self.ref))
         self.assertLessEqual(int(self.db.get_setting('balance')),old)
         self.assertLessEqual(returned['refund_brl'],bought['cost_brl'])
         # Sem compra rastreada, a própria carga inicial não gera dinheiro.
         free_return=self.fuel.change_liters(self.ref,0.)
         self.assertEqual(free_return['refund_brl'],0)
         with self.assertRaises(ValueError):self.fuel.change_liters(self.ref,-20)
+
+    def test_failed_fuel_write_rolls_back_without_double_payment(self):
+        self.fuel.observe(self.ref,'c152',self.level,16,True,self.caps)
+        balance=int(self.db.get_setting('balance'))
+        previous=self.fuel.get(self.ref)['tanks']
+        result=self.fuel.change_liters(self.ref,85.)
+        self.assertTrue(self.fuel.pending(self.ref))
+        with self.assertRaises(ValueError):self.fuel.change_liters(self.ref,55.)
+        restored=self.fuel.rollback_pending(self.ref)
+        self.assertEqual(restored,previous)
+        self.assertEqual(self.db.get_setting('balance'),str(balance))
+        self.assertIsNone(self.fuel.rollback_pending(self.ref))
+        self.assertIsNone(self.fuel.pending(self.ref))
+        self.assertEqual(self.fuel.get(self.ref)['tanks'],previous)
 
     def test_two_aircraft_fuel_inventories_are_isolated(self):
         self.fuel.observe(self.ref,'c152',self.level,16,True,self.caps)
