@@ -42,7 +42,9 @@ OPTIONAL = {"stall_warning": "STALL_WARNING", "fuel_gallons": "FUEL_TOTAL_QUANTI
             "light_landing":"LIGHT_LANDING",
             "light_strobe":"LIGHT_STROBE",
             "engine_running":"GENERAL_ENG_COMBUSTION:1",
-            "g_force":"G_FORCE"}
+            "g_force":"G_FORCE",
+            "payload_station_count":"PAYLOAD_STATION_COUNT",
+            "payload_station_2_lbs":"PAYLOAD_STATION_WEIGHT:2"}
 
 
 
@@ -173,7 +175,10 @@ class SampleReader:
             light_taxi=self._optional_bool('light_taxi'),
             light_landing=self._optional_bool('light_landing'),
             light_strobe=self._optional_bool('light_strobe'),
-            g_force=self._get(OPTIONAL['g_force']))
+            g_force=self._get(OPTIONAL['g_force']),
+            payload_station_count=(int(v) if (v:=self._get(OPTIONAL['payload_station_count'])) is not None
+                and isfinite(v) and 0<=v<=15 else None),
+            payload_station_2_lbs=self._get(OPTIONAL['payload_station_2_lbs']))
         self.last = s
         return s, []
 
@@ -207,6 +212,13 @@ class SimConnectWorker:
         """Somente sob clique explícito e com o simulador conectado."""
         self.actions.put(("load_pln", str(path)))
 
+    def request_payload_load(self, station: int, target_lbs: float, mission_id: str):
+        """Escrita exclusiva na estação validada; nunca alterar peso do piloto."""
+        if station!=2 or not isfinite(target_lbs) or not 0<target_lbs<1500 or not mission_id:
+            raise ValueError('Solicitação de carga insegura')
+        self.actions.put(('payload_load',{'station':station,'target_lbs':float(target_lbs),
+                                          'mission_id':str(mission_id)}))
+
     def request_fuel_restore(self, tanks: dict[str,float]):
         """Comando gerado por FuelManager; não recebe SimVar arbitrária."""
         if not tanks or any(k not in TANK_QUANTITY for k in tanks):
@@ -229,6 +241,11 @@ class SimConnectWorker:
                 sm = SimConnect()
                 aq = AircraftRequests(sm, _time=200)
                 reader = SampleReader(aq)
+                try:
+                    from .sim_facilities import register_airport_listener
+                    register_airport_listener(sm,lambda airports:self._send('facilities',airports))
+                except (ImportError,AttributeError,TypeError,RuntimeError,OSError,ValueError) as exc:
+                    self._send('warning','Navdata MSFS indisponível: '+str(exc)[:160])
                 self._send("connected", "SimConnect conectado")
                 missing_runs = 0
                 last_warning = 0.0
@@ -236,6 +253,20 @@ class SimConnectWorker:
                     try:
                         while True:
                             action, path = self.actions.get_nowait()
+                            if action == 'payload_load':
+                                # A estação 1 é ocupante/piloto. O aplicativo
+                                # revalida MTOW e a estação 2 antes de enviar.
+                                try:
+                                    station=int(path['station'])
+                                    pounds=float(path['target_lbs'])
+                                    if station!=2 or not isfinite(pounds) or not 0<pounds<1500:
+                                        raise ValueError('Peso/estação de carga inválidos')
+                                    result=aq.set('PAYLOAD_STATION_WEIGHT:'+str(station),pounds)
+                                    if result is False:
+                                        raise RuntimeError('Adaptador SimConnect não disponibiliza estação de carga')
+                                    self._send('payload_sent',dict(path))
+                                except (AttributeError,OSError,KeyError,TypeError,ValueError,RuntimeError) as exc:
+                                    self._send('payload_error',str(exc))
                             if action == 'fuel_restore':
                                 # Ações de escrita somente pela thread SimConnect.
                                 # Settable: quantidades individuais; total é read-only.
