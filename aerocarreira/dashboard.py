@@ -14,12 +14,15 @@ from dataclasses import replace
 from .flight_audit import real_clock_verified, assistance_verified
 from .finance import estimated_minutes, AIRCRAFT_ECONOMY
 from .manifest import mission_manifest
-from .msfs_navdata import overlay_catalog, overlay_mission
+from .msfs_airports import strict_mission, restricted_mission
 from .reputation import pilot_reputation
 from .weather import MetarCache, sim_conditions, within_nm
 
 
 def coordinates(m):
+    # Em modo MSFS, não desenhar coordenadas antigas do catálogo externo.
+    if m.nav_source=='NAO_VERIFICADO':
+        return None,None
     a, b = AIRPORTS.get(m.origin), AIRPORTS.get(m.destination)
     start = [m.origin_lat, m.origin_lon] if m.origin_lat is not None else ([a.latitude,a.longitude] if a else None)
     end = [m.destination_lat, m.destination_lon] if m.destination_lat is not None else ([b.latitude,b.longitude] if b else None)
@@ -83,10 +86,18 @@ class DashboardPresenter:
         pilot=db.get_pilot()
         if not pilot:
             self.offers={};self.center=None;return
-        if app.airport_catalog is None:
-            app.airport_catalog=AirportCatalog()
-            overlay_catalog(app.airport_catalog,db)
-        cat=app.airport_catalog;s=app.last_sample
+        if app.mode!='Demo':
+            if (app.mode!='MSFS' or not app.connected or
+                    not getattr(app,'msfs_airports_ready',False) or not app.airport_catalog):
+                self.offers={}
+                self.center=None
+                self.market_key=None
+                return
+            cat=app.airport_catalog  # somente SIMCONNECT_RECV_ID_AIRPORT_LIST
+        else:
+            if app.airport_catalog is None:app.airport_catalog=AirportCatalog()
+            cat=app.airport_catalog
+        s=app.last_sample
         center=None
         if s and app.connected:
             position=(s.latitude,s.longitude)
@@ -99,9 +110,9 @@ class DashboardPresenter:
         self.center=center
         if not center:self.offers={};return
         stats=db.pilot_stats(); emp=db.employment_state();now=time();day=int(now//86400)
-        generator_version='nordeste-v1'
+        generator_version='msfs-airports-session-v2' if app.mode=='MSFS' else 'nordeste-v1'
         key=(center.icao,day,stats['xp'],tuple(sorted(stats['qualifications'])),emp['mode'],
-             emp['employer_code'],generator_version)
+             emp['employer_code'],generator_version,len(cat.locations))
         if key==self.market_key and not force:
             self.offers={k:v for k,v in self.offers.items() if not db.contract_completed(k)}
             return
@@ -112,21 +123,19 @@ class DashboardPresenter:
                 offers+=generate_employer_routes(emp['employer_code'],center,cat,stats,db.owned_qualifications(),db.family_experience(),day)
             db.save_offers(center.icao,offers,now=now,valid_s=(day+1)*86400-now)
             db.set_setting('offer_generator',generator_version)
-        self.offers={m.id:overlay_mission(m,db) for m in db.active_offers(center.icao,now)
-                     if not m.company_code or (emp['mode']=='empregado' and emp['employer_code']==m.company_code)}
+        self.offers={}
+        for m in db.active_offers(center.icao,now):
+            if m.company_code and (emp['mode']!='empregado' or emp['employer_code']!=m.company_code):
+                continue
+            if app.mode=='MSFS':
+                validated=strict_mission(m,cat)
+                if validated is None:continue
+                m=validated
+            self.offers[m.id]=m
 
     def snapshot(self):
         app=self.app;db=app.storage
         self.refresh_market()
-        if app.mode=='MSFS' and app.connected and app.sim:
-            codes={x for m in self.offers.values() for x in (m.origin,m.destination)}
-            if app.career.mission:
-                codes.update((app.career.mission.origin,app.career.mission.destination))
-            if self.center:codes.add(self.center.icao)
-            fresh=codes-self.nav_requested
-            if fresh:
-                self.nav_requested.update(fresh)
-                app.sim.request_airports(sorted(fresh)[:35])
         pilot=db.get_pilot();stats=db.pilot_stats();progress=level_progress(stats['xp'])
         start=0 if progress['level']==1 else next_level_xp(progress['level']-1)
         stats['qualifications']=sorted(stats['qualifications'])
@@ -205,7 +214,8 @@ class DashboardPresenter:
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
             status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,
-            mission=mission_data(overlay_mission(m,db), plane['code'] if plane else None) if m else None,
+            mission=mission_data(restricted_mission(m,app.airport_catalog) if app.mode!='Demo' else m,
+                                 plane['code'] if plane else None) if m else None,
             market=dict(icao=self.center.icao,name=self.center.name,lat=self.center.latitude,lon=self.center.longitude) if self.center else None,offers=offers,
             plane=plane,maintenance_alerts=dict(fuel_low=fuel_warning,condition_low=wear_warning),
             fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
@@ -213,6 +223,9 @@ class DashboardPresenter:
             refundable_liters=app.fuel_manager._refundable(plane['ref']) if plane and fuel else 0,
             live=s.fuel_gallons if s else None),telemetry=telemetry,phase=app.phase_var.get(),bonus=bonus,
             dispatch_state=getattr(app,'dispatch_state',{}),
+            airports=dict(source='MSFS session only' if app.mode!='Demo' else 'Demo',
+                ready=bool(getattr(app,'msfs_airports_ready',False)) if app.mode!='Demo' else True,
+                count=len(app.airport_catalog.locations) if app.airport_catalog else 0),
             log=app.log_text.get('1.0','end').splitlines()[-50:],
             audit=dict(clock=verified.get('clock'),assists=verified.get('assists'),
                 weather=None,go_arounds=app.tracker.go_arounds,
