@@ -122,6 +122,9 @@ class DashboardPresenter:
             fuel=app.fuel_manager.get(plane['ref'])
         verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s)}
                   if s and app.mode=='MSFS' and app.connected and time()-s.timestamp<10 else {})
+        if m and s and s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None:
+            verified['payload']=(0<s.total_weight_lbs<=s.max_gross_weight_lbs and
+                                 (getattr(app,'payload_confirmed',None)==m.id or m.payload_kg<=0))
         bonus=inspect_preflight(m,plan,verified=verified) if m and plan else None
         if app.tracker.phase==Phase.AIRBORNE:
             bonus= dict(bonus or {},bonus_fraction=app.realism_frozen,frozen=True)
