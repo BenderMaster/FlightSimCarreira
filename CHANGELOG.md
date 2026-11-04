@@ -1,3 +1,12 @@
+## v0.7.8.2 Midnight Ops Alpha.3 — correção de 20.587 bytes e ícone interno
+
+- Recebe pacotes de aeroportos MSFS 2020 com tamanho `28 + N×33 + 33`, reconhecendo o bloco adicional do SDK sem criar aeroporto extra.
+- Cobertura de teste para pacote real de 20.587 bytes e 622 registros; continua proibida qualquer base de aeroportos externa.
+- Solicitação mundial adiada para a aeronave permanecer em solo por 3 segundos e limitada a uma vez por sessão SimConnect.
+- Tick do Dashboard reduzido de 4 para 2 atualizações por segundo e mapa configurado sem antialias nem cópias mundiais para reduzir atividade da interface.
+- Ícone aprovado agora ocupa a barra de título interna do addon, substituindo o avião SVG antigo.
+- Persistência da carreira, combustível, peso e contratos sem mudanças.
+
 ## v0.7.8.1 Midnight Ops Alpha.2 — Hotfix de alinhamento SimConnect
 
 - Suporta cabeçalho de 28/32 bytes e registros de aeroporto de 33/36/40 bytes na listagem MSFS 2020.

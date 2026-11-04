@@ -17,3 +17,11 @@ Se o catálogo não aparecer, reportar `airport_catalog_error` e versão da inst
 A v0.7.8 lia sempre a lista a partir do byte 28. Alguns buffers usam padding e colocam o primeiro registro no byte 32. O leitor atualizado testa offsets 28/32 e strides 33/36/40, validando coordenadas para selecionar o layout. O catálogo continua **100% MSFS**: falhas de leitura não permitem fallback externo.
 
 Se a importação continuar falhando, o log agora apresenta comprimento do pacote e contagem dos registros para investigação. Conferir `AEROPORTOS MSFS: N aeródromos confirmados` antes de selecionar qualquer missão.
+
+## Hotfix v0.7.8.2 — pacote 20.587 / 622 e atividade da interface
+
+Log real: `Layout do catálogo MSFS não reconhecido: pacote=20587 bytes, registros=622; esperados offsets 28/32, entradas 33/36/40`. Observe que `20587 = 28 + 622*33 + 33`. O segundo termo representa os 622 registros do aeroporto com 33 bytes; o último termo pode resultar da estrutura C com `rgData[1]` embutido no comprimento. O leitor agora aceita esse **único registro extra**, mas não o promove a aeroporto: só considera os registros enumerados no cabeçalho, com coordenadas válidas. Não aceita dois blocos extras.
+
+Após iniciar o SimConnect, esperar pelo menos 3 segundos com telemetria válida e avião parado em solo antes de consultar o catálogo mundial. Nenhum pedido em voo. Quando a consulta falhar, nenhuma outra fonte preencherá o mercado. O Dashboard muda de 250 para 500 ms, mantendo monitoramento de voo a 500 ms; mapa menos exigente em WebGL. Teste A/B é obrigatório para atribuir travamentos ao addon.
+
+O PNG do ícone aprovado foi incluído no diretório de assets da interface, e o servidor só o oferece por um caminho explicitamente permitido. Nenhum dado financeiro ou de piloto precisa de migração.

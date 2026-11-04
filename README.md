@@ -1,3 +1,18 @@
+# FlightSimCarreira v0.7.8.2 Midnight Ops Alpha.3 — aeroportos MSFS e desempenho
+
+Corrige o erro REAL da v0.7.8.1: `pacote=20587 bytes, registros=622`. O MSFS 2020 pode incluir um registro fixo extra de 33 bytes (`rgData[1]`) no comprimento da mensagem, além dos `dwArraySize` registros informados. A validação aceita **apenas um** bloco final de tamanho conhecido e decodifica os registros declarados; nunca adiciona dados do campo extra à base.
+
+- Mercado e navegação seguem **100% dependentes da listagem oficial recebida nesta sessão do MSFS**. Falha de leitura mantém mercado fechado e nenhum destino externo é fabricado.
+- Desempenho: consulta mundial de aeroportos ocorre no máximo uma vez por conexão após 3 s de telemetria válida com aeronave em solo, não em pleno voo; atualizações de estado da UI passam de 250 para 500 ms; desativado antialias e cópias de mundo no mapa MapLibre. O monitor de voo SimConnect **continua a cada 500 ms**, sem alterar lógica de decolagem/pouso.
+- A barra de título **dentro do aplicativo** exibe o ícone aprovado do FlightSimCarreira em vez do antigo SVG de linhas cruzadas. A mesma imagem está disponível como favicon da UI; o ícone do EXE segue aprovado.
+- Regressões: 622 aeroportos/20587 bytes, bloco final não interpretado, limites de layout, logo PNG servido localmente e ausência do SVG antigo.
+
+**MSFS real ainda exige homologação.** Travadas de desempenho têm muitas causas; fazer teste comparativo 2–3 minutos com addon fechado, aberto minimizado e aberto com mapa visível, mantendo cenário e condições iguais. Os ajustes reduzem esforço do addon mas não são garantia de FPS maior.
+
+Antes de atualizar: backup de `%APPDATA%\\AeroCarreira-Lab\\carreira.db` com app fechado. Instale ZIP inteiro em outra pasta. Confira log `AEROPORTOS MSFS: N aeródromos confirmados`. Se houver nova falha, envie o texto completo do erro.
+
+---
+
 # FlightSimCarreira v0.7.8.1 — Hotfix do catálogo de aeroportos do MSFS 2020
 
 Correção localizada do erro **"AEROPORTOS MSFS INDISPONÍVEIS: Lista truncada: tamanho incompatível com contagem"** identificado em teste real da v0.7.8.
