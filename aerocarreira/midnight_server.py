@@ -36,7 +36,7 @@ class DashboardServer:
                 if not self.valid_host():self.reply(403,b'{}');return
                 if self.path=='/state':
                     self.reply(200,owner.state) if self.authorized() else self.reply(403,b'{}');return
-                match=re.fullmatch(r'/fleet-photo/([0-9a-f]{64})\\.jpg(?:\\?v=[0-9]{1,24})?',self.path)
+                match=re.fullmatch(r'/fleet-photo/([0-9a-f]{64})\.jpg(?:\?v=[0-9]{1,24})?',self.path)
                 if match:
                     with owner.photo_lock:
                         jpeg=owner.photos.get(match.group(1))
