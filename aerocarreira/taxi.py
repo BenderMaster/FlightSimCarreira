@@ -46,6 +46,11 @@ class DepartureTaxi:
             self._reset_segment();return
         fast=25 < s.groundspeed_kt < 75 and s.ias_kt < 45
         if not fast:
+            # Velocidade caiu antes de entrar na pista: era táxi rápido,
+            # não uma corrida de decolagem que acelerou continuamente.
+            if (self.reported and self.suspects
+                    and s.groundspeed_kt < self.peak_speed-6):
+                self.suspects[-1]['speed_drop']=True
             self._reset_segment();return
         current_heading=sample_heading(s)
         if self.start is None:
@@ -80,7 +85,10 @@ class DepartureTaxi:
             # A bandeira explícita "fora da pista" prevalece para episódios
             # antigos de táxi. Em cenários sem flag, acelerou reto e decolou:
             # classificar como corrida de decolagem, não infração.
-            if item.get('known_taxi') is True or not runway_accel:
+            # Aeroportos de terceiros podem retornar False mesmo na
+            # cabeceira: uma aceleração reta até decolar tem prioridade.
+            # Episódios com curva ou desaceleração continuam puníveis.
+            if not runway_accel:
                 violations+=1
         self._reset_segment();self.suspects=[]
         return min(2,violations)
@@ -111,12 +119,15 @@ class PostLandingTaxi:
         self.fast_since=None
         self.penalty_marked=False
         self.last_timestamp=None
+        self.seen_runway_true=False
 
     @classmethod
     def begin(cls,start,s):
         key='takeoff:{:.6f}:{:.7f}:{:.7f}'.format(
             float(start['timestamp']),float(start['lat']),float(start['lon']))
-        return cls(key,s.timestamp,sample_heading(s))
+        monitor=cls(key,s.timestamp,sample_heading(s))
+        monitor.seen_runway_true=s.on_any_runway is True
+        return monitor
 
     def observe(self,s):
         """Retorna flight_key uma única vez se houver infração após o pouso."""
@@ -126,12 +137,14 @@ class PostLandingTaxi:
         if not s.on_ground or s.timestamp-self.touchdown_at>1800:
             self.phase='done';return None
         if s.groundspeed_estimated:return None
+        if s.on_any_runway is True:self.seen_runway_true=True
         turn=heading_delta(self.start_heading,sample_heading(s))
         if self.phase=='rollout':
             # Frenagem continua isenta até desacelerar, sair da pista com
             # velocidade moderada, ou efetuar curva própria do taxiamento.
             if s.groundspeed_kt<=10 or (
-                s.on_any_runway is False and s.groundspeed_kt<=28
+                self.seen_runway_true and s.on_any_runway is False
+                and s.groundspeed_kt<=28
             ) or (turn is not None and turn>=30 and s.groundspeed_kt<=32):
                 self.phase='taxi'
             else:
@@ -151,12 +164,13 @@ class PostLandingTaxi:
         return dict(flight_key=self.flight_key,touchdown_at=self.touchdown_at,
           start_heading=self.start_heading,phase=self.phase,
           fast_since=self.fast_since,penalty_marked=self.penalty_marked,
-          last_timestamp=self.last_timestamp)
+          last_timestamp=self.last_timestamp,
+          seen_runway_true=self.seen_runway_true)
 
     @classmethod
     def from_snapshot(cls,raw):
         if not isinstance(raw,dict):return cls()
         ob=cls(raw.get('flight_key'),raw.get('touchdown_at'),raw.get('start_heading'))
-        for key in ('phase','fast_since','penalty_marked','last_timestamp'):
+        for key in ('phase','fast_since','penalty_marked','last_timestamp','seen_runway_true'):
             if key in raw:setattr(ob,key,raw[key])
         return ob
