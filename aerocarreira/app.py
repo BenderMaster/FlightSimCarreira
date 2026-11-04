@@ -64,6 +64,7 @@ class Application:
         self.dispatch_state={'mission_id':None,'plan':'idle','payload':'idle','target_lbs':None,
                              'requested_at':0,'message':''}
         self._alerted=set()
+        self.refuel_feedback={'status':None,'message':''}
         self.storage = Storage(state_dir() / "carreira.db")
         self.location_recovered=self.storage.recover_legacy_location()
         self.fuel_manager=FuelManager(self.storage)
