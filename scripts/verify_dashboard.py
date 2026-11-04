@@ -132,12 +132,13 @@ with tempfile.TemporaryDirectory() as temp:
               render(synthetic);
               const count=document.querySelectorAll('#fleet-list .fleet-item').length;
               document.querySelector('#fleet-list [data-fleet-ref="unit:98765"]').click();
-              return {count,selected:document.getElementById('fleet-name').textContent,
+              const result={count,selected:document.getElementById('fleet-name').textContent,
                 img:document.getElementById('fleet-photo').getAttribute('src')};
+              render(original);
+              return result;
             }""")
             assert custom['count']==2,custom
             assert 'teste' in custom['selected'] and '98765' in custom['img'],custom
-            page.evaluate("() => render({...state,fleet:{...state.fleet,owned:state.fleet.owned}})")
             assert page.locator('#fleet-list .fleet-item').count()==1
             photo=page.evaluate("""() => {
               const original=state;
