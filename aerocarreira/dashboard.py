@@ -13,6 +13,7 @@ from .planning import inspect_preflight
 from .flight_audit import real_clock_verified, assistance_verified
 from .finance import estimated_minutes, AIRCRAFT_ECONOMY
 from .manifest import mission_manifest
+from .msfs_navdata import overlay_catalog, overlay_mission
 from .reputation import pilot_reputation
 from .weather import MetarCache, sim_conditions, within_nm
 
@@ -40,7 +41,8 @@ def mission_data(m, aircraft_code=None):
             'cruise_kts':cruise_kts,'aircraft_label':name,
             'freelance':bool(m.freelance),
             'employer_plane':m.employer_plane,
-            'company_code':m.company_code,'manifest_label':m.manifest_label,
+            'company_code':m.company_code,'nav_source':m.nav_source,
+            'manifest_label':m.manifest_label,
             'manifest_kind':m.manifest_kind,'payload_kg':m.payload_kg,
             'passenger_count':m.passenger_count}
 
@@ -62,6 +64,7 @@ class DashboardPresenter:
         self.position_lookup=None
         self.position_center=None
         self.position_lookup_at=0.0
+        self.nav_requested=set()
 
     def country(self, home):
         if home in self.country_cache:return self.country_cache[home]
@@ -79,7 +82,9 @@ class DashboardPresenter:
         pilot=db.get_pilot()
         if not pilot:
             self.offers={};self.center=None;return
-        if app.airport_catalog is None:app.airport_catalog=AirportCatalog()
+        if app.airport_catalog is None:
+            app.airport_catalog=AirportCatalog()
+            overlay_catalog(app.airport_catalog,db)
         cat=app.airport_catalog;s=app.last_sample
         center=None
         if s and app.connected:
@@ -106,12 +111,21 @@ class DashboardPresenter:
                 offers+=generate_employer_routes(emp['employer_code'],center,cat,stats,db.owned_qualifications(),db.family_experience(),day)
             db.save_offers(center.icao,offers,now=now,valid_s=(day+1)*86400-now)
             db.set_setting('offer_generator',generator_version)
-        self.offers={m.id:m for m in db.active_offers(center.icao,now)
+        self.offers={m.id:overlay_mission(m,db) for m in db.active_offers(center.icao,now)
                      if not m.company_code or (emp['mode']=='empregado' and emp['employer_code']==m.company_code)}
 
     def snapshot(self):
         app=self.app;db=app.storage
         self.refresh_market()
+        if app.mode=='MSFS' and app.connected and app.sim:
+            codes={x for m in self.offers.values() for x in (m.origin,m.destination)}
+            if app.career.mission:
+                codes.update((app.career.mission.origin,app.career.mission.destination))
+            if self.center:codes.add(self.center.icao)
+            fresh=codes-self.nav_requested
+            if fresh:
+                self.nav_requested.update(fresh)
+                app.sim.request_airports(sorted(fresh)[:35])
         pilot=db.get_pilot();stats=db.pilot_stats();progress=level_progress(stats['xp'])
         start=0 if progress['level']==1 else next_level_xp(progress['level']-1)
         stats['qualifications']=sorted(stats['qualifications'])
@@ -179,7 +193,7 @@ class DashboardPresenter:
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
             status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,
-            mission=mission_data(m, plane['code'] if plane else None) if m else None,
+            mission=mission_data(overlay_mission(m,db), plane['code'] if plane else None) if m else None,
             market=dict(icao=self.center.icao,name=self.center.name,lat=self.center.latitude,lon=self.center.longitude) if self.center else None,offers=offers,
             plane=plane,maintenance_alerts=dict(fuel_low=fuel_warning,condition_low=wear_warning),
             fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
