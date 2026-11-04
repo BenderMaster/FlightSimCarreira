@@ -22,7 +22,7 @@ class DashboardServer:
                 self.send_header('Content-Type',mime)
                 self.send_header('Cache-Control','no-store')
                 self.send_header('X-Content-Type-Options','nosniff')
-                self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://maps.googleapis.com https://maps.gstatic.com https://*.google.com; connect-src 'self' https://maps.googleapis.com https://maps.gstatic.com https://*.google.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'")
+                self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com https://*.ggpht.com; connect-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com; font-src 'self' https://fonts.gstatic.com; frame-src https://*.google.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'")
                 self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data)
             def valid_host(self):return self.headers.get('Host')==owner.host
             def authorized(self):return self.valid_host() and secrets.compare_digest(self.headers.get('X-Flight-Token',''),owner.token)
