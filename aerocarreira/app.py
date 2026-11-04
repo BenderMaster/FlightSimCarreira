@@ -137,6 +137,13 @@ class Application:
         if os.getenv("FLIGHTSIM_CLASSIC") != "1":
             from .dashboard_controller import DashboardController
             self.dashboard = DashboardController(self)
+        if os.getenv('FLIGHTSIM_HEADLESS')!='1':
+            # Sem bloquear o Tk: worker se reconecta se o MSFS ainda não abriu.
+            self.root.after(700,self._auto_connect)
+
+    def _auto_connect(self):
+        if self.mode=='Desconectado' and self.sim is None:
+            self._connect()
 
     def label(self, parent, text, size=10, color=FG, bold=False, bg=None):
         return Label(parent, text=text, bg=bg or parent.cget("bg"), fg=color,
@@ -1030,7 +1037,7 @@ class Application:
                     self._log(f'Realismo confirmado pelo MSFS/checklist: +{self.realism_frozen*100:.1f}% de XP e pagamento.')
                     if verified.get('clock') is None:self._log('Horário UTC: telemetria indisponível, sem bônus automático.')
                     if verified.get('assists') is None:self._log('Assistências: telemetria incompleta, sem bônus automático.')
-                    self._log('Preset de clima ao vivo: não verificável por SimConnect; sem bônus automático.')
+                    self._log('Clima ao vivo não entra no cálculo de XP: preset não verificável.')
                 if self.career.mission and self.career.mission.freelance and not self.career.employer_aircraft_confirmed:
                     self._log("ALERTA FREELANCER: modelo não confirmado na decolagem; sem pagamento até próximo voo correto.")
                 self._checkpoint(force=True)
