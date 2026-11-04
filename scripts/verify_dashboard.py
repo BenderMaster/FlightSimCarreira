@@ -125,6 +125,7 @@ with tempfile.TemporaryDirectory() as temp:
             # Duas unidades do mesmo modelo são listadas independentemente;
             # foto personalizada deve refletir no quadro e Dashboard ativa.
             custom=page.evaluate("""() => {
+              const original=state;
               const owned=state.fleet.owned;
               const twin={...owned[0],ref:'unit:98765',photo_url:'/c152.jpg?v=98765',
                           kind:'used',is_active:false,title:'Cessna 152 (teste)'};
