@@ -1,53 +1,24 @@
-# FlightSimCarreira — v0.6.3 Alpha.1 | Midnight Ops Premium
+# FlightSimCarreira v0.7.1 Midnight Ops Alpha.1 — reputação e Google Satélite
 
-**Patch visual e responsivo sobre a v0.6.2.** O motor SimConnect, os contratos, a frota, o controle de combustível, a economia e o banco SQLite permanecem intactos. Esta versão foi desenvolvida para que o Dashboard inteiro caiba na área útil do monitor, **sem barra de rolagem na tela principal**.
+Novo patch sobre a v0.7.0 aprovada. Reputação calculada do histórico real, ícone ciano vetorial, Google Satélite oficial com scroll/arraste e mapa de coordenadas como fallback.
 
-## Melhorias
+**Atenção:** Google Maps requer chave da Maps JavaScript API e configuração de faturamento/restrições do próprio piloto. Chave e fotos não devem ser enviadas ao GitHub. [Como configurar e testar](docs/V071_REPUTACAO_MAPA.md).
 
-- Cabeçalho integrado com **foto local do piloto** (clicar no avatar ou Configurações), **bandeira do país da base ICAO**, emblema virtual, nível/XP, saldo, estado de conexão e botões de janela. **A bandeira indica o país da base escolhida, não a cidadania legal do piloto.** Se o aeroporto não estiver no catálogo, a interface não inventa nacionalidade.
-- Navegação lateral com ícones, botões arredondados, realce ciano ao passar o cursor e ação real para cada módulo.
-- Ofertas regionais com preço e minutos, destaque da missão e botão para ver todas.
-- Cartões de telemetria sem duplicar combustível. Combustível só no painel da aeronave, junto com o seu controle, abastecimento e revisão.
-- Barras de nível, estado da aeronave, combustível e reputação com gradiente; a barra de reputação só terá preenchimento se existir um valor gravado por um sistema de reputação. **A reputação ainda não é calculada na economia atual.**
-- Imagens com enquadramento, máscara arredondada e transição escura, em vez de PNGs flutuantes. Foto local do piloto em `%APPDATA%\AeroCarreira-Lab\pilot_avatar.png`, sem upload para GitHub.
-- Layout de três colunas e mapa/telemetria/METAR/log/bônus distribuídos por Grid de Tkinter. Em monitores compactos, algumas informações secundárias são recolhidas, sem bloquear ações essenciais.
-
-**Exatamente o que ainda é experimental:** o mapa é **esquemático**, não satélite ou VFR real; METAR remoto ainda não integrado; aeronaves de outros modelos não têm arte específica nesta versão; painel dentro do MSFS ainda exige compilação/validação. Essas integrações dependem de fases separadas e não são simuladas com dados falsos.
-
-## Instalar / preservar a carreira
-
-1. Termine qualquer voo ativo e feche o programa antigo.
-2. Extraia este ZIP para pasta nova, rode `instalar_windows.bat`, depois `iniciar_windows.bat`.
-3. Não remova `%APPDATA%\AeroCarreira-Lab`, que contém sua carreira. A migração visual **não altera o esquema do banco**.
-4. Para foto: clique no avatar do topo ou em **Configurações → Selecionar foto do piloto**. Arquivos JPG/PNG/WEBP são reamostrados localmente e a cópia não conserva dados EXIF.
-
-**Telas verificadas localmente:** 1280×720, 1366×768, 1650×930 e 1920×1080 em ambiente gráfico virtual. Alguns controles de texto podem variar conforme escala DPI e fontes do Windows; a validação final é no Windows do piloto.
-
-**Testes:** `python -m unittest discover -s tests -v`. Os testes são executados em CI Windows/Linux e não requerem o simulador.
-
-[Veja o diário da versão e requisitos de UI](docs/BLOCO_7_DASHBOARD_PREMIUM.md).
+O motor SQLite/SimConnect, bônus, combustível, contratos e pagamentos continuam os mesmos da v0.7.0.
 
 ---
 
-# FlightSimCarreira — v0.6.2 Alpha.1 (Dashboard Midnight Ops)
+# FlightSimCarreira — Midnight Ops 0.7.0 Alpha 1
 
-**Novidade:** nova tela principal com sidebar, três colunas, contrato e rota central, ofertas regionais, telemetria, resumo da carreira, bônus e painel de aeronave. Visual inspirado no mockup aprovado; **somente interface e dados já implementados**. Mantidos saldo, banco, SimConnect, contratos e funcionalidades anteriores.
+Esta branch reconstrói o dashboard sobre a **v0.6.1-alpha.1**, commit `3048bb86ee498770b93862ef449fb4d2ff6e061f`, preservando seu motor Python. A `main` v0.6.3 permanece independente.
 
-- Abrir normalmente pelos arquivos `.bat`. Na versão v0.6.2 o layout Midnight Ops ainda rolava verticalmente; **a v0.6.3 removeu essa rolagem** e distribui as regiões conforme o monitor.
-- Mercado: cinco ofertas elegíveis próximas, com botão para abrir todas.
-- Configurações: conexão, demo e diagnóstico; para testar a demo aceite o contrato de teste por **Configurações → Aceitar contrato da demo**.
-- Planejamento: bônus editáveis na janela **Preparar voo / Despacho** enquanto em solo. A tela principal apenas reflete a escolha salva.
-- Frota: opção de combustível, abastecimento e revisão com as validações financeiras existentes. O combustível aparece **somente no painel da aeronave**, não nos cards de telemetria.
-- Mapa: **esquemático e não aeronáutico**, sem imagens satélite nem dados certificados. **METAR ainda não integrado.**
-- A foto da aeronave no tema novo ainda é arte ilustrativa do Cessna 152, não foto licenciada de cada modelo.
-- [Escopo e testes da Fase 1](docs/BLOCO_6_DASHBOARD_MIDNIGHT.md).
+Execute `instalar_windows.bat` e `iniciar_windows.bat`, ou use o pacote Windows compilado produzido pelo GitHub Actions. Requer Microsoft Edge WebView2 Runtime. Recuperação: `iniciar_classico_windows.bat`.
 
-### Instalar
-
-Termine o voo atual, feche a versão anterior, extraia o ZIP em **pasta nova** e execute `instalar_windows.bat` e depois `iniciar_windows.bat`. **Não apague** `%APPDATA%\AeroCarreira-Lab`. A migração desta fase não altera a estrutura do banco.
+Leia [instalação, arquitetura e limitações](docs/MIDNIGHT_OPS.md) e [licenças dos assets](docs/MIDNIGHT_ASSETS.md). Esta alpha possui mapa com NASA GIBS e alternativa offline por coordenadas, foto licenciada do C152 e cenário decorativo original; **não é reprodução pixel a pixel** da referência. As telas secundárias preservam a UI Tk funcional da base.
 
 ---
 
+# FlightSimCarreira — v0.6.0 Alpha.1 | Frota e Planejamento de Voo
 
 **Instalação Windows:** termine o voo, feche o addon anterior, extraia o novo ZIP em pasta nova e execute `instalar_windows.bat` e `iniciar_windows.bat`. **Não apague `%APPDATA%\AeroCarreira-Lab`**: a carreira, a XP e os pagamentos ficam lá. A versão cria automaticamente `carreira.pre_v060.backup.db` antes da migração. Recomendamos ainda um backup externo do banco, sempre com o app fechado.
 

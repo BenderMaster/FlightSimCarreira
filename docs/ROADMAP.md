@@ -1,3 +1,24 @@
+## Marco homologado — v0.7.0 Midnight Ops (03–04/11/2026)
+
+- [x] Piloto aprovou visualmente o Dashboard WebView2 no MSFS 2020 Steam.
+- [x] Executável Windows abriu, carregou carreira e manteve conexão/telemetria SimConnect.
+- [x] Mercado e contrato, mapa com rota correta, monitoramento de combustível, decolagem/pouso, crédito de contrato/XP e persistência após reinício validados em voo físico pelo piloto.
+- [x] Motor funcional sólido v0.6.1 preservado; experimentos visuais Tk v0.6.2/0.6.3 **não incorporados**.
+- [x] 133 testes antes do patch e compilação Windows do WebView concluídos no GitHub.
+- [ ] Painel integrado diretamente na toolbar do MSFS continua pendente.
+
+## Patch v0.7.1 Midnight Ops Alpha.1 — reputação e mapa
+
+- [x] Reputação calculada do diário real, incluindo voos históricos e sem pagamentos/XP retroativos.
+- [x] Mapa NASA retirado; Google Maps JavaScript API via chave local, satélite e overlay de rota/posição.
+- [x] Ícone ciano vetorial proporcional, com rumo aproximado por deslocamento.
+- [x] Zoom por scroll, arrastar, botões ± e reenquadramento, inclusive fallback de coordenadas sem chave.
+- [x] Chave Google configurável no mapa, sem credencial hardcoded; documentação de faturamento/limites/privacidade.
+- [x] 6 jobs CI aprovados (Windows/Linux + dashboard + pacote Windows) antes de homologação física.
+- [ ] Configurar chave Maps JS no PC do piloto e validar renderização/controles reais no WebView2.
+- [ ] Confirmar valor de reputação com banco de carreira existente e voo de teste, conferir saldo e combustível.
+- [ ] Evoluir mapa com serviços aeroportuários e meteorologia sem afirmar dados não verificados.
+
 ## v0.5.1 Alpha.1 — progresso visual do piloto
 - [x] Barra de nível no painel principal.
 - [x] Horas, voos e XP com barras individuais por habilitação; janela rolável.
@@ -123,14 +144,3 @@ Consulte [Bloco 3](BLOCO_3_CARREIRAS.md).
 - [ ] Validar escrita de tanques do Cessna 152 **no MSFS Steam real**, inclusive menu de combustível e desligamento do controle.
 - [ ] Validar retroposição SBRF → SNAE no banco existente do piloto e persistência em Windows real.
 - [ ] Ampliar suporte a complexos sistemas de combustível de addons sem injetar dados em tanques não identificados.
-
-## v0.6.3 Alpha.1 — UI Midnight Ops Premium (03/11/2026)
-- [x] Dashboard sem barra de rolagem, com distribuição adaptável em múltiplas resoluções.
-- [x] Header com slot de foto local, bandeira baseada na base ICAO, badge virtual, XP, saldo e estado de conexão.
-- [x] Botões, cartões, progresso e imagens reformulados; ofertas com pagamento/duração.
-- [x] Log, realismo, planejamento e combustível nos lugares acordados; controles reutilizam a lógica existente.
-- [x] Testes de UI e regressão sem alteração do SQLite.
-- [ ] Testar em Windows com DPI de 125/150% e com dados reais de carreira.
-- [ ] Mapa satélite legalmente licenciado; API do VFR do simulador ainda não comprovada.
-- [ ] METAR externo e imagem específica de cada modelo.
-- [ ] Unificar janelas secundárias e toolbar in-game no estilo premium.

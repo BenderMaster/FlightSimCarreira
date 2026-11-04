@@ -129,6 +129,10 @@ class Application:
             self._show_mission()
         self.root.after(200, self._poll)
         self.root.protocol("WM_DELETE_WINDOW", self._close)
+        self.dashboard = None
+        if os.getenv("FLIGHTSIM_CLASSIC") != "1":
+            from .dashboard_controller import DashboardController
+            self.dashboard = DashboardController(self)
 
     def label(self, parent, text, size=10, color=FG, bold=False, bg=None):
         return Label(parent, text=text, bg=bg or parent.cget("bg"), fg=color,
@@ -175,24 +179,6 @@ class Application:
         return f
 
     def _build(self):
-        """Interface Midnight Ops; o painel clássico permanece como fallback."""
-        from .dashboard_premium import DashboardUI
-        self.ui = DashboardUI(self)
-        self.ui.build()
-        self.root.after(1500, self._dashboard_refresh)
-
-    def _dashboard_refresh(self):
-        try:
-            self.ui.refresh()
-        except Exception as exc:
-            # Um erro de apresentação não pode encerrar o monitoramento do MSFS.
-            if getattr(self,'_dashboard_last_error',None) != str(exc):
-                self._dashboard_last_error=str(exc)
-                self._log('AVISO dashboard: '+str(exc))
-        if self.root.winfo_exists():
-            self.root.after(1500, self._dashboard_refresh)
-
-    def _build_classic(self):
         header = Frame(self.root, bg=BG, padx=22, pady=14)
         header.pack(fill="x")
         self.label(header, "AERO", 20, FG, True).pack(side="left")
@@ -1254,20 +1240,21 @@ class Application:
         Checkbutton(opts,text='Permitir falhas (preparação; ainda não injeta)',variable=fault_var,
                     command=lambda:save_option('simulated_failures_enabled',fault_var),bg=BG,fg=FG,
                     selectcolor=PANEL,activebackground=BG,activeforeground=FG).pack(side='left')
-        fuel_opts=Frame(main,bg=BG);fuel_opts.pack(fill='x',pady=(5,0))
-        fuel_var=IntVar(value=int(self.storage.get_setting('fuel_control_enabled') or '0'))
-        def change_fuel_mode():
-            if self.tracker.phase==Phase.AIRBORNE:
-                messagebox.showwarning('Combustível','Altere apenas em solo; o modo fica congelado na decolagem.',parent=window)
-                fuel_var.set(int(self.storage.get_setting('fuel_control_enabled') or '0'))
-                return
-            self.storage.set_setting('fuel_control_enabled',str(int(fuel_var.get())))
-            self._log('Controle combustível '+('ATIVO' if fuel_var.get() else 'DESLIGADO: -30% R$/XP nos próximos voos'))
-        Checkbutton(fuel_opts,text='Combustível controlado pelo FlightSimCarreira',variable=fuel_var,
-                    command=change_fuel_mode,bg=BG,fg=FG,selectcolor=PANEL,
-                    activebackground=BG,activeforeground=FG).pack(side='left',padx=(0,12))
-        self.label(fuel_opts,'Desligado: -30% dinheiro e XP. Com controle ativo, abasteça pela Frota avançada.',
-                   9,GOLD).pack(side='left')
+        if not getattr(self,'dashboard',None) or self.dashboard.fallback:
+            fuel_opts=Frame(main,bg=BG);fuel_opts.pack(fill='x',pady=(5,0))
+            fuel_var=IntVar(value=int(self.storage.get_setting('fuel_control_enabled') or '0'))
+            def change_fuel_mode():
+                if self.tracker.phase==Phase.AIRBORNE:
+                    messagebox.showwarning('Combustível','Altere apenas em solo; o modo fica congelado na decolagem.',parent=window)
+                    fuel_var.set(int(self.storage.get_setting('fuel_control_enabled') or '0'))
+                    return
+                self.storage.set_setting('fuel_control_enabled',str(int(fuel_var.get())))
+                self._log('Controle combustível '+('ATIVO' if fuel_var.get() else 'DESLIGADO: -30% R$/XP nos próximos voos'))
+            Checkbutton(fuel_opts,text='Combustível controlado pelo FlightSimCarreira',variable=fuel_var,
+                        command=change_fuel_mode,bg=BG,fg=FG,selectcolor=PANEL,
+                        activebackground=BG,activeforeground=FG).pack(side='left',padx=(0,12))
+            self.label(fuel_opts,'Desligado: -30% dinheiro e XP. Com controle ativo, abasteça pela Frota avançada.',
+                       9,GOLD).pack(side='left')
 
         def redraw():
             balance_text.set(f"Saldo: {brl(int(self.storage.get_setting('balance') or 0))}    •    "
@@ -1543,7 +1530,10 @@ class Application:
             messagebox.showerror("Análise interrompida",str(exc))
 
     def _close(self):
+        if getattr(self,"_closing",False):return
         self._checkpoint(force=True)
+        self._closing=True
+        if getattr(self,"dashboard",None):self.dashboard.stop()
         self.bridge.stop()
         if self.sim:
             self.sim.stop()

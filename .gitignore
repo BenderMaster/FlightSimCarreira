@@ -18,3 +18,9 @@ in_game/toolbar/Packages/
 in_game/toolbar/Build/
 in_game/toolbar/*.spb
 *.fspackage
+
+# Local visual validation and private QA careers
+validation/screenshots/
+validation/layout-results.json
+
+validation/final-ci/

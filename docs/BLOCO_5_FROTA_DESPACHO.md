@@ -71,13 +71,3 @@
 - Validar bônus de realismo, despacho e pagamentos em missão real.
 
 Evidência: capturas fornecidas pelo piloto na conversa. Não publicar screenshots pessoais, dados do perfil ou bancos locais no repositório público.
-
-## Hotfix v0.6.1 — localização e combustível
-
-- O Cessna starter persistia em SBRF mesmo após pouso confirmado perto de SNAE; antes somente fleet_units era atualizado.
-- Correção para aeronaves starter, alugadas, novas e usadas, inclusive voos livres; freelancer/companhia não movimentam a frota particular.
-- Recuperação única do último destino conhecido da aeronave starter, sem alterações de dinheiro, histórico ou XP.
-- Inventário SQLite de combustível por tanque: calibração inicial em solo, consumo observado, correção limitada de reabastecimento pelo menu MSFS quando suportada e abastecimento pago.
-- Se o modelo não oferece capacidades e tanques suficientes, o programa não força escrita no MSFS. Compatibilidade real segue pendente de validação.
-- Desligar o controle gera penalidade de 30% em remuneração e XP, congelada na decolagem. Abastecimento pago não é cobrado duas vezes.
-- 115 testes locais aprovados e testes gráficos da interface. Ver o roteiro de validação física no README.

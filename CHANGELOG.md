@@ -1,24 +1,25 @@
-## v0.6.3-alpha.1 — Midnight Ops Premium, revisão de responsividade (03/11/2026)
+## 0.7.1 Midnight Ops Alpha.1 — Reputação e Google Satélite
 
-- Novo shell premium em `dashboard_premium.py` e componentes de UI separados em `midnight_widgets.py` (somente camada de apresentação).
-- Removida a scrollbar vertical da tela principal. Grid e dimensões adaptáveis à área do monitor, com ajustes de densidade em baixa altura; mapa, log e bônus permanecem acessíveis.
-- Cabeçalho com área de foto local, badge da base ICAO, emblema virtual de patente/nível, nível e XP com barra luminosa, saldo em reais e conexão com cor contextual.
-- Mercado com cards de ofertas, pagamento e duração; sidebar com botões interativos arredondados.
-- Indicadores com gradiente: XP, estado, combustível e reputação quando houver dado real. A reputação continua sem cálculo próprio nesta versão.
-- Imagens redimensionadas/mescladas nos cards com Pillow, com fallback para instalação incompleta. Foto local sem publicação e sem dados EXIF.
-- **Sem alteração de domínio:** contratos, dinheiro, controle de tanques, checkpoint, SimConnect, frota, banco e cálculo de XP preservados.
-- Adicionados testes de bandeira por base, patente virtual conforme habilitação real obtida, cores e geometria dos controles. Teste gráfico manual em múltiplas resoluções.
-- **Não incluído:** mapa Google/satélite licenciado, VFR do MSFS, METAR externo ou toolbar in-game funcional. Permanecem no roadmap.
+- Implementa reputação virtual persistente (reconstruída do diário SQLite histórico, sem migrar esquema e sem duplicar ganhos).
+- Substitui NASA Blue Marble pelo mapa Google Satélite por API oficial, com chave configurável localmente, scroll, arraste e reenquadramento.
+- Sem chave Google: fallback local interativo, sem tiles NASA.
+- Troca marcador por silhueta vetorial ciano proporcional, com orientação aproximada via deslocamento observado.
+- Adiciona controles e testes de regressão, documentação de licenciamento e faturamento do Google Maps.
+- Não muda SimConnect, motor de voos, pagamentos, XP ou combustível.
+- Integração Google ainda requer chave configurada e homologação real no MSFS do piloto.
 
 # Changelog
 
-## 0.6.2-alpha.1 — Midnight Ops / Dashboard Fase 1 (03/11/2026)
-- Nova interface principal com cabeçalho, sidebar, mercado local, resumo da carreira, contrato, mapa esquemático, telemetria, METAR indisponível sinalizado, checklist de despacho, log e painel de aeronave.
-- Preservadas funcionalidades e janelas existentes; módulos do menu lateral abrem as telas legadas.
-- Combustível apenas no painel do avião; botão real de alternar modo, abastecer e revisar com validações preexistentes.
-- Foto do C152 nesta versão é arte ilustrativa; fonte real/licenciada por modelo pendente.
-- Não foi implementado mapa satélite, METAR remoto, toolbar compilada nem troca automática de aeronave.
-- Sem migração SQLite; 119 testes automatizados e smoke da interface Windows/Xvfb.
+## 0.7.0-midnight.alpha.1 — branch de redesign sobre v0.6.1 (03/11/2026)
+
+- Dashboard HTML/CSS local em WebView2, cabeçalho, sidebar, mercado, contrato, mapa, telemetria, METAR indisponível, log, checklist e frota.
+- Apresentação com dados reais; comandos retornam ao motor existente na thread Tk, com transporte loopback autenticado e limites de entrada/fila.
+- Foto de piloto local, país da base, progresso real de XP, inventário de combustível e ações de manutenção/abastecimento.
+- Foto C152 CC BY-SA 4.0, cenário decorativo gerado por IA, assets vetoriais originais e fonte Barlow Semi Condensed OFL embarcada.
+- Testes de apresentação/segurança, matriz gráfica de 15 áreas lógicas e build Windows PyInstaller em CI.
+- Main preservada; PR de integração em draft para reconciliação das alterações posteriores da v0.6.2/0.6.3.
+- Mapa NASA GIBS Blue Marble histórico com grade offline de recuperação e coordenadas reais.
+- Limitações: detalhe geográfico limitado, ilustração genérica para modelos sem foto, telas secundárias Tk, METAR/reputação indisponíveis, sem validação física MSFS/WebView2.
 
 
 ## 0.6.1-alpha.1 — localizador e combustível em SimConnect (03/11/2026)
