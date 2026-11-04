@@ -43,6 +43,35 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#offers .offer').count()>0
             assert page.locator('#weather-origin').inner_text().endswith('SBRF')
             page.locator('[data-tab="weather"]').first.click();assert page.locator('#details').is_visible();page.locator('#dialog-close').click()
+
+            # O menu deve ser exibido no próprio WebView (inclusive freelancer).
+            page.locator('.nav-item[data-action="market"]').first.click()
+            assert page.locator('#market-dialog').is_visible()
+            assert page.locator('#market-list .market-option').count()>0
+            page.locator('[data-market-filter="freelance"]').click()
+            assert page.locator('[data-market-filter="freelance"]').get_attribute('aria-pressed')=='true'
+            for offer in page.locator('#market-list .market-option').all():
+                assert 'FREELANCER' in offer.inner_text()
+            page.locator('[data-market-filter="regional"]').click()
+            assert page.locator('#market-list .market-option').count()>0
+            page.locator('#market-dialog-close').click()
+            assert not page.locator('#market-dialog').is_visible()
+            page.locator('.all-missions').click()
+            assert page.locator('#market-dialog').is_visible()
+            page.locator('#market-dialog-done').click()
+
+            # A proa muda mesmo sem deslocar latitude/longitude no mapa local.
+            heading=page.evaluate("""() => {
+              const s={...state,telemetry:{lat:-8.1264,lon:-34.9228,heading_deg:15,stale:false}};
+              renderMap(s);
+              const before=document.querySelector('#route-map g[data-heading]')?.getAttribute('transform');
+              renderMap({...s,telemetry:{...s.telemetry,heading_deg:135}});
+              const after=document.querySelector('#route-map g[data-heading]')?.getAttribute('transform');
+              return {before,after};
+            }""")
+            assert heading['before'] and 'rotate(-30)' in heading['before'],heading
+            assert heading['after'] and 'rotate(90)' in heading['after'],heading
+
             page.locator('#zoom-in').click();page.locator('#recenter').click()
             # Native action routed through the command queue, reflected in telemetry.
             before=page.locator('#metric-alt').inner_text()
