@@ -42,10 +42,15 @@ def decode_airport_list_packet(raw: bytes, request_id: int = REQUEST_ID):
     for start in (28, 32):
         for stride, latitude_offset in ((33, 9), (36, 12), (40, 16)):
             remaining = size - start - count * stride
-            if not 0 <= remaining <= 7:
-                continue
-            # Não interpretar bytes extras arbitrários como aeroportos.
-            if remaining and any(raw[size - remaining:]):
+            # O MSFS 2020 pode declarar dwArraySize=N, mas dwSize inclui
+            # rgData[1] de tamanho 33 ALÉM dos N registros enumerados.
+            # Caso real reportado: 20.587 = 28 + 622*33 + 33.
+            # Esse único registro extra pertence ao envelope C; jamais
+            # deve ser promovido a aeroporto nem corrigir dwArraySize.
+            has_extra_sdk_slot = remaining == stride
+            pad_only = 0 <= remaining <= 7 and (
+                not remaining or not any(raw[size - remaining:]))
+            if not (has_extra_sdk_slot or pad_only):
                 continue
             plausible = 0
             airports = {}
@@ -68,7 +73,8 @@ def decode_airport_list_packet(raw: bytes, request_id: int = REQUEST_ID):
             # Verificação forte: o layout correto deve decodificar uma
             # fração substancial das coordenadas, inclusive ICAOs não-4.
             if plausible >= max(1, count // 2):
-                candidates.append((plausible, len(airports), -remaining, start,
+                candidates.append((plausible, len(airports),
+                                   1 if remaining==0 else 0, start,
                                    stride, airports))
     if not candidates:
         raise ValueError(
