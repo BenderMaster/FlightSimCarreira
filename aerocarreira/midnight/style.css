@@ -192,3 +192,40 @@
 .map-area .map-mode{max-width:calc(100% - 15.5em);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:1100px){.details-page .details-layout{grid-template-columns:minmax(230px,37%) minmax(0,1fr);gap:.55em}.detail-stat-grid{gap:.4em}.detail-stat-grid>div{padding:.55em}.detail-stat-grid strong{font-size:1.35em}.detail-map-head small{display:none}}
 @media(max-height:600px){.detail-icao-line strong{font-size:1.55em}.detail-info{gap:.45em}.detail-route-card,.detail-stat-grid>div,.detail-aircraft-info,.detail-status{padding:.5em}}
+
+/* v0.7.7 • Popup nativo HTML para ajuste de combustível. */
+.refuel-dialog{border:1px solid #21bcd2;background:linear-gradient(150deg,#092537,#04131e);
+ color:#eaf9ff;border-radius:11px;padding:1.3em;box-shadow:0 15px 65px #000b;
+ width:min(520px,calc(100vw - 25px));max-height:calc(100vh - 28px);overflow:auto}
+.refuel-dialog::backdrop{background:rgba(0,5,11,.74)}
+.refuel-heading{display:flex;align-items:center;justify-content:space-between;gap:1em;
+ border-bottom:1px solid #2b5367;padding-bottom:.7em}
+.refuel-heading h2{font-size:1.3em;letter-spacing:.05em;color:#38e5ef;margin:0}
+.refuel-heading button{border:1px solid #47708a;background:#072134;color:#dff8ff;
+ font-size:1.3em;border-radius:5px;min-width:2em}
+.refuel-dialog>p{color:#b1d3e6;margin:.8em 0}
+.refuel-stats{display:grid;grid-template-columns:1fr 1fr;gap:.6em;margin-bottom:1em}
+.refuel-stats>div,.refuel-estimate{border:1px solid #2b5168;background:#031824;
+ border-radius:7px;padding:.8em}
+.refuel-stats small{display:block;color:#8ebdd1;letter-spacing:.06em}
+.refuel-stats strong{font-size:1.35em}
+.refuel-dialog>label{display:block;font-weight:700;margin:.75em 0 .4em}
+.refuel-dialog>input[type=number]{font:inherit;width:100%;box-sizing:border-box;
+ padding:.6em;color:#f0fdff;background:#082f43;border:1px solid #268da3;border-radius:6px}
+.refuel-dialog>input[type=range]{width:100%;accent-color:#24dbe7;margin:.8em 0}
+.refuel-presets{display:flex;gap:.55em;flex-wrap:wrap;margin-bottom:.9em}
+.refuel-estimate div{display:flex;justify-content:space-between;gap:1em;margin:.35em 0}
+.refuel-estimate strong{color:#f8c450}
+.refuel-estimate small{display:block;color:#9bbdcb;margin-top:.65em;line-height:1.5}
+.refuel-dialog footer{display:flex;justify-content:flex-end;gap:.6em;margin-top:1em}
+.resource-alerts{display:grid;gap:.45em;margin:.65em 0}
+.resource-alerts[hidden]{display:none!important}
+.resource-alerts>div{padding:.7em .6em;border-radius:6px;font-size:.86em;font-weight:650;
+ border:1px solid #edaf39;background:#4a3117;color:#ffdb83}
+.resource-alerts>.alert-wear{border-color:#f16d76;background:#401d25;color:#ffd1d4}
+.dispatch-progress{display:block;padding:.6em .4em;color:#9fe6e8;font-size:.77em;line-height:1.4}
+.detail-manifest{display:flex;gap:.35em;flex-direction:column;border-top:1px solid #376177;
+ margin-top:.8em;padding-top:.7em}
+.detail-manifest strong{color:#f0faff}
+.manifest-preview{color:#90c9d9}
+.takeoff-symbol{width:2em!important;height:2em!important;fill:currentColor}
