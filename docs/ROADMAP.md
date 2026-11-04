@@ -179,3 +179,20 @@ Consulte [Bloco 3](BLOCO_3_CARREIRAS.md).
 - [x] Classificação conservadora com ON ANY RUNWAY, heading/aceleração e monitor pós-pouso.
 - [ ] Homologar fisicamente em pistas e táxis do MSFS 2020; confirmar suporte a ON ANY RUNWAY nos cenários personalizados.
 - [ ] Completar planejamento e aceitações integralmente em páginas nativas WebView2, eliminando telas Tk legadas.
+
+## v0.7.7 — Persistência, passageiros, carga, navdata e despacho
+- [x] Recuperar quantidades SQLite de combustível no início da sessão, sem consumir dias offline.
+- [x] Salvar crédito reembolsável em litros e permitir abastecimento/devolução parcial via popup.
+- [x] Persistir desgaste em voos sem contrato e mostrar alertas <=20%.
+- [x] Dar identidade a contratos e massa de passageiro/carga por missão, persistida por ID.
+- [x] Conferir estação 2, MTOW e total antes de escrever o peso no MSFS. Revalidar por leitura.
+- [x] Aceitar contrato e solicitar carga/PLN sem confirmação adicional; envio automático pendente até dados confiáveis.
+- [x] Adquirir coordenadas por ICAO com SimConnect AIRPORT_LIST em MSFS 2020, sobrepondo fallback externo.
+- [x] Remover peso manual como justificativa de XP e pagar +2,5% somente quando verificado.
+- [x] METAR NOAA primeiro; MSFS apenas fallback, salvo opção futura.
+- [x] Usar imagem de decolagem fornecida pelo usuário no botão Despacho.
+- [ ] Aprovar novo ícone geral do aplicativo antes de distribuir.
+- [ ] Validar físicamente estação de peso em cada modelo e carga .PLN no MSFS 2020.
+- [ ] Homologar aeroportos de cenário personalizado no SimConnect e fallback quando não listados.
+- [ ] Notificações 2D nativas dentro do MSFS quando SDK in-game for integrado.
+- [ ] Em aeronaves complexas, selecionar estação de carga por configuração de modelo em vez da estação 2 fixa.

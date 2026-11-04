@@ -3,6 +3,7 @@ const token=location.hash.slice(1);history.replaceState(null,'',location.pathnam
 const $=id=>document.getElementById(id),money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(n),number=(n,d=0)=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:d}),text=(id,v)=>$(id).textContent=v;
 const icon=n=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg'),u=document.createElementNS(s.namespaceURI,'use');u.setAttribute('href','#i-'+n);s.append(u);return s};
 const node=(tag,cls,value)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined)e.textContent=value;return e};
+let pendingRefuel=false,refuelFeedbackStamp='',refuelDialogOpen=false;
 let state={},zoom=1,mapPanX=0,mapPanY=0,selectedOffer=null,lastOfferKey='',pollFailures=0,planeTrack=null,planeBearing=0,recenterPlane=false,marketLastKey='',view='dashboard',previousView='dashboard';
 const nav=[['home','Dashboard','dashboard'],['globe','Mercado','regional'],['hangar','Frota / Hangar','fleet'],['map','Planejamento de Voo','planning'],['pilot','Meu Piloto','pilot'],['coins','Finanças','finance'],['building','Companhias','employment'],['book','Logbook','history'],['chart','Análise e Relatórios','reports'],['gear','Configurações','settings']];
 for(const [ic,label,action] of nav){const b=node('button','nav-item'+(action==='dashboard'?' active':''));b.append(icon(ic),node('span','',label));b.dataset.action=action;$('navigation').append(b)}
@@ -48,7 +49,7 @@ function navigate(destination){
 document.querySelector('.workspace').dataset.view=view;
 document.addEventListener('click',e=>{
  const b=e.target.closest('[data-action]');
- if(b){const action=b.dataset.action;if(routeActions.has(action)||action==='market'){navigate(action);return;}command(action);return;}
+ if(b){const action=b.dataset.action;if(routeActions.has(action)||action==='market'){navigate(action);return;}if(action==='refuel'){openRefuel();return;}command(action);return;}
  const tab=e.target.closest('[data-tab]');
  if(tab&&tab.dataset.tab==='weather')showDetails('METEOROLOGIA • MSFS / NOAA',weatherDetails());
 });
@@ -68,6 +69,10 @@ function showDetails(title,body,offer){
   text('detail-cruise',offer.cruise_kts!=null?number(offer.cruise_kts)+' kt':'—');
   text('detail-reward',money(offer.reward));
   text('detail-aircraft',offer.aircraft_label||'Aeronave a definir');
+  text('detail-manifest',offer.manifest_description||offer.title||'Sem manifesto');
+  text('detail-payload',offer.payload_kg!=null&&offer.payload_kg>0?
+      'Peso a carregar: '+number(offer.payload_kg,1)+' kg • '+(offer.payload_kind||'carga'):'Peso indisponível');
+  text('detail-nav-source','Coordenadas: '+(offer.navigation_source||'catálogo auxiliar'));
   text('detail-requirements',(offer.allowed?'Disponível • ':'Bloqueado • ')+(offer.reason||'Verificação na contratação'));
   $('detail-requirements').className=offer.allowed?'eligible':'blocked';
  }
@@ -80,7 +85,7 @@ $('dialog-accept').onclick=()=>{
 };
 function bar(id,ratio){$(id).style.width=(Math.min(1,Math.max(0,ratio||0))*100)+'%'}
 function renderOffers(s){const key=JSON.stringify([s.offers,s.mission?.id]);if(key===lastOfferKey)return;lastOfferKey=key;$('offers').replaceChildren();const offers=s.offers.slice(0,5);if(!offers.length){const empty=node('div','empty');empty.append(icon('globe'),node('span','',s.pilot?'Sem propostas disponíveis. Atualize o mercado ou confira sua base e habilitações.':'Cadastre seu piloto para descobrir os contratos da região.'));$('offers').append(empty);return}
-for(const o of offers){const b=node('button','offer'+(s.mission?.id===o.id?' active':'')+(!o.allowed?' locked':''));b.append(icon(o.category.toLowerCase().includes('carga')?'box':'plane'));const d=node('div');d.append(node('strong','',o.category));const meta=node('div','offer-meta');meta.append(node('span','',o.origin+' → '+o.destination),node('span','price',money(o.reward)));d.append(meta,node('small','duration',(o.minutes===null?'—':'~ '+Math.floor(o.minutes/60)+'h'+String(o.minutes%60).padStart(2,'0'))+(!o.allowed?' • Bloqueado':'')));b.append(d);b.onclick=()=>showDetails(o.category,o.origin+' → '+o.destination+'\nPagamento bruto: '+money(o.reward)+'\n'+(o.distance===null?'Distância indisponível':number(o.distance)+' NM • '+o.minutes+' min')+'\n\n'+o.reason,o);$('offers').append(b)}}
+for(const o of offers){const b=node('button','offer'+(s.mission?.id===o.id?' active':'')+(!o.allowed?' locked':''));b.append(icon(o.category.toLowerCase().includes('carga')?'box':'plane'));const d=node('div');d.append(node('strong','',o.title||o.category));const meta=node('div','offer-meta');meta.append(node('span','',o.origin+' → '+o.destination),node('span','price',money(o.reward)));d.append(meta,node('small','duration',(o.minutes===null?'—':'~ '+Math.floor(o.minutes/60)+'h'+String(o.minutes%60).padStart(2,'0'))+(!o.allowed?' • Bloqueado':'')));b.append(d);b.onclick=()=>showDetails(o.category,o.origin+' → '+o.destination+'\nPagamento bruto: '+money(o.reward)+'\n'+(o.distance===null?'Distância indisponível':number(o.distance)+' NM • '+o.minutes+' min')+'\n\n'+o.reason,o);$('offers').append(b)}}
 
 
 function openMarket(filter='regional'){navigate(filter==='freelance'?'freelance':'regional')}
@@ -193,30 +198,107 @@ function weatherSummary(w){
 function weatherDetails(){
  const w=state.weather||{},a=state.mission?.origin||'—',b=state.mission?.destination||'—';
  const o=w.origin,n=w.destination_metar,d=w.destination_sim;
+ const noaa=!!(n?.raw&&!n?.stale),showBoth=!!w.display_msfs_also;
  return 'ORIGEM '+a+' — MSFS (condições junto à aeronave)\n'+(o?weatherSummary(o):'Sem leitura perto da origem')+
-  '\n\nDESTINO '+b+' — NOAA METAR OFICIAL\n'+(n?(n.raw||weatherSummary(n)):'Sem METAR disponível para este aeroporto')+
-  (n?.stale?'\nObservação em cache (pode estar desatualizada).':'')+
-  '\n\nDESTINO — MSFS (ao aproximar-se até 10 NM)\n'+(d?weatherSummary(d):'Aguardando aproximação')+
-  '\n\nSimConnect não fornece texto METAR completo; clima selecionado no MSFS pode diferir da NOAA.';
+  '\n\nDESTINO '+b+' — '+(noaa?'NOAA METAR OFICIAL':'MSFS / SEM NOAA')+'\n'+
+  (noaa?(n.raw||weatherSummary(n)):d?weatherSummary(d):'Nenhuma observação disponível')+
+  (noaa&&showBoth?'\n\nMSFS (comparação solicitada)\n'+(d?weatherSummary(d):'Sem leitura local'):'')+
+  '\n\nO MSFS reporta condições da aeronave, não um METAR oficial.';
 }
 function renderWeather(s){
  const w=s.weather||{},o=w.origin,n=w.destination_metar,d=w.destination_sim;
  text('weather-origin','ORIGEM • MSFS '+(s.mission?.origin||'—'));
  text('weather-origin-values',o?weatherSummary(o):'Aguardando condições do MSFS na origem');
- text('weather-destination','DESTINO • NOAA '+(s.mission?.destination||'—'));
- text('weather-destination-values',d?'MSFS: '+weatherSummary(d)+' • NOAA: '+(n?.raw||'indisponível').slice(0,55):
-  n?(n.raw||'METAR disponível').slice(0,80):'Aguardando METAR NOAA • sem estação?');
+ const noaa=!!(n?.raw&&!n?.stale);
+ text('weather-destination','DESTINO • '+(noaa?'NOAA':'MSFS')+' '+(s.mission?.destination||'—'));
+ text('weather-destination-values',noaa?(n.raw.slice(0,84)+(w.display_msfs_also&&d?' • MSFS: '+weatherSummary(d):'')):
+      d?weatherSummary(d):'NOAA indisponível • aguardando leitura MSFS');
 }
 function render(s){state=s;if(!s.progress)return;const p=s.pilot;const country=s.country==='BR'?'':s.country?' · '+s.country:'';text('callsign',(p?.callsign||'CADASTRAR PILOTO')+country);if(s.country==='BR'){const flag=node('span','flag-br');flag.title='Brasil • país da base';$('callsign').append(flag)}text('qualification',p?({autonomo:'Piloto autônomo',empregado:'Piloto empregado',proprietario:'Companhia própria'}[s.employment]||s.employment)+' • '+s.summary.qualifications.join(' / '):'Crie sua carreira');text('level',p?'NÍVEL '+s.progress.level:'NÍVEL —');text('xp',p?'XP '+s.progress.xp+' / '+s.progress.target+' ('+Math.round(s.progress.fraction*100)+'%)':'XP —');bar('xpbar',s.progress.fraction);text('balance',money(s.balance));text('connection',{connected:'Conectado',reconnecting:'Reconectando',disconnected:'Desconectado'}[s.connection]);$('led').style.background={connected:'#86fc24',reconnecting:'#ffc400',disconnected:'#e06a75'}[s.connection];$('avatar').hidden=!s.avatar;if(s.avatar&&$('avatar').src!==s.avatar)$('avatar').src=s.avatar;
 text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderMarketView(s);renderModuleView(s);renderSummary(s);
-const m=s.mission;const bonus=s.bonus?.bonus_fraction||0;text('route',m?m.origin+' → '+m.destination:'Selecione uma missão');text('distance',m?'Distância: '+(m.distance===null?'—':number(m.distance)+' NM')+'  |  Prev. voo: '+(m.minutes===null?'—':m.minutes+' min'):'Explore o mercado regional para começar');text('category',m?.category||'');text('reward',m?money(m.reward):'—');text('bonus-value',m?'+'+number(bonus*100,1)+'%':'—');text('mission-status',m?(s.bonus?.frozen?'EM VOO • CONGELADO':'RESERVADO'):'');
+const m=s.mission;const bonus=s.bonus?.bonus_fraction||0;text('route',m?m.origin+' → '+m.destination:'Selecione uma missão');text('distance',m?'Distância: '+(m.distance===null?'—':number(m.distance)+' NM')+'  |  Prev. voo: '+(m.minutes===null?'—':m.minutes+' min'):'Explore o mercado regional para começar');text('category',m?.category||'');text('reward',m?money(m.reward):'—');text('bonus-value',m?'+'+number(bonus*100,1)+'%':'—');text('mission-status',m?(s.bonus?.frozen?'EM VOO • CONGELADO':
+ (s.dispatch?.payload==='confirmed'?'CARGA CONFIRMADA':s.dispatch?.payload==='blocked'?
+ 'CARGA BLOQUEADA':'PREPARANDO MISSÃO')):'');
 for(const [key,, ,unit] of metricNames){const e=$('metric-'+key);if(key==='phase'){e.textContent=s.phase;e.style.color='#8df63e';continue}e.replaceChildren(document.createTextNode(s.telemetry?number(s.telemetry[key]):'—'),node('small','',' '+unit))}text('telemetry-status',s.mode==='Demo'?'DEMONSTRAÇÃO':s.telemetry?.stale?'ÚLTIMA LEITURA • SEM ATUALIZAÇÃO':s.connection==='connected'?'':'AGUARDANDO MSFS');renderWeather(s);text('log',s.log.slice(-8).join('\n'));$('log').scrollTop=$('log').scrollHeight;text('realism-total',m?'+'+number(bonus*100,1)+'%':'—');
 const labels=['Relógio UTC verificado','Assistência de voo verificada','Pista / iluminação revisada','Rota revisada','Combustível adequado','Peso dentro do limite'];const components=Object.values(s.bonus?.components||{});$('checklist').replaceChildren();labels.forEach((label,i)=>{const sensor=i===0?s.audit?.clock:i===1?s.audit?.assists:undefined;
 const ok=i<2?sensor===true:components[i]?.ok;
 const e=node('div',ok?'ok':'');e.append(icon('check'),node('span','',label));
 e.title=i<2?(sensor==null?'Sensor indisponível • sem bônus':sensor?'Verificado pelo MSFS':'Condição não atendida'):
  (components[i]?'+'+number(components[i].rate*100,1)+'% • ':'')+(i<4?'Conferência manual':'Telemetria/estimativa');$('checklist').append(e)});text('edit-plan',s.bonus?.frozen?'Congelado na decolagem • Ver despacho':'Revisar no despacho →');
-const a=s.plane;const photo=a?.code==='c152';$('aircraft-photo').hidden=!photo;$('photo-credit').hidden=!photo;document.querySelector('.aircraft-art').classList.toggle('has-photo',photo);document.querySelector('.aircraft-art>svg').style.display=photo?'none':'';document.querySelector('.aircraft-art>span').hidden=photo;text('aircraft-name',a?.title||'Nenhuma aeronave');text('aircraft-ref',a?a.ref+' • '+a.kind:'Selecione no Hangar');document.querySelectorAll('[data-action=refuel],[data-action=service]').forEach(b=>{b.disabled=!!a?.ref.startsWith('contract:');b.title=b.disabled?'Aeronave fornecida pelo contratante':''});text('location',a?.airport||'—');text('condition',a?.condition!==null&&a?number(a.condition,1)+'%':'Indisponível');bar('conditionbar',a?a.condition/100:0);$('conditionbar').style.background=a?.condition<40?'#ef6464':a?.condition<75?'#ffc400':'';const f=s.fuel;const q=f.quantity;const ratio=q!==null&&f.capacity?q/f.capacity:null;text('fuel-value',q!==null?number(q,1)+' gal'+(ratio!==null?' ('+number(ratio*100)+'%)':''):'Sem leitura validada');bar('fuelbar',ratio);text('fuel-title','Controle: '+(f.enabled?'ATIVO':'DESLIGADO'));text('fuel-status',f.enabled?(s.connection==='connected'?'Confira a confirmação no registro':'Aguardando MSFS • sem confirmação'):'Penalidade de 30% em R$ e XP');$('fuel-toggle').classList.toggle('on',f.enabled);text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?s.status:'Conecte ao MSFS em Configurações.');renderMap(s)}
+const a=s.plane;const photo=a?.code==='c152';$('aircraft-photo').hidden=!photo;$('photo-credit').hidden=!photo;document.querySelector('.aircraft-art').classList.toggle('has-photo',photo);document.querySelector('.aircraft-art>svg').style.display=photo?'none':'';document.querySelector('.aircraft-art>span').hidden=photo;text('aircraft-name',a?.title||'Nenhuma aeronave');text('aircraft-ref',a?a.ref+' • '+a.kind:'Selecione no Hangar');document.querySelectorAll('[data-action=refuel],[data-action=service]').forEach(b=>{b.disabled=!!a?.ref.startsWith('contract:');b.title=b.disabled?'Aeronave fornecida pelo contratante':''});text('location',a?.airport||'—');text('condition',a?.condition!==null&&a?number(a.condition,1)+'%':'Indisponível');bar('conditionbar',a?a.condition/100:0);$('conditionbar').style.background=a?.condition<40?'#ef6464':a?.condition<75?'#ffc400':'';const f=s.fuel;const q=f.quantity;const ratio=q!==null&&f.capacity?q/f.capacity:null;text('fuel-value',q!==null?number(q,1)+' gal'+(ratio!==null?' ('+number(ratio*100)+'%)':''):'Sem leitura validada');bar('fuelbar',ratio);text('fuel-title','Controle: '+(f.enabled?'ATIVO':'DESLIGADO'));text('fuel-status',f.enabled?(s.connection==='connected'?'Confira a confirmação no registro':'Aguardando MSFS • sem confirmação'):'Penalidade de 30% em R$ e XP');$('fuel-toggle').classList.toggle('on',f.enabled);text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?
+  (s.dispatch?.message||s.status):'Aguardando conexão automática ao MSFS.');
+renderCriticalAlerts(s);
+if(pendingRefuel){
+ const stamp=JSON.stringify(s.refuel_feedback||{});
+ if(stamp!==refuelFeedbackStamp && s.refuel_feedback?.status){
+  pendingRefuel=false;$('refuel-submit').disabled=false;
+  refuelFeedbackStamp=stamp;
+  if(s.refuel_feedback.status==='success'){
+   $('refuel-dialog').close();toast(s.refuel_feedback.message||'Abastecimento registrado.');
+  }else text('refuel-error',s.refuel_feedback.message||'Operação recusada.');
+ }
+}
+renderMap(s)}
+function renderCriticalAlerts(s){
+ const alerts=$('critical-alerts');alerts.replaceChildren();
+ const items=Array.isArray(s.alerts)?s.alerts:[];
+ alerts.hidden=!items.length;
+ for(const a of items){
+  const row=node('div','critical-alert');
+  row.append(icon(a.code==='fuel'?'fuel':'tool'),node('span','',a.message));
+  alerts.append(row);
+ }
+}
+function openRefuel(){
+ const f=state.fuel||{},a=state.plane;
+ if(!a||!Number.isFinite(f.capacity)||f.capacity<=0||!Number.isFinite(f.quantity)){
+  toast('Sem tanque calibrado. Conecte sua aeronave em solo para abastecer.');return;
+ }
+ const cap=f.capacity*(f.liters_per_gallon||3.785411784),q=f.quantity*(f.liters_per_gallon||3.785411784);
+ const dialog=$('refuel-dialog');
+ text('refuel-current',number(q,1)+' L');
+ text('refuel-capacity',number(cap,1)+' L');
+ $('refuel-liters').max=cap.toFixed(2);$('refuel-liters').value=q.toFixed(1);
+ $('refuel-slider').max=cap.toFixed(2);$('refuel-slider').value=q.toFixed(1);
+ text('refuel-error','');$('refuel-submit').disabled=false;
+ refuelFeedbackStamp=JSON.stringify(state.refuel_feedback||{});
+ pendingRefuel=false;dialog.showModal();refuelDialogOpen=true;
+ updateRefuelPreview();
+}
+function updateRefuelPreview(){
+ const f=state.fuel||{},factor=f.liters_per_gallon||3.785411784;
+ const current=(f.quantity||0)*factor,target=Number($('refuel-liters').value);
+ const cap=(f.capacity||0)*factor,change=target-current;
+ const rate=f.price_per_liter||0;
+ if(!Number.isFinite(target)||target<0||target>cap+.05){
+  text('refuel-preview','Quantidade inválida. Escolha entre 0 e '+number(cap,1)+' L.');
+  $('refuel-submit').disabled=true;return;
+ }
+ $('refuel-submit').disabled=pendingRefuel;
+ $('refuel-slider').value=String(target);
+ if(Math.abs(change)<.05)text('refuel-preview','Sem alteração: selecione um novo volume.');
+ else if(change>0)text('refuel-preview','Compra '+number(change,1)+' L • custo estimado '+money(Math.round(change*rate)));
+ else {
+  const eligible=Math.min(-change,f.refundable_liters||0);
+  text('refuel-preview','Devolução '+number(-change,1)+' L • reembolso '+money(Math.round(eligible*rate))+
+   (eligible<-change?' • Parte não comprada no addon não é reembolsável.':''));
+ }
+}
+$('refuel-liters').addEventListener('input',updateRefuelPreview);
+$('refuel-slider').addEventListener('input',()=>{$('refuel-liters').value=$('refuel-slider').value;updateRefuelPreview()});
+$('refuel-full').onclick=()=>{$('refuel-liters').value=$('refuel-liters').max;updateRefuelPreview()};
+$('refuel-close').onclick=()=>$('refuel-dialog').close();
+$('refuel-cancel').onclick=()=>$('refuel-dialog').close();
+$('refuel-dialog').addEventListener('close',()=>{refuelDialogOpen=false;pendingRefuel=false});
+$('refuel-submit').onclick=()=>{
+ const target=Number($('refuel-liters').value),cap=Number($('refuel-liters').max);
+ if(!Number.isFinite(target)||target<0||target>cap)return;
+ pendingRefuel=true;
+ refuelFeedbackStamp=JSON.stringify(state.refuel_feedback||{});
+ $('refuel-submit').disabled=true;
+ text('refuel-error','Solicitação enviada à carreira. Aguardando resposta...');
+ command('refuel_set',target.toFixed(2));
+};
 function svgNode(tag,attrs,textValue){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs||{}))e.setAttribute(k,v);if(textValue!==undefined)e.textContent=textValue;return e}
 function headingDisplay(t){
  if(t?.stale)return 'POSIÇÃO DESATUALIZADA';

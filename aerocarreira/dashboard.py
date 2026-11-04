@@ -11,7 +11,8 @@ from .pilot import level_progress
 from .domain import AIRPORTS, Phase, distance_nm
 from .planning import inspect_preflight
 from .flight_audit import real_clock_verified, assistance_verified
-from .finance import estimated_minutes, AIRCRAFT_ECONOMY
+from .finance import estimated_minutes, AIRCRAFT_ECONOMY, FUEL_BRL_PER_LITER, LITERS_PER_GALLON
+from .navdata import resolve_mission_navdata, official_route_ready
 from .reputation import pilot_reputation
 from .weather import MetarCache, sim_conditions, within_nm
 
@@ -23,8 +24,9 @@ def coordinates(m):
     return start,end
 
 
-def mission_data(m, aircraft_code=None):
-    """Tempo aproximado com a aeronave designada, nunca um número inventado pela interface."""
+def mission_data(m, aircraft_code=None, catalog=None):
+    """Tempo estimado por modelo e navegação oficial se disponível."""
+    if catalog is not None:m=resolve_mission_navdata(m,catalog)
     a,b=coordinates(m)
     distance=distance_nm(*a,*b) if a and b else None
     chosen=m.employer_plane if m.freelance else aircraft_code
@@ -36,6 +38,9 @@ def mission_data(m, aircraft_code=None):
             'reward':m.reward,'start':a,'end':b,'distance':distance,
             'minutes':estimated_minutes(distance,cruise_kts) if distance is not None else None,
             'cruise_kts':cruise_kts,'aircraft_label':name,
+            'manifest_description':m.manifest_description,
+            'payload_kg':m.payload_kg,'payload_kind':m.payload_kind,
+            'navigation_source':('MSFS 2020' if official_route_ready(m,catalog) else 'Catálogo auxiliar'),
             'freelance':bool(m.freelance),
             'employer_plane':m.employer_plane,
             'company_code':m.company_code}
@@ -120,7 +125,8 @@ class DashboardPresenter:
             plane={'ref':'contract:'+m.id,'code':m.employer_plane,'title':assigned.name,
                    'condition':None,'airport':m.origin,'kind':'Aeronave do contratante'}
             fuel=app.fuel_manager.get(plane['ref'])
-        verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s)}
+        verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s),
+                   'weight':app._weight_verified(s) if hasattr(app,'_weight_verified') else False}
                   if s and app.mode=='MSFS' and app.connected and time()-s.timestamp<10 else {})
         bonus=inspect_preflight(m,plan,verified=verified) if m and plan else None
         if app.tracker.phase==Phase.AIRBORNE:
@@ -128,7 +134,7 @@ class DashboardPresenter:
         rows=db.conn.execute("SELECT kind, SUM(amount) FROM finance_ledger GROUP BY kind").fetchall()
         ledger=dict(rows)
         # Only flight revenues/expenses, excluding starting cash, loans, purchases and sales.
-        flight_kinds=('contrato','bonus_realismo','penalidade_combustivel','combustivel','taxa_aeroporto','taxa_simulada','seguro','abastecimento','manutencao','aluguel')
+        flight_kinds=('contrato','bonus_realismo','penalidade_combustivel','combustivel','taxa_aeroporto','taxa_simulada','seguro','abastecimento','devolucao_combustivel','manutencao','aluguel')
         # O Dashboard consulta a cada 250 ms: recalcular apenas quando entra voo novo.
         flight_stamp=db.conn.execute('SELECT COALESCE(MAX(id),0),COUNT(*) FROM flights').fetchone()
         if self.reputation_stamp!=flight_stamp:
@@ -139,7 +145,7 @@ class DashboardPresenter:
         offers=[]
         for offer in self.offers.values():
             allowed,reason=eligibility(offer,stats,db.owned_qualifications(),db.family_experience())
-            offers.append(dict(mission_data(offer, plane['code'] if plane else None),
+            offers.append(dict(mission_data(offer, plane['code'] if plane else None,app.airport_catalog),
                                allowed=allowed,reason=reason))
         avatar_path=db.get_setting('pilot_avatar_v1')
         if avatar_path!=self.avatar_key:
@@ -149,6 +155,14 @@ class DashboardPresenter:
                 except OSError:pass
         capacity=sum(fuel['capacities'].values()) if fuel and fuel['capacities'] else None
         quantity=sum(fuel['tanks'].values()) if fuel else None
+        fuel_ratio=quantity/capacity if quantity is not None and capacity else None
+        alerts=[]
+        if fuel_ratio is not None and fuel_ratio<=.20:
+            alerts.append(dict(code='fuel',severity='critical',
+                message=f'Combustível crítico: {fuel_ratio:.0%} restante. Planeje reabastecimento.'))
+        if plane and plane['condition'] is not None and plane['condition']<=20:
+            alerts.append(dict(code='wear',severity='critical',
+                message=f'Desgaste crítico: {plane["condition"]:.1f}% de condição. Faça manutenção.'))
         if (m.id if m else None)!=self.weather_mission_id:
             self.weather_mission_id=m.id if m else None
             self.origin_observation=None
@@ -159,6 +173,7 @@ class DashboardPresenter:
             self.origin_observation=dict(reading,icao=m.origin,source='MSFS • aeronave na origem')
         destination_metar=self.metars.get(m.destination) if m and app.mode!='Demo' else None
         weather=dict(origin=self.origin_observation if m else None,
+                     display_msfs_also=db.get_setting('show_msfs_with_noaa')=='1',
                      nearby_origin=close_origin,nearby_destination=close_destination,
                      destination_sim=dict(reading,icao=m.destination,source='MSFS • aeronave perto do destino') if close_destination else None,
                      destination_metar=destination_metar,
@@ -172,11 +187,14 @@ class DashboardPresenter:
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
             status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,
-            mission=mission_data(m, plane['code'] if plane else None) if m else None,
+            mission=mission_data(m, plane['code'] if plane else None,app.airport_catalog) if m else None,
             market=dict(icao=self.center.icao,name=self.center.name,lat=self.center.latitude,lon=self.center.longitude) if self.center else None,offers=offers,
             plane=plane,fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
-            capacity=capacity,
+            capacity=capacity,refundable_liters=app.fuel_manager.refundable_liters(plane['ref']) if plane else 0,
+            price_per_liter=FUEL_BRL_PER_LITER,liters_per_gallon=LITERS_PER_GALLON,
             live=s.fuel_gallons if s else None),telemetry=telemetry,phase=app.phase_var.get(),bonus=bonus,
+            alerts=alerts,dispatch=dict(getattr(app,'dispatch_state',{})),
+            refuel_feedback=dict(getattr(app,'refuel_feedback',{})),
             log=app.log_text.get('1.0','end').splitlines()[-50:],
             audit=dict(clock=verified.get('clock'),assists=verified.get('assists'),
                 weather=None,go_arounds=app.tracker.go_arounds,

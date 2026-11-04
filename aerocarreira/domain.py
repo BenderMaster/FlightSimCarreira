@@ -49,6 +49,10 @@ class Mission:
     destination_lat: float | None = None
     destination_lon: float | None = None
     company_code: str | None = None
+    # v0.7.7: manifesto persistente no próprio contrato, retrocompatível.
+    manifest_description: str = ''
+    payload_kind: str = ''
+    payload_kg: float = 0.0
 
 
 MISSIONS = (
@@ -100,6 +104,8 @@ class FlightSample:
     light_landing: bool | None = None
     light_strobe: bool | None = None
     g_force: float | None = None
+    payload_station_count: int | None = None
+    payload_station_2_lbs: float | None = None
 
 
 class Phase(str, Enum):

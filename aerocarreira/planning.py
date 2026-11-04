@@ -69,9 +69,10 @@ def inspect_preflight(mission: Mission, data: Preflight, cruise_kts: float = 90.
                    isfinite(data.planned_fuel_gal) and data.planned_fuel_gal > 0 and
                    fuel_required is not None and data.planned_fuel_gal >= fuel_required and
                    data.planned_fuel_gal <= model.fuel_capacity_gal * 1.02)
-    weight_ok = bool(data.payload_checked and data.planned_weight_lbs is not None and
-                     data.max_weight_lbs is not None and isfinite(data.planned_weight_lbs) and
-                     isfinite(data.max_weight_lbs) and 0 < data.planned_weight_lbs <= data.max_weight_lbs)
+    # O peso só rende bônus se o MSFS confirmou a carga e o MTOW.
+    # Checkbox manual de versões antigas jamais equivale à telemetria.
+    checked=verified or {}
+    weight_ok=checked.get('weight') is True
     # Preset meteorológico e opções globais NÃO são comprovados pelo
     # SimConnect externo. Declarações NÃO pontuam como dados automáticos.
     checked=verified or {}
@@ -82,7 +83,7 @@ def inspect_preflight(mission: Mission, data: Preflight, cruise_kts: float = 90.
         'Pista e iluminação conferidas (declaração)':(.02, data.runway_checked),
         'Rota revisada (declaração)':(.02, data.route_checked),
         'Combustível e reserva conferidos (telemetria/estimativa)':(.025, fuel_ok),
-        'Peso abaixo do MTOW (telemetria)':(.025, weight_ok),
+        'Peso e carga confirmados no MSFS (MTOW)':(.025, weight_ok),
     }
     bonus = round(sum(rate for rate, ok in components.values() if ok),4)
     return {'minutes':minutes, 'distance_nm':round(distance,1) if distance is not None else None,

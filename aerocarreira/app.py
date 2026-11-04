@@ -19,6 +19,8 @@ from .contracts import (AirportCatalog, TYPES, TYPE_BY_CODE, PLANE_BY_CODE,
 from .employment import (EMPLOYER_BY_CODE, vacancies, weekly_period,
     employment_eligibility, generate_employer_routes, OWN_MIN_LEVEL, OWN_INVESTMENT)
 from .flightplan import export_vfr_plan
+from .manifest import assign_manifest, payload_limits
+from .navdata import resolve_mission_navdata, official_route_ready
 from .finance import AIRCRAFT_ECONOMY, brl, estimated_minutes
 from .contracts import aircraft_model
 from .fuel import FuelManager
@@ -59,6 +61,11 @@ class Application:
         self.sim = None
         self.tracker = FlightTracker()
         self.post_landing_taxi = PostLandingTaxi()
+        self.dispatch_state={'mission_id':None,'plan':'idle','payload':'idle','target_lbs':None,
+                             'requested_at':0,'message':''}
+        self._alerted=set()
+        self.facilities_session_current=False
+        self.refuel_feedback={'status':None,'message':''}
         self.storage = Storage(state_dir() / "carreira.db")
         self.location_recovered=self.storage.recover_legacy_location()
         self.fuel_manager=FuelManager(self.storage)
@@ -78,6 +85,11 @@ class Application:
                 self.career.restore(checkpoint.get("career", {}))
                 self.tracker = FlightTracker.from_snapshot(checkpoint["tracker"])
                 self.post_landing_taxi=PostLandingTaxi.from_snapshot(checkpoint.get('post_landing_taxi_v2'))
+                pending=checkpoint.get('dispatch_v077')
+                if isinstance(pending,dict):
+                    self.dispatch_state.update({k:pending[k] for k in self.dispatch_state if k in pending})
+                    if self.dispatch_state['payload']=='sent':
+                        self.dispatch_state['payload']='pending'  # após reinício, revalidar por telemetria
                 if self.tracker.phase == Phase.AIRBORNE and self.career.mission:
                     self.realism_frozen = float(checkpoint.get('realism_frozen',0.0))
                     self.realism_mission = checkpoint.get('realism_mission')
@@ -108,6 +120,14 @@ class Application:
         self.fleet_dialog = None
         self.planning_dialog = None
         self.airport_catalog = None
+        previous_facilities=self.storage.get_setting('msfs_airports_v077')
+        if previous_facilities:
+            try:
+                restored=json.loads(previous_facilities)
+                catalog=AirportCatalog()
+                if catalog.merge_msfs_airports(restored)>0:self.airport_catalog=catalog
+            except (ValueError,TypeError,KeyError,OverflowError):
+                pass
         self.bridge_state = PanelState()
         self.bridge = LocalPanelServer(self.bridge_state)
         self.bridge_error = None
@@ -575,7 +595,10 @@ class Application:
                 messagebox.showwarning("Contrato", "Este contrato já foi concluído. Aguarde nova oferta.")
                 return False
         try:
+            m=assign_manifest(resolve_mission_navdata(m,self.airport_catalog))
             self.career.accept(m, None if offline else self.last_sample)
+            self.dispatch_state={'mission_id':m.id,'plan':'pending','payload':'pending',
+                                 'target_lbs':None,'requested_at':0,'message':'Preparação pendente'}
             self.storage.set_setting('preflight_v1','')  # outro contrato exige novo despacho
             self._show_mission()
             self._checkpoint(force=True)
@@ -585,11 +608,8 @@ class Application:
                 self._log(f"FREELANCER: avião fornecido pelo contratante: {plane.name}.")
                 self._log("Selecione este modelo no MSFS antes de decolar; o addon NÃO muda o avião automaticamente.")
                 if not offline and self.last_sample and not matches_aircraft(self.last_sample.aircraft_title, m.employer_plane):
-                    messagebox.showinfo("Freelancer — aeronave do contratante",
-                        f"Contrato aceito. Avião designado: {plane.name}\n\n"
-                        "Antes de decolar, selecione essa aeronave no MSFS. "
-                        "O SimConnect deve reconhecer o modelo para validar o pagamento.")
-            self._log('Pode gerar e carregar o plano VFR pelo botão Preparar plano da missão.')
+                    self._log('Aeronave do contratante ainda não selecionada no MSFS; carga ficará pendente.')
+            self._auto_prepare_mission()
             return True
         except ValueError as exc:
             messagebox.showwarning("Contrato",str(exc))
@@ -710,6 +730,141 @@ class Application:
         self.button(buttons,"Vagas e companhias",self._employment_window).pack(side="left",padx=(8,0))
         self.label(buttons,"Apenas ofertas regionais; máximo 13 armazenadas.",9,MUTED).pack(side="right")
         populate()
+
+    def _import_msfs_facilities(self, airports):
+        """Prioriza coordenadas do cenário MSFS nas futuras rotas e .PLN."""
+        if not isinstance(airports,list) or not airports:return
+        if self.airport_catalog is None:self.airport_catalog=AirportCatalog()
+        count=self.airport_catalog.merge_msfs_airports(airports)
+        if not count:return
+        self.facilities_session_current=True
+        # A lista validada tem número limitado de ICAOs regionais.
+        self.storage.set_setting('msfs_airports_v077',json.dumps(airports))
+        if self.dashboard:
+            self.dashboard.presenter.market_key=None
+            self.dashboard.presenter.refresh_market(True)
+        self._log(f'NAVDATA MSFS: {count} aeroportos incorporados ao mapa e rotas VFR.')
+        if self.career.mission and self.tracker.phase!=Phase.AIRBORNE:
+            self.career.mission=resolve_mission_navdata(self.career.mission,self.airport_catalog)
+            self.dispatch_state['plan']='pending'
+            self._checkpoint(force=True)
+            self._auto_prepare_mission()
+
+    def _weight_verified(self,s):
+        m=self.career.mission
+        d=self.dispatch_state
+        if not m or d.get('mission_id')!=m.id or d.get('payload')!='confirmed':
+            return False
+        target=d.get('target_lbs')
+        return bool(target is not None and s.payload_station_2_lbs is not None
+            and abs(s.payload_station_2_lbs-target)<=2.0
+            and s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None
+            and 0<s.total_weight_lbs<=s.max_gross_weight_lbs)
+
+    def _verify_mission_payload(self,s):
+        d=self.dispatch_state
+        if d.get('mission_id')!=(self.career.mission.id if self.career.mission else None):return
+        target=d.get('target_lbs')
+        if target is None or not s.on_ground:return
+        confirmed=(s.payload_station_2_lbs is not None and
+                   abs(s.payload_station_2_lbs-target)<=2.0 and
+                   s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None
+                   and s.total_weight_lbs<=s.max_gross_weight_lbs)
+        if confirmed and d.get('payload')!='confirmed':
+            d['payload']='confirmed'
+            d['message']='Carga confirmada no MSFS pelo peso da estação'
+            self._log(f'CARGA CONFIRMADA: {target:.1f} lb na estação 2; dentro do MTOW.')
+            self._checkpoint(force=True)
+        elif d.get('payload')=='confirmed' and not confirmed:
+            d['payload']='pending'
+            d['message']='Peso alterado no MSFS; aguardando restauração'
+        elif d.get('payload')=='sent' and time()-float(d.get('requested_at') or 0)>15:
+            d['payload']='error'
+            d['message']='Sem leitura de confirmação da carga; verifique a aeronave.'
+            self._log('ALERTA CARGA: SimConnect não confirmou a estação após 15 s.')
+            self._checkpoint(force=True)
+
+    def _auto_prepare_mission(self,force=False):
+        """Uma aceitação já é autorização explícita. Sem nova confirmação/popup.
+
+        Não executa escrita em voo, em modelo errado ou sem telemetria MTOW.
+        Ausência de navegação oficial mantém o plano pendente, sem inventar pista.
+        """
+        m=self.career.mission
+        if not m or self.mode!='MSFS' or not self.connected or not self.sim:return
+        s=self.last_sample
+        if not s or not s.on_ground or time()-s.timestamp>10 or self.tracker.phase==Phase.AIRBORNE:return
+        d=self.dispatch_state
+        if d.get('mission_id')!=m.id:
+            d.update(mission_id=m.id,plan='pending',payload='pending',target_lbs=None,
+                     requested_at=0,message='Preparando missão')
+        if force and d.get('plan') in ('requested','error'):
+            d['plan']='pending'
+        if self.facilities_session_current and self.airport_catalog and official_route_ready(m,self.airport_catalog):
+            new=resolve_mission_navdata(m,self.airport_catalog)
+            if new!=m:
+                self.career.mission=m=new
+                self._checkpoint(force=True)
+            if d['plan']=='pending':
+                try:
+                    saved=self._saved_preflight()
+                    path=export_vfr_plan(m,state_dir()/'planos_vfr',
+                                         saved.altitude_ft if saved else 2500)
+                    self.sim.request_plan_load(path)
+                    d['plan']='sent'
+                    self._log('PLANO VFR: solicitação automática enviada ao MSFS (navdata oficial).')
+                except (OSError,ValueError) as exc:
+                    d['plan']='error'
+                    self._log('PLANO VFR: '+str(exc))
+        elif d['plan']=='pending':
+            d['message']='Aguardando coordenadas oficiais MSFS para carregar o plano VFR'
+        if d.get('payload') not in ('pending','blocked'):return
+        if m.freelance and not matches_aircraft(s.aircraft_title,m.employer_plane):
+            d['message']='Selecione a aeronave do contratante no MSFS para carregar a missão'
+            return
+        if not m.freelance:
+            selected=self.storage.fleet_manager().selected()
+            if not selected or aircraft_model(s.aircraft_title)!=selected['code']:
+                d['message']='Aeronave selecionada no simulador difere do Hangar'
+                return
+        try:
+            check=payload_limits(s,m)
+        except ValueError as exc:
+            message=str(exc)
+            if d.get('message')!=message:self._log('DESPACHO DE CARGA: '+message)
+            d['payload']='blocked'
+            d['message']=message
+            return
+        self.sim.request_payload_load(check['station'],check['target_lbs'],m.id)
+        d['payload']='sent'
+        d['target_lbs']=check['target_lbs']
+        d['requested_at']=time()
+        d['message']='Peso enviado ao SimConnect; aguardando confirmação'
+        self._log(f'PREPARAÇÃO AUTOMÁTICA: {m.manifest_description} ({m.payload_kg:.0f} kg), '
+                  f'estação 2, peso projetado {check["projected_lbs"]:.0f}/{check["max_lbs"]:.0f} lb.')
+        self._checkpoint(force=True)
+
+    def _prepare_mission_button(self):
+        self._auto_prepare_mission(force=True)
+        self._planning_window()
+
+    def _emit_career_alerts(self,s):
+        plane=self.storage.fleet_manager().selected()
+        if plane is None:return
+        ref=plane['ref']
+        fuel=self.fuel_manager.get(ref)
+        if fuel and fuel['capacities']:
+            cap=sum(fuel['capacities'].values())
+            if cap>0 and sum(fuel['tanks'].values())/cap<=.20:
+                key=(ref,'fuel')
+                if key not in self._alerted:
+                    self._alerted.add(key)
+                    self._log('ALERTA CRÍTICO: combustível abaixo de 20% em '+plane['title']+'.')
+        if plane.get('condition') is not None and plane['condition']<=20:
+            key=(ref,'wear')
+            if key not in self._alerted:
+                self._alerted.add(key)
+                self._log('ALERTA CRÍTICO: desgaste da aeronave atingiu 20%. Procure manutenção.')
 
     def _prepare_active_plan(self):
         m=self.career.mission
@@ -890,7 +1045,8 @@ class Application:
                 'fuel_penalty_frozen':self.fuel_penalty_frozen,
                 'fuel_mode_at_takeoff':self.fuel_mode_at_takeoff,
                 'fuel_ref_frozen':self.fuel_ref_frozen,
-                'fuel_company_guard':self.fuel_company_guard}
+                'fuel_company_guard':self.fuel_company_guard,
+                'dispatch_v077':dict(self.dispatch_state)}
 
     def _checkpoint(self, force=False):
         # Demo mantém o banco de carreira; checkpoint do voo é para modo MSFS.
@@ -965,10 +1121,15 @@ class Application:
             self.fuel_warning_at=time()
         elif status=='calibrated':
             self._log(f'COMBUSTÍVEL: {sum(s.fuel_tanks.values()):.1f} gal registrados no addon ({ref}).')
+        elif status=='restored_from_save':
+            self._log(f'COMBUSTÍVEL: quantidade persistida confirmada para {ref}.')
 
     def _process_sample(self,s):
         self.last_sample=s
         self._sync_fuel(s)
+        self._verify_mission_payload(s)
+        self._auto_prepare_mission()
+        self._emit_career_alerts(s)
         fmt=lambda n: f"{n:,.0f}"
         for key,val in {
             "ias":fmt(s.ias_kt),"gs":fmt(s.groundspeed_kt) + ("~" if s.groundspeed_estimated else ""),
@@ -1014,9 +1175,12 @@ class Application:
                     # Autoavaliação: só dados SimConnect válidos valem bônus.
                     # Clima ao vivo não pode ser provado por esta API.
                     verified=({'clock':real_clock_verified(s),
-                               'assists':assistance_verified(s)}
+                               'assists':assistance_verified(s),
+                               'weight':self._weight_verified(s)}
                               if self.mode=='MSFS' else {})
-                    auto_fraction=.03*int(verified.get('clock') is True)+.03*int(verified.get('assists') is True)
+                    auto_fraction=(.03*int(verified.get('clock') is True)
+                                   +.03*int(verified.get('assists') is True)
+                                   +.025*int(verified.get('weight') is True))
                     if plan and not aircraft_title_matches(plan.aircraft_title,s.aircraft_title):
                         self._log('Despacho: modelo divergente; sem bônus de checklist.')
                         self.realism_frozen=round(auto_fraction,4)
@@ -1175,6 +1339,9 @@ class Application:
                     continue
                 if kind=="sample": self._process_sample(item)
                 elif kind=="connected":
+                    self.facilities_session_current=False
+                    if self.dispatch_state.get('plan')=='requested':
+                        self.dispatch_state['plan']='pending'
                     self.connected=True
                     self.status_var.set(item)
                     self._log(item)
@@ -1187,21 +1354,40 @@ class Application:
                     self._log(item)
                 elif kind=='plan_loaded':
                     self._log(item)
-                    messagebox.showinfo('SimConnect / plano VFR',item)
+                    if self.dispatch_state.get('mission_id')==(self.career.mission.id if self.career.mission else None):
+                        self.dispatch_state['plan']='requested'  # API não confirma o GPS real
+                        self._checkpoint(force=True)
+                elif kind=='payload_sent':
+                    self._log('CARGA: solicitação SimConnect enviada à estação '+str(item.get('station'))+
+                              '; aguardando leitura de confirmação.')
+                elif kind=='payload_error':
+                    self.dispatch_state['payload']='error'
+                    self.dispatch_state['message']='SimConnect recusou carga: '+str(item)
+                    self._log('CARGA: '+str(item))
+                    self._checkpoint(force=True)
+                elif kind=='facilities':
+                    self._import_msfs_facilities(item)
                 elif kind=='fuel_sent':
                     self._log('Combustível: solicitação enviada ao MSFS; leitura posterior confirmará.')
                 elif kind=='fuel_error':
                     self._log('ALERTA combustível: escrita recusada: '+item)
                 elif kind=='plan_error':
+                    self.dispatch_state['plan']='error'
                     self._log('PLANO VFR: '+item)
-                    messagebox.showwarning('Plano VFR',item)
                 elif kind=="disconnected":
                     self.connected=False
+                    self.facilities_session_current=False
                     self.status_var.set(item)
         except Empty:
             pass
-        self._publish_bridge()
-        self.root.after(200,self._poll)
+        except Exception as exc:
+            # Erro isolado de dado aeroportuário/payload NÃO pode matar a
+            # thread dona do Tk nem impedir o próximo ciclo SimConnect.
+            try:self._log('ALERTA no ciclo SimConnect: '+str(exc)[:250])
+            except Exception:pass
+        finally:
+            self._publish_bridge()
+            self.root.after(200,self._poll)
 
     def _finance_window(self):
         """Operações financeiras opcionais, 100% no banco do addon.
@@ -1362,8 +1548,7 @@ class Application:
         self.label(body,'CHECKLIST: confirme somente o que realmente foi configurado/conferido no MSFS.',9,MUTED).pack(anchor='w',pady=(9,7))
         items=[('runway_checked','Pista e iluminação revisadas (declaração manual)'),
             ('route_checked','Rota e altitude revisadas no mapa VFR/GPS'),
-            ('fuel_checked','Combustível e reserva conferidos'),
-            ('payload_checked','Peso e balanceamento verificados')]
+            ('fuel_checked','Combustível e reserva conferidos')]
         flags={key:IntVar(value=int(bool(getattr(saved,key,False)))) for key,_ in items}
         for key,caption in items:
             Checkbutton(body,text=caption,variable=flags[key],bg=BG,fg=FG,
@@ -1390,7 +1575,13 @@ class Application:
                 messagebox.showwarning('Despacho','Conclua o voo antes de mudar os critérios do contrato.',parent=window);return
             try:
                 plan=build()
-                details=inspect_preflight(m,plan)
+                sample=self.last_sample
+                checked=({'weight':self._weight_verified(sample),
+                          'clock':real_clock_verified(sample),
+                          'assists':assistance_verified(sample)}
+                         if self.mode=='MSFS' and self.connected and sample
+                         and time()-sample.timestamp<10 else {})
+                details=inspect_preflight(m,plan,verified=checked)
                 if save:
                     self.storage.set_setting('preflight_v1',json.dumps(plan.snapshot(),ensure_ascii=False))
                     self._log(f'Despacho salvo para {m.origin} → {m.destination}; componentes automáticos serão verificados na decolagem.')
@@ -1400,7 +1591,7 @@ class Application:
                 for key,val in details['components'].items():
                     report.insert(END,f'{"OK" if val["ok"] else "PENDENTE"}: {key} (+{val["rate"]*100:g}%)\n')
                 report.insert(END,f'\nBônus previsto: +{details["bonus_fraction"]*100:.1f}% sobre pagamento e XP do contrato\n')
-                report.insert(END,'Clima ao vivo: preset não verificável, bônus indisponível.\n')
+                report.insert(END,'Peso da carga recebe bônus somente após confirmação de estação e MTOW pelo MSFS.\n')
                 report.insert(END,'Relógio UTC e assistência de voo: pontuados automaticamente apenas se o MSFS fornecer dados válidos.\n')
                 report.insert(END,'Pista/rota são declarações revisadas pelo piloto, não sensores de aeroporto.\n')
                 if save:

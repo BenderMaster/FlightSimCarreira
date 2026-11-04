@@ -1,3 +1,29 @@
+# FlightSimCarreira v0.7.7 Midnight Ops Alpha.1
+
+## Novidades
+- **Persistência de combustível por avião**: reparo do bug no primeiro contato após dias de inatividade. A leitura inicial do MSFS não pode ser tomada como consumo entre sessões; o inventário salvo no SQLite passa a ter prioridade. Tanques se sincronizam por SimConnect apenas quando aeronave e configuração batem, em solo.
+- **Desgaste por exemplar**: desgaste da frota salvo em voos contratados e voos livres, preservando condições por unidade e pelo Cessna inicial.
+- **Avisos visíveis a 20%**: dois alertas críticos no aplicativo para combustível restante e condição da aeronave; mensagens 2D no MSFS ficam para integração futura.
+- **Missões identificáveis**: nomes fictícios de passageiros, materiais específicos e massa em kg persistida no contrato. Carga/assento 2 é verificado antes de escrever, sem alterar peso do piloto.
+- **Despacho automático ao aceitar contrato**: na sessão MSFS conectada, sem confirmação adicional, solicita o plano .PLN com coordenadas oficiais do catálogo de instalações do simulador e carrega o peso da missão. A leitura de peso é confirmada depois; o carregamento pode ficar pendente por modelo incorreto, MTOW excedido ou SimVar ausente. **Nenhuma dessas falhas é anunciada como sucesso.**
+- **Bônus automático de peso +2,5%** no pagamento e XP da missão quando a carga da estação 2 foi confirmada e o MSFS reporta peso de decolagem <=MTOW. Checklist manual não concede esse componente.
+- **Combustível em litros**: popup de abastecimento parcial ou total. Devolução de combustível pode ressarcir dinheiro, mas apenas do volume comprado no addon e ainda não consumido. Tudo é registrado no ledger SQLite; não é possível gerar dinheiro com o combustível gratuito da primeira calibração.
+- **NOAA prioritário no destino**: MSFS é fallback apenas quando METAR NOAA válido não está disponível. Comparação MSFS/NOAA permanece reservada para configuração futura.
+- **Navegação por dados MSFS 2020**: AIRPORT_LIST do SimConnect é usado para corrigir coordenadas ICAO e gerar rotas. Se a lista oficial estiver indisponível, a interface identifica o fallback e deixa o auto-envio .PLN pendente.
+- O botão **Preparar Voo / Despacho** usa a silhueta de decolagem fornecida pelo usuário; **novo ícone global do app não foi instalado sem aprovação**.
+
+### Cautelas técnicas
+- `PAYLOAD_STATION_WEIGHT:2` é configurável por SimConnect, mas nem todas as aeronaves possuem layout de estações idêntico. A Alpha bloqueia operações sem leitura de estações/MTOW; a estação 1 do piloto não é tocada.
+- A API `FlightPlanLoad` pode retornar sem confirmar visualmente a rota no GPS; o status do aplicativo diferencia solicitação e confirmação.
+- O catálogo MSFS 2020 é recuperado por API de facilities; alguns aeroportos de cenário personalizado podem não aparecer. Não declarar como oficial um ponto importado de outra base.
+- A interface nativa de peso do MSFS pode divergir da física mesmo com SimVars corretas. Testar station weights, peso total e barras de combustível na aeronave real.
+- A proposta do ícone global ainda precisa de aprovação. O pacote não altera a identidade aprovada.
+- **Antes de testar:** feche o app, faça backup de `%APPDATA%\AeroCarreira-Lab\carreira.db` e extraia o novo ZIP numa pasta separada. Banco atualizado somente por migrações aditivas.
+
+Veja [especificação de testes v0.7.7](docs/V077_PERSISTENCIA_CARGA_NAVDATA.md).
+
+---
+
 # FlightSimCarreira v0.7.6 Midnight Ops Alpha.1 — Mapa em contratos, proa e taxiamento
 
 - Menu lateral **Mercado** único; abas internas **Aeronave particular / Serviços freelancer**, preservando as ofertas Nordeste da v0.7.5.

@@ -1,3 +1,17 @@
+## v0.7.7 Midnight Ops Alpha.1 — Persistência de frota, missões e navegação
+
+- Correção de consumo indevido ao iniciar sessão dias depois; prioridade à quantidade registrada por aeronave no SQLite.
+- Novos créditos por litro de combustível comprado/reembolsável; abastecimento parcial e devolução em transação financeira única, com valor inicial gratuito não reembolsável.
+- Desgaste por exemplar também em voos livres; aviso visual para <=20% de condição/combustível.
+- Contratos agora possuem manifesto estável com pessoa/item, tipo e peso específico; dados migrados por campos opcionais sem perda de ofertas antigas.
+- Leitura e escrita SimConnect de PAYLOAD_STATION_WEIGHT:2 (somente solo, modelo conferido e MTOW validado); status de carga lido do simulador, não suposto.
+- Aceite de contrato agenda carregamento automático de rota e manifesto, sem pergunta de confirmação. Sem facility oficial, plano não é aplicado automaticamente.
+- Coleta navdata do MSFS 2020 por lista AIRPORT_LIST, com cache por piloto e atualização de ICAOs e distâncias do mercado.
+- Bônus automático de +2,5% no dinheiro e XP sob peso final válido, sem declaração manual.
+- METAR de destino prioritariamente NOAA; fallback MSFS; comparação futura opcional.
+- Ícone de decolagem fornecido no botão Despacho; marca global aguarda aprovação.
+- Testes SQLite, flight samples, manifestos, integração do dashboard e build Windows.
+
 ## v0.7.6 Midnight Ops Alpha.1 — Proa magnética, mapa de missão e autoconexão
 
 - Mapa MapLibre da Dashboard reutilizado na página de detalhes, com rota real do contrato selecionado, tempo estimado pelo modelo da aeronave e apresentação em cartões.
