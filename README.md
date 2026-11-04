@@ -1,3 +1,26 @@
+
+# FlightSimCarreira v0.7.2 Midnight Ops Alpha.1
+
+Hotfix nativo WebView2 e painel com mapa 100% livre e meteorologia.
+
+Esta versão mantém **a janela do aplicativo**: não abre o Dashboard no navegador.
+Empacotamento do pythonnet reforçado, com teste real de WinForms no .exe do Windows em CI.
+Base funcional: v0.7.0 homologada pelo piloto, com motor v0.6.1.
+
+Mapa: OpenFreeMap + MapLibre 5.24.0 (incluído no .exe), zoom/scroll, clique e arraste,
+rota verdadeira, aeronave ciano e botão Satélite ON/OFF (EOxCloudless 2016, CC BY 4.0).
+Sem cartão, chave, API paga ou Google Maps. Fallback local preservado sem rede.
+
+Meteorologia: SimConnect próximo à origem e à chegada; METAR oficial NOAA Aviation Weather
+para destino, em consulta assíncrona com cache e tolerância a aeroporto sem estação.
+
+Manual: [v0.7.2 instalação, licenças e limitações](docs/V072_WINDOWS_MAPA_METAR.md).
+
+Atenção: extraia **todo o ZIP** da distribuição numa pasta NOVA; mantenha a pasta _internal
+junto do executável. Não apague %APPDATA%\AeroCarreira-Lab. Faça backup com o app fechado.
+A instalação requer .NET Framework 4.8 e Microsoft Edge WebView2 Runtime.
+
+---
 # FlightSimCarreira v0.7.1 Midnight Ops Alpha.1 — reputação e Google Satélite
 
 Novo patch sobre a v0.7.0 aprovada. Reputação calculada do histórico real, ícone ciano vetorial, Google Satélite oficial com scroll/arraste e mapa de coordenadas como fallback.

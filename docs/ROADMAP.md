@@ -1,3 +1,11 @@
+## v0.7.2 Midnight Ops — hotfix nativo e mapas sem cartão
+- [x] Smoke de importação pythonnet/WinForms no pacote Windows; verificar CI do commit final.
+- [x] Mapa OpenFreeMap e satélite opcional EOxCloudless 2016 CC BY 4.0.
+- [x] Zoom, drag, reenquadramento e aeronave ciano; mapa offline mantido.
+- [x] METAR NOAA em background e condições na posição do avião MSFS, próximas aos aeroportos.
+- [ ] Homologar abertura na janela Windows real e clima/mapa externo com voo físico.
+- [ ] Continuar migração das telas da carreira para a UI Midnight Ops.
+
 ## Marco homologado — v0.7.0 Midnight Ops (03–04/11/2026)
 
 - [x] Piloto aprovou visualmente o Dashboard WebView2 no MSFS 2020 Steam.
