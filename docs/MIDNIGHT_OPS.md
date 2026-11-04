@@ -61,3 +61,8 @@ O teste gráfico inicia **Application real**, usa SQLite temporário e o modo De
 A compilação Windows é feita pelo job `windows-package` com PyInstaller. Seu teste `--version` comprova a execução do binário e a importação inicial; não comprova conexão ao MSFS nem abertura física do WebView2.
 
 Não foram executados voos reais no MSFS neste ambiente. A validação do SimConnect usa a suíte de regressão e seus adaptadores simulados.
+
+
+## Atualização v0.7.1
+
+Consultar [reputação, mapa Google e instalação](V071_REPUTACAO_MAPA.md). NASA Blue Marble foi retirada do mapa local; Google usa SDK oficial com chave privada do piloto e fallback sem conexão.
