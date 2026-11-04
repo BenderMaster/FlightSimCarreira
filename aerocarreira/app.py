@@ -23,7 +23,7 @@ from .finance import AIRCRAFT_ECONOMY, brl, estimated_minutes
 from .contracts import aircraft_model
 from .fuel import FuelManager
 from .manifest import mission_manifest
-from .msfs_navdata import remember_airport, overlay_mission, overlay_catalog, validated_airport
+from .msfs_airports import catalog_from_msfs, strict_mission, restricted_mission
 from .payload import load_plan, load_confirmed
 from .fleet import used_market, resale_price
 from .planning import Preflight, inspect_preflight, aircraft_title_matches
@@ -118,6 +118,7 @@ class Application:
         self.fleet_dialog = None
         self.planning_dialog = None
         self.airport_catalog = None
+        self.msfs_airports_ready=False
         self.bridge_state = PanelState()
         self.bridge = LocalPanelServer(self.bridge_state)
         self.bridge_error = None
@@ -496,6 +497,12 @@ class Application:
             self.tracker.reset()
         self.session_generation += 1
         self.sim = SimConnectWorker(self.queue, generation=self.session_generation)
+        self.airport_catalog=None
+        self.msfs_airports_ready=False
+        if self.dashboard:
+            self.dashboard.presenter.market_key=None
+            self.dashboard.presenter.offers={}
+            self.dashboard.presenter.position_center=None
         self.mode="MSFS"
         self.status_var.set("Conectando ao MSFS...")
         self._log("Iniciando monitoramento com reconexão automática.")
@@ -507,6 +514,8 @@ class Application:
             self.sim = None
         self.session_generation += 1  # descartar mensagens de sessões antigas
         self.connected=False
+        self.msfs_airports_ready=False
+        self.airport_catalog=None
         self.mode="Desconectado"
         self.status_var.set("Desconectado")
 
@@ -549,9 +558,16 @@ class Application:
         self._accept_specific(m)
 
     def _accept_specific(self, m):
-        m=overlay_mission(mission_manifest(m),self.storage)
-        # No menu do MSFS ainda não existe SimConnect; o jogador pode
-        # reservar contrato na base do seu perfil e preparar o plano .PLN.
+        m=mission_manifest(m)
+        # Em jogo real, catálogo vivo do MSFS é a ÚNICA fonte de aeroportos.
+        # Mesmo uma oferta antiga no SQLite NÃO comprova aeroporto instalado.
+        if self.mode!='Demo':
+            validated=strict_mission(m,self.airport_catalog if self.msfs_airports_ready else None)
+            if validated is None:
+                self._log('MERCADO BLOQUEADO: origem ou destino não existe na base lida do MSFS desta sessão. Nenhuma rota externa será aceita.')
+                self.status_var.set('Aguardando catálogo oficial do MSFS')
+                return False
+            m=validated
         offline = self.mode == "Desconectado"
         if not offline and (self.mode not in ("MSFS", "Demo") or self.last_sample is None):
             messagebox.showwarning("Contrato", "Conecte ao MSFS e aguarde telemetria em solo.")
@@ -733,11 +749,14 @@ class Application:
         if not m:
             if not automatic:messagebox.showinfo('Plano VFR','Aceite primeiro um contrato.')
             return False
-        if automatic and self.mode=='MSFS' and m.nav_source!='MSFS':
-            if self.dispatch_state:self.dispatch_state['route']='waiting_navdata'
-            if self.sim:self.sim.request_airports([m.origin,m.destination])
-            self._log('PLANO VFR pendente: aguardando origem e destino da base de aeroportos do MSFS. Use o botão manual para gerar com catálogo externo se necessário.')
-            return False
+        if self.mode=='MSFS':
+            validated=strict_mission(m,self.airport_catalog if self.msfs_airports_ready else None)
+            if validated is None:
+                if self.dispatch_state:self.dispatch_state['route']='waiting_navdata'
+                self._log('PLANO NÃO ENVIADO: origem/destino ainda não verificados no MSFS; sem coordenadas externas.')
+                return False
+            m=validated
+            self.career.mission=m
         try:
             data=self._saved_preflight()
             path=export_vfr_plan(m,state_dir()/'planos_vfr', data.altitude_ft if data else 2500)
@@ -754,7 +773,7 @@ class Application:
             return False
         self.sim.request_plan_load(path)
         if self.dispatch_state:self.dispatch_state['route']='loading'
-        self._log('Plano VFR solicitado ao MSFS; aguardando confirmação do adaptador.')
+        self._log('Plano VFR enviado ao SimConnect. A API padrão do MSFS 2020 atualiza ATC, não garante o GPS/mapa VFR.')
         return True
 
     def _queue_payload_load(self):
@@ -814,34 +833,35 @@ class Application:
                 self._payload_last_request=time()
                 self._queue_payload_load()
 
-    def _apply_facility(self,item):
+    def _apply_msfs_catalog(self,raw):
+        """Aceita o inventário COMPLETO, produzido pela sessão SimConnect atual."""
         try:
-            code,lat,lon=validated_airport(item['icao'],item['lat'],item['lon'])
-        except (KeyError,TypeError,ValueError):
+            catalog=catalog_from_msfs(raw)
+        except (ValueError,TypeError) as exc:
+            self._log('AEROPORTOS MSFS: dados recusados: '+str(exc))
             return
-        try:
-            remember_airport(self.storage,code,lat,lon)
-            if self.airport_catalog is None:
-                from .contracts import AirportCatalog
-                self.airport_catalog=AirportCatalog()
-                overlay_catalog(self.airport_catalog,self.storage)
-            old=self.airport_catalog.locations.get(code)
-            if old:self.airport_catalog.locations[code]=Airport(code,old.name,lat,lon)
-            presenter=self.dashboard.presenter if self.dashboard else None
-            if presenter:
-                presenter.offers={key:overlay_mission(m,self.storage) for key,m in presenter.offers.items()}
-                if presenter.position_center and presenter.position_center.icao==code:
-                    presenter.position_center=self.airport_catalog.locations.get(code)
-            if self.career.mission and code in (self.career.mission.origin,self.career.mission.destination):
-                was=self.career.mission.nav_source
-                self.career.mission=overlay_mission(self.career.mission,self.storage)
-                if (self.career.mission.nav_source=='MSFS' and was!='MSFS' and
-                    self.dispatch_state.get('route')=='waiting_navdata'):
-                    self._log('ROTA MSFS: ambas as coordenadas confirmadas. Preparando plano automaticamente.')
+        self.airport_catalog=catalog
+        self.msfs_airports_ready=True
+        self._log(f'AEROPORTOS MSFS: {len(catalog.locations)} aeródromos confirmados pelo simulador. Catálogos externos ignorados.')
+        if self.dashboard:
+            presenter=self.dashboard.presenter
+            presenter.market_key=None
+            presenter.offers={}
+            presenter.position_lookup=None
+            presenter.position_center=None
+            presenter.refresh_market(force=True)
+        if self.career.mission:
+            verified=strict_mission(self.career.mission,catalog)
+            if verified is None:
+                self._log('CONTRATO ANTERIOR: aeroporto não encontrado no MSFS; rota e despacho bloqueados. Não foi cancelado automaticamente.')
+                if self.dispatch_state:
+                    self.dispatch_state.update(route='invalid_airport',
+                        message='Origem/destino ausentes da instalação MSFS; contrato legado preservado.')
+            else:
+                self.career.mission=verified
+                if self.dispatch_state.get('route') in ('waiting_navdata','waiting_sim','pending'):
                     self._prepare_active_plan(automatic=True)
                 self._checkpoint(force=True)
-        except (ValueError,OSError) as exc:
-            self._log('NAVDATA MSFS: '+str(exc))
 
     def _warn_resources(self,s):
         plane=self.storage.fleet_manager().selected()
@@ -1347,8 +1367,10 @@ class Application:
                 elif kind=="warning":
                     self.status_var.set("Monitorando / recuperação")
                     self._log(item)
-                elif kind=='plan_loaded':
-                    if self.dispatch_state:self.dispatch_state['route']='loaded'
+                elif kind in ('plan_atc_sent','plan_loaded'):
+                    if self.dispatch_state:
+                        self.dispatch_state.update(route='atc_sent',message=
+                            'ATC recebeu comando. GPS/mapa VFR não são sincronizados automaticamente pelo SimConnect MSFS 2020.')
                     self._log(item)
                 elif kind=='fuel_sent':
                     self._log('Combustível: solicitação enviada ao MSFS; leitura posterior confirmará.')
@@ -1366,14 +1388,27 @@ class Application:
                     self._log('PLANO VFR: '+item)
                 elif kind=='payload_sent':
                     self._log('Peso enviado ao simulador; aguardando leitura de confirmação.')
-                elif kind=='facility':
-                    self._apply_facility(item)
+                elif kind=='airport_catalog':
+                    self._apply_msfs_catalog(item)
+                elif kind=='airport_catalog_error':
+                    self.msfs_airports_ready=False
+                    self.airport_catalog=None
+                    if self.dashboard:
+                        self.dashboard.presenter.offers={}
+                        self.dashboard.presenter.center=None
+                    self._log('AEROPORTOS MSFS INDISPONÍVEIS: '+str(item))
                 elif kind=='payload_error':
                     if self.dispatch_state:
                         self.dispatch_state.update(payload='error',message=item)
                     self._log('CARGA: '+item)
                 elif kind=="disconnected":
                     self.connected=False
+                    self.msfs_airports_ready=False
+                    self.airport_catalog=None
+                    if self.dashboard:
+                        self.dashboard.presenter.market_key=None
+                        self.dashboard.presenter.offers={}
+                        self.dashboard.presenter.center=None
                     self.status_var.set(item)
         except Empty:
             pass
