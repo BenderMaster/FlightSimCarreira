@@ -66,6 +66,9 @@ function showDetails(title,body,offer){
   text('detail-origin',offer.origin);
   text('detail-destination',offer.destination);
   text('detail-mission-title',offer.title||offer.category||title);
+  text('detail-nav-source',offer.nav_source==='MSFS'?'Coordenadas verificadas na base do MSFS':
+    offer.nav_source==='MISTO'?'Coordenadas mistas: apenas um aeroporto confirmado pelo MSFS':
+    'Posições do catálogo externo • aguardando consulta ao MSFS');
   text('detail-manifest-name',offer.manifest_label||'Manifesto não cadastrado');
   text('detail-payload',(offer.passenger_count?offer.passenger_count+' passageiro(s) • ':'Carga • ')+number(offer.payload_kg||0,1)+' kg');
   text('detail-distance',offer.distance==null?'—':number(offer.distance,1)+' NM');
