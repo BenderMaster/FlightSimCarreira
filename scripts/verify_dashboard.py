@@ -59,7 +59,7 @@ with tempfile.TemporaryDirectory() as temp:
             assert 'NM' in page.locator('#detail-distance').inner_text()
             assert page.locator('#detail-duration').inner_text().startswith('~')
             assert page.locator('#detail-aircraft').inner_text()
-            assert page.locator('#detail-reward').inner_text().startswith('R
+            assert 'R$' in page.locator('#detail-reward').inner_text()
             page.locator('#dialog-close').click()
             assert page.locator('.center-column .map-card #free-map').count()==1
             assert page.locator('#market-page').is_visible()
