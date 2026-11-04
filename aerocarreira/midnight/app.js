@@ -3,7 +3,7 @@ const token=location.hash.slice(1);history.replaceState(null,'',location.pathnam
 const $=id=>document.getElementById(id),money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(n),number=(n,d=0)=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:d}),text=(id,v)=>$(id).textContent=v;
 const icon=n=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg'),u=document.createElementNS(s.namespaceURI,'use');u.setAttribute('href','#i-'+n);s.append(u);return s};
 const node=(tag,cls,value)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined)e.textContent=value;return e};
-let state={},zoom=1,mapPanX=0,mapPanY=0,selectedOffer=null,lastOfferKey='',pollFailures=0,planeTrack=null,planeBearing=0,marketFilter='all',marketLastKey='';
+let state={},zoom=1,mapPanX=0,mapPanY=0,selectedOffer=null,lastOfferKey='',pollFailures=0,planeTrack=null,planeBearing=0,recenterPlane=false,marketFilter='all',marketLastKey='';
 const nav=[['home','Dashboard','dashboard'],['plane','Missões e Contratos','market'],['globe','Mercado Regional','market'],['hangar','Frota / Hangar','fleet'],['map','Planejamento de Voo','planning'],['pilot','Meu Piloto','pilot'],['coins','Finanças','finance'],['building','Companhias','employment'],['book','Logbook','history'],['chart','Análise e Relatórios','reports'],['gear','Configurações','settings']];
 for(const [ic,label,action] of nav){const b=node('button','nav-item'+(action==='dashboard'?' active':''));b.append(icon(ic),node('span','',label));b.dataset.action=action;$('navigation').append(b)}
 const metricNames=[['ias','gauge','Velocidade (IAS)','kt'],['gs','gauge','Velocidade (GS)','kt'],['alt','mountain','Altitude (MSL)','ft'],['agl','layers','Altura (AGL)','ft'],['vs','arrows','Razão Vertical','ft/min'],['phase','plane','Fase do Voo','']];
@@ -135,6 +135,12 @@ function renderMap(s){
   }
   const svg=$('route-map');svg.replaceChildren();const m=s.mission;const points=[];if(!m&&!s.telemetry&&s.market)points.push({lat:s.market.lat,lon:s.market.lon,label:s.market.icao,type:'airport'});if(m?.start)points.push({lat:m.start[0],lon:m.start[1],label:m.origin,type:'airport'});if(m?.end)points.push({lat:m.end[0],lon:m.end[1],label:m.destination,type:'airport'});if(s.telemetry)points.push({lat:s.telemetry.lat,lon:s.telemetry.lon,label:s.mode==='Demo'?'DEMO':'AERONAVE',type:'plane'});if(!points.length){svg.append(svgNode('text',{x:450,y:160,'text-anchor':'middle',fill:'#a4c2d0',stroke:'none','font-size':18},'Selecione um contrato para visualizar a rota'));svg.append(svgNode('text',{x:450,y:190,'text-anchor':'middle',fill:'#5c8c9d',stroke:'none','font-size':12},'Mapa offline • nenhuma rota fictícia'));return}
 const lat0=(Math.max(...points.map(p=>p.lat))+Math.min(...points.map(p=>p.lat)))/2;const lon0=(Math.max(...points.map(p=>p.lon))+Math.min(...points.map(p=>p.lon)))/2;const cos=Math.max(.05,Math.cos(lat0*Math.PI/180));const xspan=Math.max(.2,...points.map(p=>Math.abs(p.lon-lon0)*cos*2)),yspan=Math.max(.15,...points.map(p=>Math.abs(p.lat-lat0)*2));const scale=Math.min(700/xspan,230/yspan)*zoom;
+if(recenterPlane&&s.telemetry){
+  // Centraliza o avião na projeção SVG local, mesmo com missão aberta.
+  mapPanX=-(s.telemetry.lon-lon0)*cos*scale;
+  mapPanY=(s.telemetry.lat-lat0)*scale;
+  recenterPlane=false;
+}
 const xy=p=>[450+(p.lon-lon0)*cos*scale+mapPanX,170-(p.lat-lat0)*scale+mapPanY];
 // Mapa local interativo (offline) permanece disponível quando não há chave Google.
 const loaded=0;
@@ -159,7 +165,7 @@ for(const p of points){const [x,y]=xy(p);if(x<20||x>880||y<20||y>315)continue;if
 const nm=60*90/scale;svg.append(svgNode('path',{d:'M760 294v6h90v-6',stroke:'#b9dce8','stroke-width':2}));svg.append(svgNode('text',{x:805,y:288,'text-anchor':'middle',fill:'#c9e3ed',stroke:'none','font-size':12},number(nm,1)+' NM'));text('map-mode',s.mode==='Demo'?'DEMONSTRAÇÃO':s.telemetry?.stale?'POSIÇÃO DESATUALIZADA':s.telemetry?'POSIÇÃO MSFS':'ROTA PLANEJADA')}
 $('zoom-in').onclick=()=>{if(window.FSCFreeMap?.zoomBy(1))return;zoom=Math.min(16,zoom*1.3);renderMap(state)};
 $('zoom-out').onclick=()=>{if(window.FSCFreeMap?.zoomBy(-1))return;zoom=Math.max(.2,zoom/1.3);renderMap(state)};
-$('recenter').onclick=()=>{if(window.FSCFreeMap?.recenter(state))return;zoom=1;mapPanX=mapPanY=0;renderMap(state)};
+$('recenter').onclick=()=>{if(window.FSCFreeMap?.recenter(state))return;if(state.telemetry){recenterPlane=true}else{zoom=1;mapPanX=mapPanY=0;}renderMap(state)};
 const mapSvg=$('route-map');
 mapSvg.addEventListener('wheel',e=>{if(window.FSCFreeMap?.isActive())return;
   e.preventDefault();zoom=Math.min(16,Math.max(.2,zoom*(e.deltaY<0?1.18:1/1.18)));renderMap(state);

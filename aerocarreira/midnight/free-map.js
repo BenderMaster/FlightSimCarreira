@@ -166,8 +166,14 @@ function render(s){
 function zoomBy(dir){if(!active||!map)return false;map.zoomTo(Math.max(2,Math.min(20,map.getZoom()+dir)),{duration:120});return true}
 function recenter(s){
  if(!active||!map)return false;
- missionKey=null;
- updateMarkers(s||latest);
+ const current=s||latest,t=current?.telemetry;
+ if(t&&Number.isFinite(t.lat)&&Number.isFinite(t.lon)&&Math.abs(t.lat)<=90&&Math.abs(t.lon)<=180){
+   // Não acompanha a câmera automaticamente; recentraliza só ao clicar.
+   map.easeTo({center:[t.lon,t.lat],duration:250});
+ }else{
+   missionKey=null;
+   updateMarkers(current);
+ }
  return true;
 }
 window.FSCFreeMap={render,isActive:()=>active,zoomBy,recenter,toggleSatellite,resizeToContainer,
