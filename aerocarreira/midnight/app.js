@@ -87,7 +87,8 @@ $('dialog-accept').onclick=()=>{
  if(selectedOffer?.allowed){command('offer',selectedOffer.id);navigate('dashboard')}
 };
 function bar(id,ratio){$(id).style.width=(Math.min(1,Math.max(0,ratio||0))*100)+'%'}
-function renderOffers(s){const key=JSON.stringify([s.offers,s.mission?.id]);if(key===lastOfferKey)return;lastOfferKey=key;$('offers').replaceChildren();const offers=s.offers.slice(0,5);if(!offers.length){const empty=node('div','empty');empty.append(icon('globe'),node('span','',s.pilot?'Sem propostas disponíveis. Atualize o mercado ou confira sua base e habilitações.':'Cadastre seu piloto para descobrir os contratos da região.'));$('offers').append(empty);return}
+function renderOffers(s){const key=JSON.stringify([s.offers,s.mission?.id]);if(key===lastOfferKey)return;lastOfferKey=key;$('offers').replaceChildren();const offers=s.offers.slice(0,5);if(!offers.length){const empty=node('div','empty');empty.append(icon('globe'),node('span','',(s.mode!=='Demo'&&!s.airports?.ready)?'Aguardando inventário de aeroportos do MSFS; nenhuma oferta externa será mostrada.':
+ s.pilot?'Sem propostas disponíveis. Atualize o mercado ou confira sua base e habilitações.':'Cadastre seu piloto para descobrir os contratos da região.'));$('offers').append(empty);return}
 for(const o of offers){const b=node('button','offer'+(s.mission?.id===o.id?' active':'')+(!o.allowed?' locked':''));b.append(icon(o.category.toLowerCase().includes('carga')?'box':'plane'));const d=node('div');d.append(node('strong','',o.category));const meta=node('div','offer-meta');meta.append(node('span','',o.origin+' → '+o.destination),node('span','price',money(o.reward)));d.append(meta,node('small','duration',(o.minutes===null?'—':'~ '+Math.floor(o.minutes/60)+'h'+String(o.minutes%60).padStart(2,'0'))+(!o.allowed?' • Bloqueado':'')));b.append(d);b.onclick=()=>showDetails(o.category,o.origin+' → '+o.destination+'\nPagamento bruto: '+money(o.reward)+'\n'+(o.distance===null?'Distância indisponível':number(o.distance)+' NM • '+o.minutes+' min')+'\n\n'+o.reason,o);$('offers').append(b)}}
 
 
@@ -103,17 +104,20 @@ function renderMarketView(s,force=false){
   const selected=button.dataset.marketView===view;
   button.classList.toggle('selected',selected);button.setAttribute('aria-pressed',String(selected));
  });
- const base=s.market?s.market.icao+' • '+s.market.name:'Base não cadastrada';
- text('market-dialog-base',base+'  |  Piloto '+(s.pilot?.callsign||'não cadastrado'));
+ const base=s.market?s.market.icao+' • '+s.market.name:'Aguardando confirmação pelo MSFS';
+ const inventory=s.mode==='Demo'?'DEMONSTRAÇÃO':s.airports?.ready?'MSFS • '+s.airports.count+' aeródromos verificados':'CONSULTANDO AEROPORTOS MSFS';
+ text('market-dialog-base',base+'  |  '+inventory+' | Piloto '+(s.pilot?.callsign||'não cadastrado'));
  text('market-view-hint',freelance?'Aeronave fornecida pelo contratante. Sem custos de compra ou aluguel para este serviço.':'Serviços para o piloto autônomo com aeronave própria. Regras de nível, habilitação e local são verificadas no aceite.');
  const items=s.offers.filter(o=>Boolean(o.freelance)===freelance&&
   (!search||[o.title,o.category,o.origin,o.destination].join(' ').toLocaleLowerCase('pt-BR').includes(search)));
  text('market-count',items.length+' oferta'+(items.length===1?'':'s'));
  $('market-list').replaceChildren();
  if(!items.length){
-  $('market-list').append(node('p','market-empty',search?'Nenhum contrato corresponde à busca.':
-   freelance?'Nenhuma oferta freelancer disponível nesta região e nível.':
-    'Nenhuma missão disponível. Confira aeroporto-base, nível e habilitações.'));
+  $('market-list').append(node('p','market-empty',
+   (s.mode!=='Demo'&&!s.airports?.ready)?'Aguardando lista oficial do MSFS 2020. Nenhum aeroporto externo será usado.':
+   search?'Nenhum contrato corresponde à busca.':
+   freelance?'Nenhuma oferta freelancer nesta região e nível.':
+   'Nenhuma missão disponível nos aeroportos confirmados pelo MSFS.'));
   return;
  }
  for(const o of items){
@@ -236,7 +240,11 @@ if(s.maintenance_alerts?.fuel_low)alerts.append(node('div','alert-fuel','⚠ Com
 if(s.maintenance_alerts?.condition_low)alerts.append(node('div','alert-wear','⚠ Aeronave ≤20% de condição • Revisão recomendada'));
 alerts.hidden=!alerts.childElementCount;
 const ds=s.dispatch_state||{};
-text('dispatch-progress',m?('Plano VFR: '+(ds.route||'não preparado')+' • Carga: '+(ds.payload||'não preparada')+
+const routeNames={atc_sent:'Enviado ao ATC • GPS/VFR NÃO confirmado',
+ waiting_navdata:'Aguardando aeroportos MSFS',invalid_airport:'Aeroporto ausente do MSFS',
+ loading:'Solicitando plano ao MSFS',error:'Falha de importação'};
+text('dispatch-progress',m?('Plano: '+(routeNames[ds.route]||ds.route||'não preparado')+
+ ' • Carga: '+(ds.payload||'não preparada')+
  (ds.message?' • '+ds.message:'')):'Aceite uma missão para preparar plano e carga automaticamente.');
 text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?s.status:'Conecte ao MSFS em Configurações.');renderMap(s)}
 function svgNode(tag,attrs,textValue){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs||{}))e.setAttribute(k,v);if(textValue!==undefined)e.textContent=textValue;return e}
