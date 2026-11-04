@@ -1,3 +1,11 @@
+## 0.7.3 Midnight Ops Alpha.1 — Layout full-map, heading verdadeiro e mercado WebView2
+
+- **Mapa full-width**: contêiner MapLibre visível antes da inicialização do canvas; observador e resize após janela/área mudarem de tamanho. Pan, scroll e zoom preservados.
+- HUD reorganizado: zoom/centralizar no lado direito, satélite no canto inferior direito, crédito EOxCloudless no canto inferior esquerdo, sem sobreposição. Removido texto indevido "Google Satélite" do canto superior.
+- **Proa verdadeira ao vivo**: SimVar opcional `PLANE_HEADING_DEGREES_TRUE` (radianos); conversão para graus, sinalização de leitura ausente e ícone vetorial ciano rotacionado independentemente da posição/velocidade.
+- **Missões/Freelancer dentro do Midnight Ops**: modal com ofertas do backend, filtro regional/freelancer, pesquisa e aceite com validação existente, sem janelas Tk escondidas atrás da WebView.
+- Sem alterações nas regras homologadas do motor de carreira. Testes automatizados abrangem rumo no solo, dados de contrato, controles e proporções do mapa, seleção de missões e build WinForms.
+
 ## v0.7.2 Midnight Ops Alpha.1 — Hotfix da janela nativa, mapas grátis e clima
 - Reinclui Python.Runtime/CLR e cffi no pacote Windows, desativa UPX e testa WinForms em .exe real.
 - Mapa OpenFreeMap com MapLibre local, sem Google; satélite EOxCloudless 2016 opcional com créditos.
