@@ -48,7 +48,7 @@ class NortheastFreelanceTests(unittest.TestCase):
         self.assertTrue(any(distance_nm(o.origin_lat,o.origin_lon,
                     o.destination_lat,o.destination_lon)>190 for o in freelancer))
         for o in freelancer:
-            self.assertTrue(northeast_airport(self.airports[o.destination]),o.destination)
+            self.assertTrue(northeast_airport(self.catalog.locations[o.destination]),o.destination)
             self.assertLessEqual(distance_nm(o.origin_lat,o.origin_lon,
                     o.destination_lat,o.destination_lon),freelance_range_nm(o.employer_plane)+1)
             self.assertEqual(o.origin,'SBRF')
