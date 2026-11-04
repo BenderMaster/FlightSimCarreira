@@ -1,3 +1,15 @@
+# FlightSimCarreira v0.7.7 Midnight Ops Alpha.1
+
+Esta alpha implementa persistência segura de combustível entre sessões, alertas de 20%, ajuste em litros com devolução/reembolso comprovado, manifestos específicos por contrato, peso de carga com validação de MTOW e readback SimConnect, envio de plano e payload ao aceitar missão, preferência NOAA no METAR de destino e ícone de despacho decolando.
+
+**O carregamento físico no MSFS requer teste no Windows com aeronave real**, e será deixado como pendente quando a aeronave não fornecer estação vazia, não estiver no solo ou tiver peso acima do MTOW. O valor do contrato não comprova que a aeronave recebeu peso; o addon aguarda leitura posterior.
+
+**Navdata dos aeroportos ainda não foi substituída pelas facilities do MSFS.** A integração do SDK precisa de adaptador próprio e teste com aeroportos personalizados; não confundir o mapa existente com posições garantidas no simulador. O ícone principal também aguarda aprovação.
+
+Faça backup de `%APPDATA%\\AeroCarreira-Lab\\carreira.db` com o addon fechado, instale em pasta separada e consulte [procedimentos da v0.7.7](docs/V077_FROTA_CARGA_PESO.md).
+
+---
+
 # FlightSimCarreira v0.7.6 Midnight Ops Alpha.1 — Mapa em contratos, proa e taxiamento
 
 - Menu lateral **Mercado** único; abas internas **Aeronave particular / Serviços freelancer**, preservando as ofertas Nordeste da v0.7.5.
