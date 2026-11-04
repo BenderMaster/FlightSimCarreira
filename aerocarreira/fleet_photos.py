@@ -43,7 +43,7 @@ def normalize_photo(path: Path) -> bytes:
             data=out.getvalue()
     except (OSError,UnidentifiedImageError,Image.DecompressionBombError) as exc:
         raise ValueError('Imagem inválida ou não suportada.') from exc
-    if not data.startswith(b'\\xff\\xd8') or not data.endswith(b'\\xff\\xd9') or len(data)>MAX_OUTPUT_BYTES:
+    if not data.startswith(b'\xff\xd8') or not data.endswith(b'\xff\xd9') or len(data)>MAX_OUTPUT_BYTES:
         raise ValueError('Não foi possível compactar a foto para o Hangar.')
     return data
 
@@ -58,7 +58,7 @@ def _ensure_owned(storage, ref):
 def save_photo(storage, ref, jpeg_bytes):
     _ensure_owned(storage,ref)
     if not isinstance(jpeg_bytes,bytes) or len(jpeg_bytes)>MAX_OUTPUT_BYTES or not (
-            jpeg_bytes.startswith(b'\\xff\\xd8') and jpeg_bytes.endswith(b'\\xff\\xd9')):
+            jpeg_bytes.startswith(b'\xff\xd8') and jpeg_bytes.endswith(b'\xff\xd9')):
         raise ValueError('Foto JPEG inválida.')
     stamp=time_ns()
     with storage.conn:
