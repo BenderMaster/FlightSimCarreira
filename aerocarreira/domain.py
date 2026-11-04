@@ -54,6 +54,7 @@ class Mission:
     manifest_label: str | None = None
     manifest_kind: str | None = None  # passenger, cargo, medical
     passenger_count: int = 0
+    nav_source: str = 'CATALOGO'  # MSFS somente se ambos pontos forem confirmados
 
 
 MISSIONS = (
