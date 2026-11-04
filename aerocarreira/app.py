@@ -67,6 +67,7 @@ class Application:
         self.payload_confirmed=None
         self.low_resource_notice=set()
         self.auto_prepare_due=False
+        self.next_prepare_retry_at=0.0
         self.fuel_penalty_frozen=0.0
         self.fuel_ref_frozen=None
         self.fuel_mode_at_takeoff=False
@@ -1050,10 +1051,11 @@ class Application:
         self.last_sample=s
         self._sync_fuel(s)
         if (self.auto_prepare_due and self.career.mission and self.connected
-                and s.on_ground and s.groundspeed_kt<=2):
+                and s.on_ground and s.groundspeed_kt<=2 and time()>=self.next_prepare_retry_at):
             expected=(self.career.mission.employer_plane if self.career.mission.freelance
                       else (self.storage.fleet_manager().selected() or {}).get('code'))
             if aircraft_model(s.aircraft_title)==expected:
+                self.next_prepare_retry_at=time()+15
                 self._auto_prepare_mission(self.career.mission)
                 self._checkpoint(force=True)
         if self.payload_pending and self.career.mission and self.payload_pending['mission_id']==self.career.mission.id:
