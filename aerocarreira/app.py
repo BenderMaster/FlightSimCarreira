@@ -82,6 +82,8 @@ class Application:
                     self.realism_frozen = float(checkpoint.get('realism_frozen',0.0))
                     self.realism_mission = checkpoint.get('realism_mission')
                 self.fuel_company_guard=checkpoint.get('fuel_company_guard')
+                self.payload_confirmed=checkpoint.get('payload_confirmed')
+                self.payload_pending=checkpoint.get('payload_pending')
                 if self.tracker.phase == Phase.AIRBORNE:
                     self.fuel_penalty_frozen=float(checkpoint.get('fuel_penalty_frozen',0.0))
                     self.fuel_mode_at_takeoff=bool(checkpoint.get('fuel_mode_at_takeoff',False))
@@ -579,16 +581,15 @@ class Application:
             self.storage.set_setting('preflight_v1','')  # outro contrato exige novo despacho
             self._show_mission()
             self._checkpoint(force=True)
+            self.payload_confirmed=None
+            self.payload_pending=None
             self._log(f"Contrato aceito: {m.title} ({m.origin} → {m.destination}).")
             if m.freelance:
                 plane = PLANE_BY_CODE[m.employer_plane]
                 self._log(f"FREELANCER: avião fornecido pelo contratante: {plane.name}.")
                 self._log("Selecione este modelo no MSFS antes de decolar; o addon NÃO muda o avião automaticamente.")
                 if not offline and self.last_sample and not matches_aircraft(self.last_sample.aircraft_title, m.employer_plane):
-                    messagebox.showinfo("Freelancer — aeronave do contratante",
-                        f"Contrato aceito. Avião designado: {plane.name}\n\n"
-                        "Antes de decolar, selecione essa aeronave no MSFS. "
-                        "O SimConnect deve reconhecer o modelo para validar o pagamento.")
+                    self._log('FREELANCER: avião do contratante ainda não selecionado; preparo pendente.')
             self._log('Pode gerar e carregar o plano VFR pelo botão Preparar plano da missão.')
             return True
         except ValueError as exc:
@@ -738,8 +739,7 @@ class Application:
             messagebox.showwarning('Plano VFR','Para carregar automaticamente, conecte o MSFS e mantenha o avião em solo. '
                 'O arquivo .PLN já foi salvo e pode ser importado manualmente.')
             return
-        self.sim.request_plan_load(path)
-        self._log('Solicitação de carga do plano VFR enviada ao SimConnect. Aguardando retorno da API.')
+        self._auto_prepare_mission(m)
 
     def _employment_window(self):
         if self.employment_dialog and self.employment_dialog.winfo_exists():
@@ -890,7 +890,9 @@ class Application:
                 'fuel_penalty_frozen':self.fuel_penalty_frozen,
                 'fuel_mode_at_takeoff':self.fuel_mode_at_takeoff,
                 'fuel_ref_frozen':self.fuel_ref_frozen,
-                'fuel_company_guard':self.fuel_company_guard}
+                'fuel_company_guard':self.fuel_company_guard,
+                'payload_confirmed':self.payload_confirmed,
+                'payload_pending':self.payload_pending}
 
     def _checkpoint(self, force=False):
         # Demo mantém o banco de carreira; checkpoint do voo é para modo MSFS.
@@ -1016,7 +1018,14 @@ class Application:
                     verified=({'clock':real_clock_verified(s),
                                'assists':assistance_verified(s)}
                               if self.mode=='MSFS' else {})
-                    auto_fraction=.03*int(verified.get('clock') is True)+.03*int(verified.get('assists') is True)
+                    verified['payload']=(s.total_weight_lbs is not None and
+                        s.max_gross_weight_lbs is not None and
+                        0<s.total_weight_lbs<=s.max_gross_weight_lbs and
+                        (self.payload_confirmed==self.career.mission.id
+                         or self.career.mission.payload_kg<=0))
+                    auto_fraction=(.03*int(verified.get('clock') is True)
+                                  +.03*int(verified.get('assists') is True)
+                                  +.025*int(verified['payload']))
                     if plan and not aircraft_title_matches(plan.aircraft_title,s.aircraft_title):
                         self._log('Despacho: modelo divergente; sem bônus de checklist.')
                         self.realism_frozen=round(auto_fraction,4)

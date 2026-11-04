@@ -137,3 +137,79 @@ class FuelManager:
             self.db.conn.execute('''UPDATE fleet_fuel SET tanks_json=?,updated_utc=? WHERE aircraft_ref=?''',
                                  (json.dumps(new,sort_keys=True),self.clock(),ref))
         return {'added_gal':round(added,2),'cost_brl':price,'total_gal':round(sum(new.values()),2)}
+
+    def set_target_liters(self, ref: str, target_liters: float) -> dict:
+        """Ajusta o TOTAL em litros preservando distribuição proporcional.
+
+        Compra e devolução são transações atômicas no DB do piloto. Reembolso
+        apenas pelo combustível comprovadamente comprado neste inventário.
+        Não gera saldo pela calibração inicial gratuita do MSFS.
+        """
+        if not isinstance(target_liters,(int,float)) or not isfinite(target_liters):
+            raise ValueError('Quantidade em litros inválida.')
+        old=self.get(ref)
+        if not old or not old['capacities'] or set(old['tanks'])!=set(old['capacities']):
+            raise ValueError('Aguardando leitura completa e válida dos tanques da aeronave no solo.')
+        if self.db.get_setting('fuel_control_enabled')!='1':
+            raise ValueError('Ative o controle de combustível antes de abastecer.')
+        if not self.db.fleet_manager().get(ref):
+            raise ValueError('Aeronave da frota não encontrada.')
+        capacity=sum(old['capacities'].values())
+        current=sum(old['tanks'].values())
+        target=round(float(target_liters)/LITERS_PER_GALLON,5)
+        if target < 0 or target > capacity+.0001:
+            raise ValueError(f'Escolha de 0 até {capacity*LITERS_PER_GALLON:.1f} litros.')
+        if abs(target-current)<.015:
+            raise ValueError('A quantidade informada já corresponde aos tanques.')
+        caps=old['capacities']
+        # Distribui combustível sem transbordar nenhum tanque.
+        new={k:round(target*v/capacity,5) for k,v in caps.items()}
+        difference=target-sum(new.values())
+        last=list(new)[-1]
+        new[last]=round(new[last]+difference,5)
+        if not valid_tanks(new,capacities=caps):
+            raise ValueError('Ajuste resultaria em nível de tanque inválido.')
+        delta_liters=(target-current)*LITERS_PER_GALLON
+        with self.db.conn:
+            self.db.conn.execute("""CREATE TABLE IF NOT EXISTS refundable_fuel_v077
+                (aircraft_ref TEXT PRIMARY KEY, paid_liters REAL NOT NULL DEFAULT 0)""")
+            record=self.db.conn.execute(
+                'SELECT paid_liters FROM refundable_fuel_v077 WHERE aircraft_ref=?',(ref,)).fetchone()
+            paid=max(0,float(record[0])) if record else 0.0
+            added=max(0,delta_liters)
+            removed=max(0,-delta_liters)
+            refund_liters=min(removed,paid)
+            # Não creditar devolução de combustível calibrado gratuitamente.
+            cash=(-round(added*FUEL_BRL_PER_LITER) if added else
+                  round(refund_liters*FUEL_BRL_PER_LITER))
+            if cash:
+                self.db._money_movement(
+                    f'fuel-adjust:{ref}:{time_ns()}',
+                    'abastecimento' if cash<0 else 'devolucao_combustivel',cash,
+                    f'Combustível {delta_liters:+.2f} L ({ref}); reembolso elegível {refund_liters:.2f} L')
+            self.db.conn.execute("""INSERT INTO fleet_fuel
+                (aircraft_ref,model,tanks_json,caps_json,updated_utc)
+                VALUES(?,?,?,?,?) ON CONFLICT(aircraft_ref)
+                DO UPDATE SET tanks_json=excluded.tanks_json,
+                    updated_utc=excluded.updated_utc""",
+                (ref,old['model'],json.dumps(new,sort_keys=True),
+                 json.dumps(caps,sort_keys=True),self.clock()))
+            new_paid=max(0,paid+added-refund_liters)
+            self.db.conn.execute("""INSERT INTO refundable_fuel_v077(aircraft_ref,paid_liters)
+                VALUES(?,?) ON CONFLICT(aircraft_ref)
+                DO UPDATE SET paid_liters=excluded.paid_liters""",(ref,new_paid))
+        # Próxima amostra do worker reconcilia com inventário atualizado.
+        self.restore_attempts.pop(ref,None)
+        self.last_correction.pop(ref,None)
+        return {'target_liters':round(target*LITERS_PER_GALLON,2),
+            'capacity_liters':round(capacity*LITERS_PER_GALLON,2),
+            'change_liters':round(delta_liters,2),'cost_brl':max(0,-cash),
+            'refund_brl':max(0,cash),'non_refundable_liters':round(removed-refund_liters,2),
+            'tanks':new}
+
+    def refundable_liters(self,ref: str) -> float:
+        try:
+            row=self.db.conn.execute('SELECT paid_liters FROM refundable_fuel_v077 WHERE aircraft_ref=?',(ref,)).fetchone()
+        except Exception:
+            return 0.0
+        return max(0,float(row[0])) if row else 0.0

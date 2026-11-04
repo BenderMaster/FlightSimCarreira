@@ -176,7 +176,15 @@ class DashboardPresenter:
             market=dict(icao=self.center.icao,name=self.center.name,lat=self.center.latitude,lon=self.center.longitude) if self.center else None,offers=offers,
             plane=plane,fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
             capacity=capacity,
+            refundable_liters=app.fuel_manager.refundable_liters(plane['ref']) if plane else 0.0,
             live=s.fuel_gallons if s else None),telemetry=telemetry,phase=app.phase_var.get(),bonus=bonus,
+            payload=dict(confirmed=app.payload_confirmed==m.id if m else False,
+                         pending=bool(app.payload_pending) if m else False,
+                         kg=m.payload_kg if m else 0,manifest=m.manifest if m else ''),
+            alerts=([dict(kind='fuel',message=f'Combustível em {quantity/capacity:.0%}. Abasteça em breve.')
+                     for _ in [0] if capacity and quantity is not None and quantity/capacity<=.20] +
+                    [dict(kind='wear',message=f'Integridade da aeronave em {plane["condition"]:.1f}%. Faça manutenção.')
+                     for _ in [0] if plane and plane.get('condition') is not None and plane['condition']<=20]),
             log=app.log_text.get('1.0','end').splitlines()[-50:],
             audit=dict(clock=verified.get('clock'),assists=verified.get('assists'),
                 weather=None,go_arounds=app.tracker.go_arounds,

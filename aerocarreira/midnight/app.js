@@ -48,7 +48,7 @@ function navigate(destination){
 document.querySelector('.workspace').dataset.view=view;
 document.addEventListener('click',e=>{
  const b=e.target.closest('[data-action]');
- if(b){const action=b.dataset.action;if(routeActions.has(action)||action==='market'){navigate(action);return;}command(action);return;}
+ if(b){const action=b.dataset.action;if(action==='refuel'){openRefuelDialog();return;}if(routeActions.has(action)||action==='market'){navigate(action);return;}command(action);return;}
  const tab=e.target.closest('[data-tab]');
  if(tab&&tab.dataset.tab==='weather')showDetails('METEOROLOGIA • MSFS / NOAA',weatherDetails());
 });
@@ -62,7 +62,8 @@ function showDetails(title,body,offer){
  if(selectedOffer){
   text('detail-origin',offer.origin);
   text('detail-destination',offer.destination);
-  text('detail-mission-title',offer.title||offer.category||title);
+  text('detail-mission-title',(offer.title||offer.category||title)+(offer.payload_kg>0?' • '+number(offer.payload_kg,1)+' kg de carga/passageiro':''));
+
   text('detail-distance',offer.distance==null?'—':number(offer.distance,1)+' NM');
   text('detail-duration',offer.minutes==null?'—':'~ '+Math.floor(offer.minutes/60)+'h'+String(offer.minutes%60).padStart(2,'0'));
   text('detail-cruise',offer.cruise_kts!=null?number(offer.cruise_kts)+' kt':'—');
@@ -78,9 +79,49 @@ $('dialog-close').onclick=()=>navigate(previousView);
 $('dialog-accept').onclick=()=>{
  if(selectedOffer?.allowed){command('offer',selectedOffer.id);navigate('dashboard')}
 };
+const refuelDialog=$('refuel-dialog');
+function openRefuelDialog(){
+ const f=state.fuel||{},a=state.plane||{};
+ if(!a.ref||a.ref.startsWith('contract:')||f.capacity==null||f.quantity==null){
+  toast('Tanques não sincronizados para a aeronave própria selecionada.');return;
+ }
+ if(state.connection!=='connected'||state.telemetry?.stale||state.phase!=='SOLO'&&state.phase!=='solo'){
+  toast('Abasteça com MSFS conectado e aeronave parada no solo.');return;
+ }
+ text('refuel-plane',a.title+' • '+a.ref);
+ text('refuel-current',number(f.quantity*3.785411784,1)+' L');
+ text('refuel-capacity',number(f.capacity*3.785411784,1)+' L');
+ const i=$('refuel-target');i.min=0;i.max=(f.capacity*3.785411784).toFixed(2);
+ i.value=(f.quantity*3.785411784).toFixed(1);
+ updateRefuelPreview();refuelDialog.showModal();
+}
+function updateRefuelPreview(){
+ const f=state.fuel||{},value=Number($('refuel-target').value);
+ if(!Number.isFinite(value)||value<0||value>(f.capacity||0)*3.785411784+.01){
+  text('refuel-summary','Quantidade fora da capacidade.');$('refuel-confirm').disabled=true;return;
+ }
+ const delta=value-(f.quantity||0)*3.785411784;
+ const refundable=Math.min(Math.max(0,-delta),f.refundable_liters||0);
+ const amount=Math.round((delta>=0?delta:refundable)*7);
+ text('refuel-summary',delta>=0?
+  'Abastecer: '+number(delta,1)+' L • custo estimado '+money(amount):
+  'Devolver: '+number(-delta,1)+' L • reembolso estimado '+money(amount)+' ('+number(refundable,1)+' L elegíveis)');
+ $('refuel-confirm').disabled=Math.abs(delta)<.05;
+}
+$('refuel-close').onclick=()=>refuelDialog.close();
+$('refuel-cancel').onclick=()=>refuelDialog.close();
+$('refuel-target').addEventListener('input',updateRefuelPreview);
+$('refuel-full').onclick=()=>{$('refuel-target').value=$('refuel-target').max;updateRefuelPreview()};
+$('refuel-half').onclick=()=>{$('refuel-target').value=(Number($('refuel-target').max)/2).toFixed(1);updateRefuelPreview()};
+$('refuel-confirm').onclick=()=>{
+ const v=Number($('refuel-target').value);
+ if(!Number.isFinite(v)||v<0||v>Number($('refuel-target').max)+.01)return;
+ command('refuel_set',v.toFixed(1));refuelDialog.close();
+};
 function bar(id,ratio){$(id).style.width=(Math.min(1,Math.max(0,ratio||0))*100)+'%'}
 function renderOffers(s){const key=JSON.stringify([s.offers,s.mission?.id]);if(key===lastOfferKey)return;lastOfferKey=key;$('offers').replaceChildren();const offers=s.offers.slice(0,5);if(!offers.length){const empty=node('div','empty');empty.append(icon('globe'),node('span','',s.pilot?'Sem propostas disponíveis. Atualize o mercado ou confira sua base e habilitações.':'Cadastre seu piloto para descobrir os contratos da região.'));$('offers').append(empty);return}
-for(const o of offers){const b=node('button','offer'+(s.mission?.id===o.id?' active':'')+(!o.allowed?' locked':''));b.append(icon(o.category.toLowerCase().includes('carga')?'box':'plane'));const d=node('div');d.append(node('strong','',o.category));const meta=node('div','offer-meta');meta.append(node('span','',o.origin+' → '+o.destination),node('span','price',money(o.reward)));d.append(meta,node('small','duration',(o.minutes===null?'—':'~ '+Math.floor(o.minutes/60)+'h'+String(o.minutes%60).padStart(2,'0'))+(!o.allowed?' • Bloqueado':'')));b.append(d);b.onclick=()=>showDetails(o.category,o.origin+' → '+o.destination+'\nPagamento bruto: '+money(o.reward)+'\n'+(o.distance===null?'Distância indisponível':number(o.distance)+' NM • '+o.minutes+' min')+'\n\n'+o.reason,o);$('offers').append(b)}}
+for(const o of offers){const b=node('button','offer'+(s.mission?.id===o.id?' active':'')+(!o.allowed?' locked':''));b.append(icon(o.category.toLowerCase().includes('carga')?'box':'plane'));const d=node('div');d.append(node('strong','',o.category));const meta=node('div','offer-meta');meta.append(node('span','',o.origin+' → '+o.destination),node('span','price',money(o.reward)));if(o.manifest)d.append(node('small','offer-manifest',o.manifest+(o.payload_kg>0?' • '+number(o.payload_kg,0)+' kg':'')));
+d.append(meta,node('small','duration',(o.minutes===null?'—':'~ '+Math.floor(o.minutes/60)+'h'+String(o.minutes%60).padStart(2,'0'))+(!o.allowed?' • Bloqueado':'')));b.append(d);b.onclick=()=>showDetails(o.category,o.origin+' → '+o.destination+'\nPagamento bruto: '+money(o.reward)+'\n'+(o.distance===null?'Distância indisponível':number(o.distance)+' NM • '+o.minutes+' min')+'\n\n'+o.reason,o);$('offers').append(b)}}
 
 
 function openMarket(filter='regional'){navigate(filter==='freelance'?'freelance':'regional')}
@@ -114,7 +155,8 @@ function renderMarketView(s,force=false){
   const title=node('div','offer-line');
   title.append(node('strong','',o.origin+' → '+o.destination),node('span','market-pay',money(o.reward)));
   const chip=node('div','type-chip'+(freelance?' freelance':''),o.category+(freelance?' • FREELANCER':' • AERONAVE PARTICULAR'));
-  item.append(title,chip,node('small','',o.title||'Missão regional'));
+  item.append(title,chip,node('small','',o.title||'Missão regional'),
+     node('small','',o.payload_kg>0?'Carga / pessoas: '+number(o.payload_kg,1)+' kg':'Peso não cadastrado'));
   const plane=freelance?(' • Aeronave do contratante: '+(o.employer_plane||'conforme contrato')):'';
   const duration=o.minutes!=null?' • ~'+Math.floor(o.minutes/60)+'h'+String(o.minutes%60).padStart(2,'0'):'';
   item.append(node('small','',duration+plane));
@@ -216,7 +258,13 @@ const ok=i<2?sensor===true:components[i]?.ok;
 const e=node('div',ok?'ok':'');e.append(icon('check'),node('span','',label));
 e.title=i<2?(sensor==null?'Sensor indisponível • sem bônus':sensor?'Verificado pelo MSFS':'Condição não atendida'):
  (components[i]?'+'+number(components[i].rate*100,1)+'% • ':'')+(i<4?'Conferência manual':'Telemetria/estimativa');$('checklist').append(e)});text('edit-plan',s.bonus?.frozen?'Congelado na decolagem • Ver despacho':'Revisar no despacho →');
-const a=s.plane;const photo=a?.code==='c152';$('aircraft-photo').hidden=!photo;$('photo-credit').hidden=!photo;document.querySelector('.aircraft-art').classList.toggle('has-photo',photo);document.querySelector('.aircraft-art>svg').style.display=photo?'none':'';document.querySelector('.aircraft-art>span').hidden=photo;text('aircraft-name',a?.title||'Nenhuma aeronave');text('aircraft-ref',a?a.ref+' • '+a.kind:'Selecione no Hangar');document.querySelectorAll('[data-action=refuel],[data-action=service]').forEach(b=>{b.disabled=!!a?.ref.startsWith('contract:');b.title=b.disabled?'Aeronave fornecida pelo contratante':''});text('location',a?.airport||'—');text('condition',a?.condition!==null&&a?number(a.condition,1)+'%':'Indisponível');bar('conditionbar',a?a.condition/100:0);$('conditionbar').style.background=a?.condition<40?'#ef6464':a?.condition<75?'#ffc400':'';const f=s.fuel;const q=f.quantity;const ratio=q!==null&&f.capacity?q/f.capacity:null;text('fuel-value',q!==null?number(q,1)+' gal'+(ratio!==null?' ('+number(ratio*100)+'%)':''):'Sem leitura validada');bar('fuelbar',ratio);text('fuel-title','Controle: '+(f.enabled?'ATIVO':'DESLIGADO'));text('fuel-status',f.enabled?(s.connection==='connected'?'Confira a confirmação no registro':'Aguardando MSFS • sem confirmação'):'Penalidade de 30% em R$ e XP');$('fuel-toggle').classList.toggle('on',f.enabled);text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?s.status:'Conecte ao MSFS em Configurações.');renderMap(s)}
+const a=s.plane;const photo=a?.code==='c152';$('aircraft-photo').hidden=!photo;$('photo-credit').hidden=!photo;document.querySelector('.aircraft-art').classList.toggle('has-photo',photo);document.querySelector('.aircraft-art>svg').style.display=photo?'none':'';document.querySelector('.aircraft-art>span').hidden=photo;text('aircraft-name',a?.title||'Nenhuma aeronave');text('aircraft-ref',a?a.ref+' • '+a.kind:'Selecione no Hangar');document.querySelectorAll('[data-action=refuel],[data-action=service]').forEach(b=>{b.disabled=!!a?.ref.startsWith('contract:');b.title=b.disabled?'Aeronave fornecida pelo contratante':''});text('location',a?.airport||'—');text('condition',a?.condition!==null&&a?number(a.condition,1)+'%':'Indisponível');bar('conditionbar',a?a.condition/100:0);$('conditionbar').style.background=a?.condition<40?'#ef6464':a?.condition<75?'#ffc400':'';const f=s.fuel;const q=f.quantity;const ratio=q!==null&&f.capacity?q/f.capacity:null;text('fuel-value',q!==null?number(q,1)+' gal'+(ratio!==null?' ('+number(ratio*100)+'%)':''):'Sem leitura validada');bar('fuelbar',ratio);text('fuel-title','Controle: '+(f.enabled?'ATIVO':'DESLIGADO'));text('fuel-status',f.enabled?(s.connection==='connected'?'Confira a confirmação no registro':'Aguardando MSFS • sem confirmação'):'Penalidade de 30% em R$ e XP');$('fuel-toggle').classList.toggle('on',f.enabled);text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?s.status:'Conecte ao MSFS em Configurações.');
+$('resource-alerts').replaceChildren();
+for(const alert of s.alerts||[]){
+ const item=node('div','resource-alert',alert.message);
+ item.dataset.kind=alert.kind;$('resource-alerts').append(item);
+}
+renderMap(s)}
 function svgNode(tag,attrs,textValue){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs||{}))e.setAttribute(k,v);if(textValue!==undefined)e.textContent=textValue;return e}
 function headingDisplay(t){
  if(t?.stale)return 'POSIÇÃO DESATUALIZADA';

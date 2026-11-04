@@ -106,6 +106,13 @@ class DashboardController:
             # O motor da carreira revalida fase/solo, localização,
             # elegibilidade e contrato ativo em _accept_specific().
             app._accept_specific(m)
+        elif action=='refuel_set':
+            try:
+                amount=float(cmd.get('id','nan'))
+                result=app._set_refuel_target(amount)
+                app._log(f'ABASTECIMENTO: {result["target_liters"]:.1f} L. Aguarde confirmação dos tanques.')
+            except (ValueError,TypeError,KeyError,OSError) as exc:
+                app._log('ABASTECIMENTO RECUSADO: '+str(exc))
         elif action=='fuel':
             if app.tracker.phase==Phase.AIRBORNE:
                 messagebox.showwarning('Combustível','Altere apenas em solo. O modo fica congelado na decolagem.');return

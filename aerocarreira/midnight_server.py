@@ -7,7 +7,7 @@ from pathlib import Path
 from queue import Queue, Full
 
 ACTIONS={'pilot','market','fleet','planning','finance','employment','history','reports','settings','connect','disconnect',
-         'demo','demo_next','legacy','cancel','plan','fuel','refuel','service','avatar','refresh','offer','close','save_log','installed','analyze','locate','local_panel'}
+         'demo','demo_next','legacy','cancel','plan','fuel','refuel','refuel_set','service','avatar','refresh','offer','close','save_log','installed','analyze','locate','local_panel'}
 ASSETS=Path(__file__).with_name('midnight')
 class DashboardServer:
     def __init__(self):
