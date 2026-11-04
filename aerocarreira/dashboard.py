@@ -10,6 +10,7 @@ from .employment import generate_employer_routes
 from .pilot import level_progress
 from .domain import AIRPORTS, Phase, distance_nm
 from .planning import inspect_preflight
+from .flight_audit import real_clock_verified, assistance_verified
 from .finance import estimated_minutes
 from .reputation import pilot_reputation
 from .weather import MetarCache, sim_conditions, within_nm
@@ -82,16 +83,19 @@ class DashboardPresenter:
         self.center=center
         if not center:self.offers={};return
         stats=db.pilot_stats(); emp=db.employment_state();now=time();day=int(now//86400)
-        key=(center.icao,day,stats['xp'],tuple(sorted(stats['qualifications'])),emp['mode'],emp['employer_code'])
+        generator_version='nordeste-v1'
+        key=(center.icao,day,stats['xp'],tuple(sorted(stats['qualifications'])),emp['mode'],
+             emp['employer_code'],generator_version)
         if key==self.market_key and not force:
             self.offers={k:v for k,v in self.offers.items() if not db.contract_completed(k)}
             return
         self.market_key=key
-        if force or not db.offer_cache_valid(center.icao,now):
+        if force or db.get_setting('offer_generator')!=generator_version or not db.offer_cache_valid(center.icao,now):
             offers=generate_offers(center,cat,stats,db.owned_qualifications(),db.family_experience(),day)
             if emp['mode']=='empregado':
                 offers+=generate_employer_routes(emp['employer_code'],center,cat,stats,db.owned_qualifications(),db.family_experience(),day)
             db.save_offers(center.icao,offers,now=now,valid_s=(day+1)*86400-now)
+            db.set_setting('offer_generator',generator_version)
         self.offers={m.id:m for m in db.active_offers(center.icao,now)
                      if not m.company_code or (emp['mode']=='empregado' and emp['employer_code']==m.company_code)}
 
@@ -110,7 +114,9 @@ class DashboardPresenter:
             plane={'ref':'contract:'+m.id,'code':m.employer_plane,'title':assigned.name,
                    'condition':None,'airport':m.origin,'kind':'Aeronave do contratante'}
             fuel=app.fuel_manager.get(plane['ref'])
-        bonus=inspect_preflight(m,plan) if m and plan else None
+        verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s)}
+                  if s and app.mode=='MSFS' and app.connected and time()-s.timestamp<10 else {})
+        bonus=inspect_preflight(m,plan,verified=verified) if m and plan else None
         if app.tracker.phase==Phase.AIRBORNE:
             bonus= dict(bonus or {},bonus_fraction=app.realism_frozen,frozen=True)
         rows=db.conn.execute("SELECT kind, SUM(amount) FROM finance_ledger GROUP BY kind").fetchall()
@@ -160,4 +166,9 @@ class DashboardPresenter:
             plane=plane,fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
             capacity=capacity,
             live=s.fuel_gallons if s else None),telemetry=telemetry,phase=app.phase_var.get(),bonus=bonus,
-            log=app.log_text.get('1.0','end').splitlines()[-50:])
+            log=app.log_text.get('1.0','end').splitlines()[-50:],
+            audit=dict(clock=verified.get('clock'),assists=verified.get('assists'),
+                weather=None,go_arounds=app.tracker.go_arounds,
+                touch_and_go=app.tracker.touch_and_go,
+                taxi_violations=app.tracker.taxi_violations,
+                hard_g_events=app.tracker.hard_g_events))

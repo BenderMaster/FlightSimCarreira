@@ -45,7 +45,8 @@ class Preflight:
         return asdict(self)
 
 
-def inspect_preflight(mission: Mission, data: Preflight, cruise_kts: float = 90.0) -> dict:
+def inspect_preflight(mission: Mission, data: Preflight, cruise_kts: float = 90.0,
+                      verified: dict | None = None) -> dict:
     if data.mission_id != mission.id:
         raise ValueError('Plano não corresponde ao contrato ativo.')
     if not (500 <= data.altitude_ft <= 45000):
@@ -71,11 +72,13 @@ def inspect_preflight(mission: Mission, data: Preflight, cruise_kts: float = 90.
     weight_ok = bool(data.payload_checked and data.planned_weight_lbs is not None and
                      data.max_weight_lbs is not None and isfinite(data.planned_weight_lbs) and
                      isfinite(data.max_weight_lbs) and 0 < data.planned_weight_lbs <= data.max_weight_lbs)
-    # Bônus máximos = 18%; clima/hora/assistência são declarações conscientes.
+    # Preset meteorológico e opções globais NÃO são comprovados pelo
+    # SimConnect externo. Declarações NÃO pontuam como dados automáticos.
+    checked=verified or {}
     components = {
-        'Clima ao vivo (declaração)':(.03, data.real_weather_declared),
-        'Horário real (declaração)':(.03, data.real_time_declared),
-        'Assistências realistas (declaração)':(.03, data.assists_realistic_declared),
+        'Clima ao vivo (não verificável)':(.03, False),
+        'Relógio UTC sincronizado (telemetria)':(.03, checked.get('clock') is True),
+        'Assistência de voo desativada (telemetria)':(.03, checked.get('assists') is True),
         'Pista e iluminação conferidas (declaração)':(.02, data.runway_checked),
         'Rota revisada (declaração)':(.02, data.route_checked),
         'Combustível e reserva conferidos (telemetria/estimativa)':(.025, fuel_ok),

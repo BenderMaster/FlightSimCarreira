@@ -215,13 +215,16 @@ class Storage:
                         aircraft_title: str | None = None,
                         fuel_start: float | None = None, fuel_end: float | None = None,
                         realism_fraction: float = 0.0, destination: str | None = None,
-                        fuel_penalty_fraction: float = 0.0, fuel_prepaid: bool = False) -> bool:
+                        fuel_penalty_fraction: float = 0.0, fuel_prepaid: bool = False,
+                        flight_xp_extra: int = 0) -> bool:
         """Pouso+crédito+estado em UMA transação; repetição não duplica dinheiro.
 
         A identidade é determinada pela decolagem original e sobrevive a reinícios.
         """
         if not isinstance(realism_fraction,(float,int)) or not 0 <= realism_fraction <= .18:
             raise ValueError('Bônus de realismo inválido')
+        if isinstance(flight_xp_extra,bool) or not isinstance(flight_xp_extra,int) or not -15<=flight_xp_extra<=7:
+            raise ValueError('XP de segurança fora dos limites')
         if not isinstance(fuel_penalty_fraction,(float,int)) or fuel_penalty_fraction not in (0,.3):
             raise ValueError('Penalidade de combustível inválida')
         flight_key = f"takeoff:{float(start['timestamp']):.6f}:{float(start['lat']):.7f}:{float(start['lon']):.7f}"
@@ -319,7 +322,10 @@ class Storage:
                 if self.get_pilot() is not None:
                     xp_gross = flight_xp(actual_reward) + (round(flight_xp(actual_reward)*realism_fraction)
                                                            if actual_reward > 0 else 0)
-                    xp_net = xp_gross - round(xp_gross*fuel_penalty_fraction)
+                    # Só altera XP do voo atual; arremetida nunca retira XP
+                    # previamente creditado. Ledger é idempotente por flight_key.
+                    xp_gross=max(0,xp_gross+flight_xp_extra)
+                    xp_net = max(0,xp_gross - round(xp_gross*fuel_penalty_fraction))
                     self.conn.execute("INSERT OR IGNORE INTO pilot_xp_ledger(flight_key,xp,awarded_utc) VALUES(?,?,?)",
                                       (flight_key, xp_net, time()))
                 self.conn.execute("INSERT INTO settings(key,value) VALUES('balance',?) "
