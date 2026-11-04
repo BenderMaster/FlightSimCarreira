@@ -198,4 +198,9 @@ class FuelManager:
         old=self.get(ref)
         if not old or not old['capacities']:
             raise ValueError('Tanques ainda não sincronizados.')
-        return self.set_target_liters(ref,sum(old['capacities'].values())*LITERS_PER_GALLON)
+        before=sum(old['tanks'].values())
+        result=self.set_target_liters(ref,sum(old['capacities'].values())*LITERS_PER_GALLON)
+        # API pública v0.7.5 preservada para integrações e testes existentes.
+        result['added_gal']=round(result['target_gallons']-before,2)
+        result['total_gal']=result['target_gallons']
+        return result
