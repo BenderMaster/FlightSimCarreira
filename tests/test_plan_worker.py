@@ -44,11 +44,11 @@ class WorkerPlanTests(unittest.TestCase):
                     try:
                         event=q.get(timeout=.04)
                         msgs.append(event)
-                        if event[0]=='plan_loaded':break
+                        if event[0]=='plan_atc_sent':break
                     except Empty:pass
                 worker.stop();worker.thread.join(timeout=2)
             self.assertEqual(loaded,[str(path)])
-            self.assertTrue(any(x[0]=='plan_loaded' and 'Verifique' in x[1] for x in msgs),msgs)
+            self.assertTrue(any(x[0]=='plan_atc_sent' and 'ATC' in x[1] for x in msgs),msgs)
 
     def test_does_not_load_untrusted_file_extension(self):
         called=[]
