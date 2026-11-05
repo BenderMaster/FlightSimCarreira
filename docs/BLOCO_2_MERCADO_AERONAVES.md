@@ -35,3 +35,10 @@ Backup obrigatório do `carreira.db` com aplicativo fechado, e instalar em pasta
 - Aba Novas e catálogo usam uma etiqueta NEW. A ficha da aeronave tem rolagem própria e o rodapé não repete instruções.
 - O catálogo econômico mantém os cinco modelos atuais; os requisitos de aeronaves de contratos freelancer não se confundem com regras novas de aquisição.
 - Geração de contratos computa preços com distância, modalidade, nível e reputação. O valor é persistido antes do aceite, e não sobe retroativamente para missões aceitas.
+
+## Atualização Alpha.3 — fotos de showcase aprovadas
+
+- Quatro imagens realistas originais, fornecidas/geradas no contexto do projeto e aprovadas pelo piloto, substituem os desenhos da Alpha.2. Modelos: `c172`, `g58`, `kingair` e `cj4`.
+- Assets locais: `aerocarreira/midnight/market-{c172,g58,kingair,cj4}.jpg` (1100 × 825, JPEG). Compatíveis com WebView2 sem dependência de internet.
+- O C152 continua com seu JPG e crédito originais. Fotos personalizadas na Frota/Venda continuam tendo precedência.
+- Não modificar tabelas de dinheiro nem banco de carreira para essa troca puramente visual.

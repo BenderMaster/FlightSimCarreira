@@ -24,8 +24,8 @@
    if(owned?.photo_url)return {url:owned.photo_url,credit:false};
   }
   if(item.code==='c152')return {url:'/c152.jpg',credit:true};
-  const art={c172:'/market-c172.svg',g58:'/market-g58.svg',
-             kingair:'/market-kingair.svg',cj4:'/market-cj4.svg'};
+  const art={c172:'/market-c172.jpg',g58:'/market-g58.jpg',
+             kingair:'/market-kingair.jpg',cj4:'/market-cj4.jpg'};
   return art[item.code]?{url:art[item.code],credit:false}:null;
  }
  function quoteFor(item,market){

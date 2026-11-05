@@ -184,14 +184,21 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(self.request('/command',{'action':'aircraft_buy_new','id':None})[0],400)
         self.assertEqual(self.request('/command',{'action':'aircraft_rewrite_balance','id':'1'})[0],400)
 
-    def test_offline_aircraft_illustrations_are_allowlisted(self):
+    def test_offline_aircraft_showcase_photos_are_allowlisted(self):
+        from io import BytesIO
+        from PIL import Image
         for model in ('c172','g58','kingair','cj4'):
             with self.subTest(model=model):
-                status,body=self.request('/market-'+model+'.svg')
+                status,body=self.request('/market-'+model+'.jpg')
                 self.assertEqual(status,200)
-                self.assertIn(b'<svg',body)
-                self.assertGreater(len(body),800)
-        self.assertEqual(self.request('/market-invalid.svg')[0],404)
+                self.assertTrue(body.startswith(b'\xff\xd8\xff'))
+                self.assertGreater(len(body),15000)
+                with Image.open(BytesIO(body)) as photo:
+                    self.assertEqual(photo.format,'JPEG')
+                    self.assertGreaterEqual(photo.width,1000)
+                    self.assertGreaterEqual(photo.height,700)
+        self.assertEqual(self.request('/market-invalid.jpg')[0],404)
+        self.assertEqual(self.request('/market-c172.svg')[0],404)
 
     def test_static_page_contains_no_session_token(self):
         code,body=self.request('/');self.assertEqual(code,200);self.assertNotIn(self.server.token.encode(),body)
