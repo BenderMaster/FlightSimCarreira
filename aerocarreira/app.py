@@ -700,7 +700,8 @@ class Application:
                 table.delete(row)
             offers_by_id.clear()
             now=time()
-            if force or not self.storage.offer_cache_valid(center.icao, now):
+            if (force or self.storage.get_setting('reward_model_version') != '2'
+                    or not self.storage.offer_cache_valid(center.icao, now)):
                 day=int(now//86400)
                 # Uma geração por dia/região; clicando atualizar não cria infinitos contratos.
                 offers=generate_offers(center,catalog,self.storage.pilot_stats(),
@@ -712,6 +713,7 @@ class Application:
                         self.storage.family_experience(),day)
                 self.storage.save_offers(center.icao, offers, now=now,
                                          valid_s=(day+1)*86400-now)
+                self.storage.set_setting('reward_model_version', '2')
             for m in self.storage.active_offers(center.icao,now):
                 if m.company_code and (self.storage.employment_state()['mode']!='empregado'
                     or self.storage.employment_state()['employer_code']!=m.company_code):

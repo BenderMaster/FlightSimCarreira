@@ -48,7 +48,8 @@ def estimated_minutes(distance_nm: float, cruise_kts: float = 90) -> int:
 
 
 def market_reward(distance_nm: float, multiplier: float = 1.0, *, freelance: bool = False,
-                  cruise_kts: float = 90) -> int:
+                  cruise_kts: float = 90, level: int = 1,
+                  reputation: float = 50) -> int:
     """Referência: ~R$1500 por 20min, curta distância atrativa.
 
     Freelancer não possui ativo nem despesas de combustível do contratante;
@@ -57,8 +58,20 @@ def market_reward(distance_nm: float, multiplier: float = 1.0, *, freelance: boo
     if multiplier <= 0 or not isfinite(multiplier):
         raise ValueError('Multiplicador inválido')
     minutes = estimated_minutes(distance_nm, cruise_kts)
-    # base de deslocamento + remuneração por minuto, piso para rotas breves
+    # Valor cotado ANTES do aceite, persistido na oferta e no contrato.
+    # No nível 1 com reputação neutra preservamos a tarifa de referência.
+    if not isfinite(float(reputation)):
+        raise ValueError("Reputação inválida")
+    career_level = max(1, min(15, int(level)))
+    score = max(0.0, min(100.0, float(reputation)))
+    level_factor = 1.0 + 0.20 * (career_level - 1)
+    reputation_factor = 0.75 + 0.005 * score
+    # Rotas curtas: valorização do serviço, sem gratificar voo fictício.
+    short_haul = 1.0
+    if career_level >= 2:
+        short_haul += 0.40 * max(0.0, (75.0 - distance_nm) / 75.0)
     gross = max(1050, 550 + 48 * minutes) * multiplier
+    gross *= level_factor * reputation_factor * short_haul
     if freelance:
         gross *= .78
     return int(round(gross / 10) * 10)

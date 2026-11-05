@@ -221,6 +221,8 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
            for a in catalog.locations.values() if a.icao!=origin.icao and northeast_airport(a)]
     seed = int.from_bytes(hashlib.sha256(f"{origin.icao}:{period}:nordeste-v1".encode()).digest()[:8], 'big')
     rng = Random(seed)
+    reward_level = int(stats.get('level', pilot_level(int(stats.get('xp', 0)))))
+    reward_rep = float(stats.get('reputation', 50))
     allowed = [t for t in TYPES if eligibility(Mission("x",origin.icao,origin.icao,"",0,
                   category=t.code),stats,qualifications,family_flights)[0]]
     offers: list[Mission] = []
@@ -239,7 +241,7 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
             continue
         target, dist = found
         seen.add((kind.code,target.icao,False))
-        reward = market_reward(dist, kind.pay_factor)
+        reward = market_reward(dist, kind.pay_factor, level=reward_level, reputation=reward_rep)
         offers.append(Mission(f"REG-{origin.icao}-{period}-{slot:02}",origin.icao,target.icao,
             f"{kind.title} • {target.name[:24]}",reward,category=kind.code,
             origin_lat=origin.latitude,origin_lon=origin.longitude,
@@ -268,7 +270,8 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
         hi=max(lo+1,(bucket+1)*len(choices_for_type)//3)
         target,dist=rng.choice(choices_for_type[lo:hi])
         salary=market_reward(dist,1+kind.min_level*.09,freelance=True,
-                             cruise_kts=AIRCRAFT_ECONOMY[plane.code].cruise_kts)
+                             cruise_kts=AIRCRAFT_ECONOMY[plane.code].cruise_kts,
+                             level=reward_level, reputation=reward_rep)
         offers.append(Mission(f"FREE-{origin.icao}-{period}-{slot:02}",origin.icao,target.icao,
             f"Freelancer • {kind.title} • {plane.name}",salary,category=kind.code,freelance=True,
             employer_plane=plane.code,origin_lat=origin.latitude,origin_lon=origin.longitude,

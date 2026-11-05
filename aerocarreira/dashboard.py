@@ -112,8 +112,8 @@ class DashboardPresenter:
         self.center=center
         if not center:self.offers={};return
         stats=db.pilot_stats(); emp=db.employment_state();now=time();day=int(now//86400)
-        generator_version='msfs-airports-session-v2' if app.mode=='MSFS' else 'nordeste-v1'
-        key=(center.icao,day,stats['xp'],tuple(sorted(stats['qualifications'])),emp['mode'],
+        generator_version='msfs-airports-session-v2-pay-v2' if app.mode=='MSFS' else 'nordeste-v1-pay-v2'
+        key=(center.icao,day,stats['xp'],stats['reputation'],tuple(sorted(stats['qualifications'])),emp['mode'],
              emp['employer_code'],generator_version,len(cat.locations))
         if key==self.market_key and not force:
             self.offers={k:v for k,v in self.offers.items() if not db.contract_completed(k)}

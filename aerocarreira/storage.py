@@ -6,6 +6,7 @@ from .pilot import validate_pilot, qualification_eligibility, QUAL_BY_CODE, flig
 from .contracts import aircraft_family, aircraft_model, pilot_level, next_level_xp
 from .domain import Mission
 from .finance import AIRCRAFT_ECONOMY, brl, flight_operating_cost
+from .reputation import pilot_reputation
 from .fleet import init_fleet, FleetManager
 from .fleet_photos import init_photos
 from .employment import (Vacancy, EMPLOYER_BY_CODE, vacancies, weekly_period,
@@ -507,7 +508,8 @@ class Storage:
         level = pilot_level(int(xp))
         return {"flights": int(flights), "hours": float(duration) / 3600,
                 "xp": int(xp), "level": level, "next_level_xp": next_level_xp(level),
-                "qualifications": self.owned_qualifications()}
+                "qualifications": self.owned_qualifications(),
+                 "reputation": pilot_reputation(self.conn)["score"]}
 
     def family_experience(self) -> dict[str, int]:
         """Histórico por família de aeronave. Voos antigos continuam no diário."""

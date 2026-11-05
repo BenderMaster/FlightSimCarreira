@@ -24,6 +24,19 @@ class FinanceCoreTests(unittest.TestCase):
         self.assertLessEqual(market_reward(22.5),1650)
         self.assertGreater(market_reward(50),market_reward(22.5))
 
+    def test_published_rewards_scale_with_career_and_reputation(self):
+        baseline=market_reward(22.5,level=1,reputation=50)
+        at_level_four=market_reward(22.5,level=4,reputation=50)
+        better_reputation=market_reward(22.5,level=4,reputation=80)
+        self.assertGreater(at_level_four,baseline)
+        self.assertGreater(better_reputation,at_level_four)
+        self.assertGreater(market_reward(22.5,level=7,reputation=80),
+                           better_reputation)
+        self.assertGreater(market_reward(20,level=4,reputation=70)/20,
+                           market_reward(70,level=4,reputation=70)/70)
+        self.assertLess(market_reward(22.5,level=4,reputation=50,freelance=True),
+                        at_level_four)
+
     def test_freelancer_and_levels(self):
         self.assertLess(market_reward(22.5,freelance=True),market_reward(22.5))
         self.assertLess(mission_radius_by_level(1),mission_radius_by_level(10))
