@@ -207,10 +207,16 @@ with tempfile.TemporaryDirectory() as temp:
             }""")
             assert heading['before'] and 'rotate(-30)' in heading['before'],heading
             assert heading['after'] and 'rotate(90)' in heading['after'],heading
-            page.evaluate("""() => renderMap({...state,mode:'MSFS',telemetry:{
-                lat:-8.12,lon:-34.92,heading_deg:301,heading_magnetic_deg:322,stale:false}})""")
-            assert '322° MAG' in page.locator('#map-mode').inner_text()
-            assert '301° TRUE' in page.locator('#map-mode').inner_text()
+            # Render e leitura devem ocorrer no MESMO frame JS: o poll do
+            # snapshot roda a cada 500ms e pode substituir o texto entre
+            # duas leituras Playwright (falso negativo intermitente).
+            heading_label=page.evaluate("""() => {
+              renderMap({...state,mode:'MSFS',telemetry:{
+                lat:-8.12,lon:-34.92,heading_deg:301,heading_magnetic_deg:322,stale:false}});
+              return document.getElementById('map-mode').innerText;
+            }""")
+            assert '322° MAG' in heading_label,heading_label
+            assert '301° TRUE' in heading_label,heading_label
 
             page.locator('#zoom-in').click();page.locator('#recenter').click()
             # Native action routed through the command queue, reflected in telemetry.
