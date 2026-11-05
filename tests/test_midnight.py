@@ -170,6 +170,20 @@ class TransportTests(unittest.TestCase):
         for _ in range(32):self.server.commands.put({'action':'settings'})
         self.assertEqual(self.request('/command',{'action':'settings'})[0],429)
         self.assertEqual(self.request('/../storage.py')[0],404)
+    def test_aircraft_market_routes_are_allowlisted_and_authenticated(self):
+        self.assertEqual(self.request('/aircraft-market.js')[0],200)
+        code,body=self.request('/')
+        self.assertEqual(code,200)
+        self.assertIn(b'id="aircraft-market-page"',body)
+        self.assertIn(b'id="aircraft-checkout-dialog"',body)
+        command={'action':'aircraft_buy_new','id':'c152|f0c7c7f3-3e4a-4d7b-9538-aea2b43ff5fd'}
+        self.assertEqual(self.request('/command',command)[0],202)
+        self.assertEqual(self.server.commands.get_nowait(),command)
+        self.assertEqual(self.request('/command',command,auth=False)[0],403)
+        self.assertEqual(self.request('/command',command,origin=False)[0],403)
+        self.assertEqual(self.request('/command',{'action':'aircraft_buy_new','id':None})[0],400)
+        self.assertEqual(self.request('/command',{'action':'aircraft_rewrite_balance','id':'1'})[0],400)
+
     def test_static_page_contains_no_session_token(self):
         code,body=self.request('/');self.assertEqual(code,200);self.assertNotIn(self.server.token.encode(),body)
         self.assertIn(b'<img src="/brand-icon.png"',body)
