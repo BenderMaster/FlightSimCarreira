@@ -133,7 +133,7 @@ class AircraftMarketplaceTests(unittest.TestCase):
         self.assertFalse(self.snapshot()['ready'])
         with self.assertRaises(ValueError):
             self.transact('aircraft_buy_new','c152|'+token())
-        self.app.tracker.phase=Phase.IDLE
+        self.app.tracker.phase=Phase.GROUND
         self.app.career.mission=SimpleNamespace(id='mission')
         self.assertFalse(self.snapshot()['ready'])
         with self.assertRaises(ValueError):
