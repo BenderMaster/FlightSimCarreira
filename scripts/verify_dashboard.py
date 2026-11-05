@@ -167,7 +167,7 @@ with tempfile.TemporaryDirectory() as temp:
             page.locator('[data-aircraft-market-tab="rent"]').click()
             page.locator('#am-duration').select_option('72')
             assert page.locator('#am-price').inner_text()
-            # Simula apenas o estado de cotação liberada; nunca efetua transação no save QA.
+            # Simula só a cotação liberada e valida o modal sem pagar na carreira QA.
             quote=page.evaluate("""() => {
               const original=state;
               const m=original.aircraft_market;
@@ -175,9 +175,19 @@ with tempfile.TemporaryDirectory() as temp:
               const enabled=!document.getElementById('am-confirm-open').disabled;
               const price=document.getElementById('am-price').textContent;
               const balance=document.getElementById('am-after').textContent;
-              return {enabled,price,balance};
+              document.getElementById('am-confirm-open').click();
+              const dialogOpen=document.getElementById('aircraft-checkout-dialog').open;
+              const desc=document.getElementById('aircraft-checkout-description').textContent;
+              document.getElementById('am-cancel').click();
+              const dialogClosed=!document.getElementById('aircraft-checkout-dialog').open;
+              render(original);
+              return {enabled,price,balance,dialogOpen,dialogClosed,desc};
             }""")
-            assert quote['enabled'] and 'R
+            assert quote['enabled'] and quote['price'].startswith('R') and quote['balance'].startswith('R'),quote
+            assert quote['dialogOpen'] and quote['dialogClosed'] and 'alugar' in quote['desc'],quote
+            page.locator('[data-aircraft-market-tab="sell"]').click()
+            assert page.locator('#am-confirm-open').is_disabled()
+            page.locator('.nav-item[data-action="planning"]').click()
             assert 'PLANEJAMENTO' in page.locator('#module-title').inner_text()
             assert page.locator('.sidebar').is_visible()
             page.locator('.nav-item[data-action="dashboard"]').click()
