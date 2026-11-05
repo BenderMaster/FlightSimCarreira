@@ -184,6 +184,15 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(self.request('/command',{'action':'aircraft_buy_new','id':None})[0],400)
         self.assertEqual(self.request('/command',{'action':'aircraft_rewrite_balance','id':'1'})[0],400)
 
+    def test_offline_aircraft_illustrations_are_allowlisted(self):
+        for model in ('c172','g58','kingair','cj4'):
+            with self.subTest(model=model):
+                status,body=self.request('/market-'+model+'.svg')
+                self.assertEqual(status,200)
+                self.assertIn(b'<svg',body)
+                self.assertGreater(len(body),800)
+        self.assertEqual(self.request('/market-invalid.svg')[0],404)
+
     def test_static_page_contains_no_session_token(self):
         code,body=self.request('/');self.assertEqual(code,200);self.assertNotIn(self.server.token.encode(),body)
         self.assertIn(b'<img src="/brand-icon.png"',body)
