@@ -5,7 +5,7 @@ const icon=n=>{const s=document.createElementNS('http://www.w3.org/2000/svg','sv
 const node=(tag,cls,value)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined)e.textContent=value;return e};
 let selectedFleetRef=null,fleetViewKey='',fleetListKey='';
 let state={},zoom=1,mapPanX=0,mapPanY=0,selectedOffer=null,lastOfferKey='',pollFailures=0,planeTrack=null,planeBearing=0,recenterPlane=false,marketLastKey='',view='dashboard',previousView='dashboard';
-const nav=[['home','Dashboard','dashboard'],['globe','Mercado','regional'],['hangar','Frota / Hangar','fleet'],['map','Planejamento de Voo','planning'],['pilot','Meu Piloto','pilot'],['coins','Finanças','finance'],['building','Companhias','employment'],['book','Logbook','history'],['chart','Análise e Relatórios','reports'],['gear','Configurações','settings']];
+const nav=[['home','Dashboard','dashboard'],['globe','Mercado','regional'],['hangar','Frota / Hangar','fleet'],['store','Mercado de Aeronaves','aircraft_market'],['map','Planejamento de Voo','planning'],['pilot','Meu Piloto','pilot'],['coins','Finanças','finance'],['building','Companhias','employment'],['book','Logbook','history'],['chart','Análise e Relatórios','reports'],['gear','Configurações','settings']];
 for(const [ic,label,action] of nav){const b=node('button','nav-item'+(action==='dashboard'?' active':''));b.append(icon(ic),node('span','',label));b.dataset.action=action;$('navigation').append(b)}
 const metricNames=[['ias','gauge','Velocidade (IAS)','kt'],['gs','gauge','Velocidade (GS)','kt'],['alt','mountain','Altitude (MSL)','ft'],['agl','layers','Altura (AGL)','ft'],['vs','arrows','Razão Vertical','ft/min'],['phase','plane','Fase do Voo','']];
 for(const [key,ic,label] of metricNames){const m=node('div','metric');m.append(icon(ic));const v=node('strong','','—');v.id='metric-'+key;m.append(v,node('small','',label));$('metrics').append(m)}
@@ -24,7 +24,7 @@ function mountSharedMap(onDetails){
  }else if(sharedMapArea.parentElement!==dashboardMapHost){
   dashboardMapHost.insertBefore(sharedMapArea,dashboardMapHost.querySelector('.map-tabs'));
  }
- requestAnimationFrame(()=>requestAnimationFrame(()=>{
+ if(view==='dashboard'||view==='details')requestAnimationFrame(()=>requestAnimationFrame(()=>{
   window.FSCFreeMap?.resizeToContainer?.();
   renderMap(state);
  }));
@@ -35,9 +35,11 @@ function navigate(destination){
  view=destination;
  const market=view==='regional'||view==='freelance',
        fleet=view==='fleet',
-       module=!market&&!fleet&&view!=='dashboard'&&view!=='details';
+       aircraftMarket=view==='aircraft_market',
+       module=!market&&!fleet&&!aircraftMarket&&view!=='dashboard'&&view!=='details';
  document.querySelector('.workspace').dataset.view=view;
  $('market-page').hidden=!market;$('fleet-page').hidden=!fleet;
+ $('aircraft-market-page').hidden=!aircraftMarket;
  $('module-page').hidden=!module;$('details').hidden=view!=='details';
  document.querySelectorAll('.nav-item').forEach(button=>{
   const current=view==='details'?previousView:view;
@@ -48,6 +50,7 @@ function navigate(destination){
  mountSharedMap(view==='details'&&!!selectedOffer);
  if(market)renderMarketView(state,true);
  if(fleet)renderFleetView(state,true);
+ if(aircraftMarket)window.FSCAircraftMarket?.render(state,true);
  if(module)renderModuleView(state);
 }
 document.querySelector('.workspace').dataset.view=view;
@@ -339,7 +342,7 @@ function renderWeather(s){
  }
 }
 function render(s){state=s;if(!s.progress)return;const p=s.pilot;const country=s.country==='BR'?'':s.country?' · '+s.country:'';text('callsign',(p?.callsign||'CADASTRAR PILOTO')+country);if(s.country==='BR'){const flag=node('span','flag-br');flag.title='Brasil • país da base';$('callsign').append(flag)}text('qualification',p?({autonomo:'Piloto autônomo',empregado:'Piloto empregado',proprietario:'Companhia própria'}[s.employment]||s.employment)+' • '+s.summary.qualifications.join(' / '):'Crie sua carreira');text('level',p?'NÍVEL '+s.progress.level:'NÍVEL —');text('xp',p?'XP '+s.progress.xp+' / '+s.progress.target+' ('+Math.round(s.progress.fraction*100)+'%)':'XP —');bar('xpbar',s.progress.fraction);text('balance',money(s.balance));text('connection',{connected:'Conectado',reconnecting:'Reconectando',disconnected:'Desconectado'}[s.connection]);$('led').style.background={connected:'#86fc24',reconnecting:'#ffc400',disconnected:'#e06a75'}[s.connection];$('avatar').hidden=!s.avatar;if(s.avatar&&$('avatar').src!==s.avatar)$('avatar').src=s.avatar;
-text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderMarketView(s);renderModuleView(s);renderFleetView(s);renderSummary(s);
+text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderMarketView(s);renderModuleView(s);renderFleetView(s);window.FSCAircraftMarket?.render(s);renderSummary(s);
 const m=s.mission;const bonus=s.bonus?.bonus_fraction||0;text('route',m?m.origin+' → '+m.destination:'Selecione uma missão');text('distance',m?'Distância: '+(m.distance===null?'—':number(m.distance)+' NM')+'  |  Prev. voo: '+(m.minutes===null?'—':m.minutes+' min'):'Explore o mercado regional para começar');text('category',m?.category||'');text('reward',m?money(m.reward):'—');text('bonus-value',m?'+'+number(bonus*100,1)+'%':'—');text('mission-status',m?(s.bonus?.frozen?'EM VOO • CONGELADO':'RESERVADO'):'');
 for(const [key,, ,unit] of metricNames){const e=$('metric-'+key);if(key==='phase'){e.textContent=s.phase;e.style.color='#8df63e';continue}e.replaceChildren(document.createTextNode(s.telemetry?number(s.telemetry[key]):'—'),node('small','',' '+unit))}text('telemetry-status',s.mode==='Demo'?'DEMONSTRAÇÃO':s.telemetry?.stale?'ÚLTIMA LEITURA • SEM ATUALIZAÇÃO':s.connection==='connected'?'':'AGUARDANDO MSFS');renderWeather(s);text('log',s.log.slice(-8).join('\n'));$('log').scrollTop=$('log').scrollHeight;text('realism-total',m?'+'+number(bonus*100,1)+'%':'—');
 const labels=['Relógio UTC verificado','Assistência de voo verificada','Pista / iluminação revisada','Rota revisada','Combustível adequado','Peso dentro do limite'];const components=Object.values(s.bonus?.components||{});$('checklist').replaceChildren();labels.forEach((label,i)=>{const sensor=i===0?s.audit?.clock:i===1?s.audit?.assists:undefined;
