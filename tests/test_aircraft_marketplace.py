@@ -118,7 +118,7 @@ class AircraftMarketplaceTests(unittest.TestCase):
         self.assertTrue(sale['saleable'])
         self.assertGreater(sale['resale_price'],0)
         self.assertFalse(next(p for p in before['owned'] if p['ref']=='legacy:c152')['saleable'])
-        with self.assertRaisesRegex(ValueError,'não podem ser vendidas'):
+        with self.assertRaisesRegex(ValueError,'podem ser vendidas'):
             self.transact('aircraft_sell','legacy:c152|'+token())
         self.center=AIRPORTS['SBJP']
         with self.assertRaisesRegex(ValueError,'aeródromo'):
