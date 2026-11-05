@@ -9,7 +9,7 @@ import re
 from time import time
 
 from .domain import Phase, distance_nm
-from .finance import AIRCRAFT_ECONOMY
+from .finance import AIRCRAFT_ECONOMY, brl
 from .fleet import rental_fee, resale_price, used_market
 from .fleet_photos import owned_fleet
 
@@ -128,5 +128,5 @@ def execute_market(app,center,action,raw,now=None):
     else:
         raise ValueError('Operação desconhecida.')
     app.career.balance=int(app.storage.get_setting('balance') or 0)
-    app.balance_var.set(__import__('aerocarreira.finance',fromlist=['brl']).brl(app.career.balance))
+    app.balance_var.set(brl(app.career.balance))
     return outcome
