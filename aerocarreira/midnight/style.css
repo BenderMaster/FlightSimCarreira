@@ -385,3 +385,17 @@
  .aircraft-market-balance{display:none}
  .aircraft-market-page .page-foot{flex-wrap:wrap}
 }
+
+/* v0.8.1 Alpha.2: preservar limites da ficha e remover excesso no rodapé. */
+.aircraft-market-layout{overflow:hidden}
+.aircraft-market-preview{overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.aircraft-market-preview-heading{min-width:0;flex-shrink:0}
+.aircraft-market-preview-heading h2{display:block;white-space:normal;line-height:1.08;overflow-wrap:anywhere}
+.aircraft-market-hero{height:clamp(130px,21vh,255px);min-height:130px}
+.aircraft-market-specs{flex-shrink:0}
+.aircraft-market-specs>div{min-width:0}
+.aircraft-market-specs strong{overflow-wrap:anywhere}
+.aircraft-market-description{font-size:.8em;line-height:1.32;margin:0;flex-shrink:0}
+.aircraft-market-footer{justify-content:flex-end;flex-shrink:0;padding-top:.3em;min-height:2.8em}
+.aircraft-market-tabs [data-aircraft-market-tab="new"] svg{width:1.8em;height:1.8em}
+@media(max-width:1170px){.aircraft-market-layout{overflow:auto}.aircraft-market-preview{overflow:visible}}
