@@ -11,6 +11,7 @@ from .finance import brl
 from .dashboard import DashboardPresenter
 from .midnight_server import DashboardServer
 from .fleet_photos import normalize_photo, save_photo, delete_photo, photo_bytes, owned_fleet
+from .aircraft_marketplace import execute_market
 
 class DashboardController:
     def __init__(self,app):
@@ -159,6 +160,23 @@ class DashboardController:
                     self._fleet_service(ref)
             except ValueError as exc:
                 app._log('FROTA: '+str(exc))
+        elif action in ('aircraft_buy_new','aircraft_buy_used','aircraft_rent','aircraft_sell'):
+            try:
+                if action=='aircraft_sell':
+                    previous_ref=str(cmd.get('id','')).split('|')[0]
+                else:
+                    previous_ref=None
+                message=execute_market(app,self.presenter.center,action,cmd.get('id'))
+                if previous_ref:self.server.remove_photo(previous_ref)
+                app._log('MERCADO AERONAVES: '+message)
+                ok=True
+            except (ValueError,KeyError,TypeError) as exc:
+                message='Operação recusada: '+str(exc)
+                app._log('MERCADO AERONAVES: '+message)
+                ok=False
+            seq=getattr(app,'aircraft_market_notice_seq',0)+1
+            app.aircraft_market_notice_seq=seq
+            app.aircraft_market_notice=dict(seq=seq,ok=ok,message=message,action=action)
         elif action=='prepare':
             if not app.career.mission:
                 app._log('DESPACHO: aceite um contrato antes de preparar plano e carga.');return
