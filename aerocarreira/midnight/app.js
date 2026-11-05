@@ -182,8 +182,15 @@ const moduleTitles={
  settings:['CONFIGURAÇÕES','Estado da integração com o MSFS e preferências.']
 };
 function fleetImage(plane){
+ // Foto escolhida pelo piloto sempre prevalece sobre o showcase do catálogo.
  if(plane?.photo_url)return {src:plane.photo_url,kind:'custom'};
  if(plane?.code==='c152')return {src:'/c152.jpg',kind:'stock'};
+ const showcase={
+   c172:'/market-c172.jpg',g58:'/market-g58.jpg',
+   kingair:'/market-kingair.jpg',cj4:'/market-cj4.jpg'
+ };
+ if(plane?.code&&showcase[plane.code])
+   return {src:showcase[plane.code],kind:'showcase'};
  return {src:null,kind:'none'};
 }
 function setFleetImage(img,placeholder,plane){
@@ -256,7 +263,8 @@ function renderFleetView(s,force=false){
  }
  text('fleet-photo-caption',imageKind==='custom'?'Fotografia personalizada salva no banco da carreira e exibida também na Dashboard.':
    imageKind==='stock'?'Foto ilustrativa padrão do Cessna 152. Use Adicionar / trocar foto para cadastrar seu próprio avião.':
-   'Ainda sem foto padrão deste modelo. Adicione uma imagem do seu avião no MSFS.');
+   imageKind==='showcase'?'Imagem demonstrativa do modelo. Você pode substituí-la por uma foto do seu próprio avião no MSFS.':
+   'Ainda sem imagem padrão deste modelo. Adicione uma foto do seu avião no MSFS.');
  text('fleet-operation-kind',selected?.code?.toUpperCase()||'Sem aeronave');
  text('fleet-insurance',has?(selected.insured?'Segurada':'Sem seguro'):'—');
  text('fleet-acquisition',has?({starter:'Aeronave inicial',legacy:'Frota legada',new:'Compra nova',used:'Compra usada'}[selected.kind]||selected.kind):'—');

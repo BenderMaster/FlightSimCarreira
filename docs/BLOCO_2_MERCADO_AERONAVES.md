@@ -42,3 +42,5 @@ Backup obrigatório do `carreira.db` com aplicativo fechado, e instalar em pasta
 - Assets locais: `aerocarreira/midnight/market-{c172,g58,kingair,cj4}.jpg` (1100 × 825, JPEG). Compatíveis com WebView2 sem dependência de internet.
 - O C152 continua com seu JPG e crédito originais. Fotos personalizadas na Frota/Venda continuam tendo precedência.
 - Não modificar tabelas de dinheiro nem banco de carreira para essa troca puramente visual.
+
+- O fallback de foto do modelo é compartilhado com a Frota/Hangar e Dashboard. Caso o piloto tenha cadastrado fotografia própria no SQLite, ela prevalece nas três telas, sem mudança no armazenamento ou no ciclo de vida das fotos.

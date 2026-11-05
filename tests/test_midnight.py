@@ -184,6 +184,13 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(self.request('/command',{'action':'aircraft_buy_new','id':None})[0],400)
         self.assertEqual(self.request('/command',{'action':'aircraft_rewrite_balance','id':'1'})[0],400)
 
+    def test_custom_fleet_photo_precedes_catalog_showcase(self):
+        js=(ASSETS/'app.js').read_text(encoding='utf-8')
+        self.assertIn("if(plane?.photo_url)return {src:plane.photo_url,kind:'custom'}",js)
+        for code in ('c172','g58','kingair','cj4'):
+            self.assertIn(code+":'/market-"+code+".jpg'",js)
+        self.assertIn("kind:'showcase'",js)
+
     def test_offline_aircraft_showcase_photos_are_allowlisted(self):
         from io import BytesIO
         from PIL import Image

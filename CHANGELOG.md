@@ -2,7 +2,7 @@
 
 - Substituídas as quatro ilustrações SVG por imagens fotorealistas originais aprovadas pelo piloto, referentes ao Cessna 172 Skyhawk, Baron G58, King Air 350i e Citation CJ4.
 - JPGs otimizados 1100 × 825, incluídos no executável para uso offline. Não existe download automático, atribuição a terceiros nem alteração das fotos personalizadas da Frota.
-- A foto padrão do Cessna 152 e seu crédito permanecem inalterados. O catálogo reutiliza a imagem por modelo em Novas, Usadas e Aluguel; Venda mantém prioridade para foto individual cadastrada.
+- A foto padrão do Cessna 152 e seu crédito permanecem inalterados. O catálogo reutiliza a imagem por modelo em Novas, Usadas e Aluguel; Frota/Hangar e Dashboard também exibem o showcase quando não houver fotografia individual cadastrada. Venda e Frota sempre priorizam a foto própria.
 - Verificações de catálogo, leitura JPEG e presença real dos arquivos no pacote Windows. Economia, regras de contratos, SQLite e SimConnect preservados.
 
 ## v0.8.1 Midnight Ops Alpha.2 — renda da carreira e imagens do mercado
