@@ -24,7 +24,9 @@
    if(owned?.photo_url)return {url:owned.photo_url,credit:false};
   }
   if(item.code==='c152')return {url:'/c152.jpg',credit:true};
-  return null;
+  const art={c172:'/market-c172.svg',g58:'/market-g58.svg',
+             kingair:'/market-kingair.svg',cj4:'/market-cj4.svg'};
+  return art[item.code]?{url:art[item.code],credit:false}:null;
  }
  function quoteFor(item,market){
   if(!item)return null;
@@ -102,7 +104,7 @@
      tab==='sell'?offer.resale_price:offer.price;
    badge.append(element('b','',offer.sold?'VENDIDA':offer.saleable===false?'NÃO VENDÁVEL':fmt(price)));
    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-   const use=document.createElementNS(svg.namespaceURI,'use');use.setAttribute('href','#i-plane');
+   const use=document.createElementNS(svg.namespaceURI,'use');use.setAttribute('href',tab==='new'?'#i-new-tag':'#i-plane');
    svg.append(use);btn.append(svg,badge);list.append(btn);
   }
   el('am-kind').textContent=labels[tab];
@@ -122,11 +124,11 @@
   el('am-cruise').textContent=model?dec(model.cruise_kts)+' kt':'—';
   el('am-spec-fourth').textContent='CAPACIDADE DE TANQUES';
   el('am-tanks').textContent=model?dec(model.fuel_capacity_gal)+' gal':'—';
-  const extra=tab==='new'?'Exemplar novo, sem horas voadas na carreira.':
-   tab==='used'?'Oferta única do aeródromo, renovada semanalmente. Condição e horas conforme anúncio.':
-   tab==='rent'?'Aeronave temporária. Não se torna propriedade da Frota; o prazo corre em tempo real.':
-   'Valor de revenda calculado pelo motor financeiro. A aeronave inicial não pode ser vendida.';
-  el('am-description').textContent=extra+' A negociação não instala aeronaves no MSFS.';
+  const extra=tab==='new'?'Nova • zero horas.':
+   tab==='used'?'Oferta local renovada semanalmente.':
+   tab==='rent'?'Aluguel temporário; não entra na Frota própria.':
+   'Revenda definitiva de exemplar adquirido.';
+  el('am-description').textContent=extra+' Selecione o modelo no MSFS antes de voar.';
   el('am-quote-kind').textContent=labels[tab];
   el('am-price').textContent=quote?fmt(quote.amount):'—';
   el('am-price-note').textContent=quote?.caption||'Selecione uma aeronave';
