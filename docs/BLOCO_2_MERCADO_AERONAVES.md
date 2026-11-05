@@ -28,3 +28,10 @@ O worker continua a tentar. `ReconnectWarningFilter` não exibe de novo `Conexã
 - Fechar e reabrir: dinheiro, unidades e aluguéis persistem.
 
 Backup obrigatório do `carreira.db` com aplicativo fechado, e instalar em pasta nova.
+
+## Atualização Alpha.2
+
+- C172, G58, King Air e CJ4 recebem **ilustrações conceituais SVG originais** locais. Não são fotografias nem pinturas oficiais; o C152 permanece com a foto licenciada e crédito.
+- Aba Novas e catálogo usam uma etiqueta NEW. A ficha da aeronave tem rolagem própria e o rodapé não repete instruções.
+- O catálogo econômico mantém os cinco modelos atuais; os requisitos de aeronaves de contratos freelancer não se confundem com regras novas de aquisição.
+- Geração de contratos computa preços com distância, modalidade, nível e reputação. O valor é persistido antes do aceite, e não sobe retroativamente para missões aceitas.
