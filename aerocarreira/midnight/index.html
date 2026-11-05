@@ -102,6 +102,55 @@
   </div>
   <footer class="page-foot"><small>Fotos salvas dentro do SQLite do piloto, sem modificar pinturas ou arquivos do MSFS.</small><button class="button" data-action="dashboard">Voltar à Dashboard</button></footer>
  </section>
+ <section id="aircraft-market-page" class="page-shell aircraft-market-page card" hidden aria-labelledby="aircraft-market-title">
+  <header class="page-head aircraft-market-head">
+   <div><small class="eyebrow">MIDNIGHT OPS • NEGOCIAÇÕES AERONÁUTICAS</small><h1 id="aircraft-market-title">MERCADO DE AERONAVES</h1>
+    <p>Compra, venda e aluguel independentes da Frota. Todas as transações usam o caixa da carreira.</p></div>
+   <div class="aircraft-market-balance"><small>SALDO DISPONÍVEL</small><strong id="am-balance">—</strong><small id="am-airport">Aeroporto não verificado</small></div>
+  </header>
+  <nav class="aircraft-market-tabs" aria-label="Tipo de negociação">
+   <button type="button" data-aircraft-market-tab="new" aria-pressed="true" class="selected"><svg><use href="#i-plane"/></svg>Novas</button>
+   <button type="button" data-aircraft-market-tab="used" aria-pressed="false"><svg><use href="#i-tool"/></svg>Usadas</button>
+   <button type="button" data-aircraft-market-tab="rent" aria-pressed="false"><svg><use href="#i-clock"/></svg>Aluguel</button>
+   <button type="button" data-aircraft-market-tab="sell" aria-pressed="false"><svg><use href="#i-coins"/></svg>Vender</button>
+  </nav>
+  <div id="am-lock" class="aircraft-market-lock" role="status" hidden></div>
+  <div class="aircraft-market-layout">
+   <section class="aircraft-market-catalog card" aria-label="Aeronaves disponíveis para negociação">
+    <div class="aircraft-market-section-heading"><strong id="am-list-title">CATÁLOGO DE NOVAS</strong><small id="am-list-count">0 modelos</small></div>
+    <div id="am-list" class="aircraft-market-list" role="list"></div>
+   </section>
+   <section class="aircraft-market-preview card" aria-label="Detalhes da aeronave selecionada">
+    <div class="aircraft-market-preview-heading"><small class="eyebrow" id="am-kind">AERONAVE NOVA</small><h2 id="am-name">Selecione uma aeronave</h2>
+      <small id="am-model">Modelo cadastrado na economia da carreira</small></div>
+    <div class="aircraft-market-hero">
+      <img id="am-photo" alt="Imagem de referência da aeronave" hidden>
+      <div id="am-placeholder" class="aircraft-market-placeholder"><svg><use href="#i-plane"/></svg><span>Imagem ilustrativa não cadastrada para este modelo</span></div>
+      <small id="am-credit" class="aircraft-market-credit" hidden>Foto ilustrativa do C152 · Wikimedia Commons · CC BY-SA 4.0</small>
+    </div>
+    <div class="aircraft-market-specs">
+     <div><small>ESTADO</small><strong id="am-condition">—</strong></div>
+     <div><small>HORAS</small><strong id="am-hours">—</strong></div>
+     <div><small id="am-spec-third">CRUZEIRO</small><strong id="am-cruise">—</strong></div>
+     <div><small id="am-spec-fourth">AUTONOMIA / TANQUES</small><strong id="am-tanks">—</strong></div>
+    </div>
+    <p id="am-description" class="aircraft-market-description">Os valores são fictícios, referentes à economia desta carreira.</p>
+   </section>
+   <aside class="aircraft-market-checkout card" aria-label="Resumo da negociação">
+    <div class="aircraft-market-section-heading"><strong>RESUMO DA OPERAÇÃO</strong><small id="am-quote-kind">COMPRA</small></div>
+    <div class="aircraft-market-quote"><small>VALOR ESTIMADO</small><strong id="am-price">—</strong><span id="am-price-note">Selecione um modelo</span></div>
+    <div id="am-duration-control" class="aircraft-market-duration" hidden><label for="am-duration">Prazo do aluguel</label><select id="am-duration" aria-label="Prazo de aluguel"><option value="24">24 horas</option><option value="48">48 horas</option><option value="72">72 horas</option><option value="168">7 dias</option></select></div>
+    <div class="aircraft-market-totals"><div><span>Caixa atual</span><b id="am-before">—</b></div>
+     <div><span id="am-change-label">Custo da operação</span><b id="am-change">—</b></div>
+     <div class="aircraft-market-total"><span>Saldo após operação</span><strong id="am-after">—</strong></div></div>
+    <button type="button" id="am-confirm-open" class="button primary" disabled>Selecione uma aeronave</button>
+    <p id="am-availability" class="aircraft-market-availability">Conecte o simulador para confirmar o aeroporto.</p>
+    <div class="aircraft-market-rentals"><strong>ALUGUÉIS ATIVOS</strong><div id="am-rentals">Nenhum aluguel em andamento</div></div>
+    <p class="aircraft-market-caveat">Negociação virtual. Comprar ou alugar NÃO altera automaticamente o avião carregado no MSFS. Carregue o modelo correto no simulador antes de voar.</p>
+   </aside>
+  </div>
+  <footer class="page-foot"><small>Novas e usadas passam para sua Frota; aluguéis são temporários e não contam como propriedade. Venda apenas de exemplares comprados.</small><button data-action="fleet" class="button">Abrir minha Frota</button></footer>
+ </section>
  <section id="module-page" class="page-shell module-page card" hidden aria-labelledby="module-title">
   <header class="page-head"><div><small class="eyebrow">FLIGHTSIMCARREIRA • PAINEL INTEGRADO</small><h1 id="module-title">MÓDULO</h1><p id="module-description"></p></div></header>
   <div id="module-context" class="module-context" aria-live="polite"></div>
@@ -145,5 +194,12 @@
   <div class="refuel-presets"><button id="refuel-max" class="button">Completar</button><button id="refuel-half" class="button">50% da capacidade</button></div>
   <div class="refuel-estimate"><div>Movimento de combustível <strong id="refuel-delta">—</strong></div><div>Compra ou reembolso previsto <strong id="refuel-price">—</strong></div><small>Reembolso limitado ao combustível comprado e ainda não consumido, registrado neste addon. Não há dinheiro por combustível gratuito do MSFS.</small></div>
   <footer><button id="refuel-cancel" class="button">Cancelar</button><button id="refuel-confirm" class="button primary">Confirmar quantidade</button></footer>
+ </dialog>
+ <dialog id="aircraft-checkout-dialog" class="aircraft-checkout-dialog" aria-labelledby="aircraft-checkout-title">
+  <div class="aircraft-checkout-heading"><h2 id="aircraft-checkout-title">Confirmar negociação</h2><button id="am-cancel-top" type="button" aria-label="Fechar">×</button></div>
+  <p id="aircraft-checkout-description"></p>
+  <div class="aircraft-checkout-summary"><span>Aeronave</span><strong id="am-confirm-plane">—</strong><span>Valor</span><strong id="am-confirm-value">—</strong><span>Caixa após</span><strong id="am-confirm-balance">—</strong></div>
+  <p class="aircraft-checkout-note">Esta operação altera de verdade o saldo e o patrimônio virtual. Nenhum avião será carregado automaticamente no MSFS.</p>
+  <footer><button type="button" class="button" id="am-cancel">Cancelar</button><button type="button" class="button primary" id="am-commit">Confirmar operação</button></footer>
  </dialog>
  <div id="toast" role="status"></div><script src="/free-map.js"></script><script src="/app.js"></script></body></html>
