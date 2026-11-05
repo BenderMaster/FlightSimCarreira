@@ -1,3 +1,12 @@
+## v0.8.1 Midnight Ops Alpha.2 — renda da carreira e imagens do mercado
+
+- Novas propostas regionais, freelancer e de companhia têm pagamento recalculado durante a geração conforme nível e reputação persistidos; o ganho por NM favorece serviços de curta distância. Contratos já aceitos não mudam.
+- Mudança de versão do gerador de ofertas faz a primeira atualização de mercado aplicar o novo cálculo sem sobrescrever saves ou pagamentos já realizados.
+- C172, Baron G58, King Air 350i e Citation CJ4 agora têm ilustrações originais em SVG no catálogo, sem downloads ou créditos externos; C152 mantém a fotografia autorizada com crédito.
+- Etiqueta NEW na aba Novas e nas miniaturas da lista.
+- Ficha central com rolagem própria, imagens limitadas em altura e rodapé sem texto duplicado.
+- Preservadas regras MSFS-only, integridade financeira/SQLite e SimConnect.
+
 ## v0.8.1 Midnight Ops Alpha.1 — Mercado de Aeronaves e reconexão discreta
 
 - A v0.8.0 Frota/Hangar, testada pelo piloto, é integrada à `main` e passa a ser a base estável.
