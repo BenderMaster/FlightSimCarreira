@@ -291,3 +291,97 @@
 @media(max-width:760px){.fleet-layout{display:flex;flex-direction:column;overflow:auto}.fleet-owned-list{max-height:220px}.fleet-image-frame{height:220px}.fleet-operations-stack{display:flex}.fleet-selected-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.fleet-head-summary{display:none}.fleet-page .page-foot{flex-wrap:wrap}}
 
 .fleet-photo-placeholder[hidden]{display:none!important}
+
+
+/* v0.8.1 — Mercado de aeronaves integrado, separado da Frota. */
+.aircraft-market-page{gap:.7em!important}
+.aircraft-market-head{flex-shrink:0}
+.aircraft-market-balance{display:flex;flex-direction:column;gap:.1em;align-items:flex-end;min-width:12em}
+.aircraft-market-balance>small{color:#9dcad9;font-size:.75em}
+.aircraft-market-balance strong{font-size:1.65em;color:#ffc93e;white-space:nowrap}
+.aircraft-market-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5em;flex-shrink:0}
+.aircraft-market-tabs button{display:flex;gap:.6em;align-items:center;justify-content:center;border:1px solid #345d74;background:#091f2e;border-radius:8px;padding:.65em 1em;color:#c0dfed;font:inherit;font-weight:700;cursor:pointer}
+.aircraft-market-tabs button svg{width:1.35em;height:1.35em}
+.aircraft-market-tabs button.selected{color:#ecffff;background:#094451;border-color:#20dcea;box-shadow:inset 0 -3px #27dfea}
+.aircraft-market-lock{font-size:.88em;padding:.52em .85em;background:#302515;border:1px solid #b3832c;border-radius:7px;color:#ffe1a1;flex-shrink:0}
+.aircraft-market-layout{display:grid;grid-template-columns:minmax(185px,25%) minmax(280px,1fr) minmax(230px,28%);gap:.75em;flex:1;min-height:0;min-width:0}
+.aircraft-market-layout>.card{min-height:0;min-width:0;padding:.9em;border:1px solid #29536a;background:linear-gradient(160deg,#062334,#031722);border-radius:10px}
+.aircraft-market-catalog,.aircraft-market-preview,.aircraft-market-checkout{display:flex;flex-direction:column;gap:.75em}
+.aircraft-market-section-heading{display:flex;justify-content:space-between;align-items:center;padding-bottom:.72em;gap:.5em;border-bottom:1px solid #285168}
+.aircraft-market-section-heading strong{color:#33ddeb;font-size:.9em;letter-spacing:.07em}
+.aircraft-market-section-heading small{font-size:.75em;color:#9bbdcd}
+.aircraft-market-list{display:flex;flex-direction:column;min-height:0;gap:.5em;overflow-y:auto;padding-right:.2em}
+.aircraft-market-item{padding:.7em .65em;width:100%;min-height:5.1em;display:flex;align-items:center;gap:.7em;background:#092536;border:1px solid #2b5265;color:#edf9ff;border-radius:8px;text-align:left;cursor:pointer}
+.aircraft-market-item:hover{border-color:#22d6e7}
+.aircraft-market-item.selected{background:#0a4450;border-color:#1bddf0;box-shadow:inset 4px 0 #00dff0}
+.aircraft-market-item.sold{opacity:.55}
+.aircraft-market-item>svg{width:2em;height:2em;color:#85c8d9;flex-shrink:0}
+.aircraft-market-item>span{flex:1;min-width:0;display:flex;flex-direction:column;gap:.18em}
+.aircraft-market-item strong{font-size:.98em;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.aircraft-market-item small{color:#98c3d4;font-size:.76em}
+.aircraft-market-item b{color:#ffcc52;font-size:.95em}
+.aircraft-market-item.sold b{color:#ff988e}
+.aircraft-market-empty{color:#9bbac9;line-height:1.5;padding:1.4em .5em;text-align:center}
+.aircraft-market-preview-heading h2{font-size:clamp(1.65em,2.1vw,2.6em);margin:.15em 0}
+.aircraft-market-preview-heading small{color:#a6c9d8}
+.aircraft-market-hero{position:relative;flex-shrink:0;height:clamp(160px,26vh,345px);border:1px solid #2a566d;border-radius:9px;overflow:hidden;background:radial-gradient(ellipse,#184357 0,#041827 80%);display:flex;justify-content:center;align-items:center}
+.aircraft-market-hero>img{width:100%;height:100%;object-fit:contain;object-position:center}
+.aircraft-market-placeholder{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:.7em;color:#91c0d1;text-align:center;height:100%;width:100%}
+.aircraft-market-placeholder svg{width:7em;height:7em;opacity:.45}
+.aircraft-market-placeholder span{max-width:75%;font-size:.85em}
+.aircraft-market-credit{position:absolute;bottom:.5em;right:.5em;font-size:.68em;background:#00101dc9;padding:.3em .5em;border-radius:4px;color:#d5edf4}
+.aircraft-market-specs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5em}
+.aircraft-market-specs>div{display:flex;flex-direction:column;gap:.35em;padding:.7em;border-radius:7px;background:#061d2c;border:1px solid #244c62}
+.aircraft-market-specs small{color:#9fc6d6;font-size:.73em}
+.aircraft-market-specs strong{font-size:1.18em}
+.aircraft-market-description{font-size:.85em;line-height:1.48;color:#98c2d2;margin:.25em 0}
+.aircraft-market-checkout{overflow-y:auto}
+.aircraft-market-quote{display:flex;flex-direction:column;gap:.25em;padding:1em .7em;border:1px solid #385d66;border-radius:8px;background:linear-gradient(155deg,#123b41,#041b28)}
+.aircraft-market-quote small{color:#a6d6e2;font-weight:650}
+.aircraft-market-quote strong{font-size:2.15em;color:#ffcc4d}
+.aircraft-market-quote span{color:#a3c4d2;font-size:.79em}
+.aircraft-market-duration{display:flex;flex-direction:column;gap:.4em}
+.aircraft-market-duration label{font-size:.86em;color:#bbe0ed}
+.aircraft-market-duration select{background:#082537;color:#ebfcff;border:1px solid #427189;border-radius:7px;padding:.6em;font:inherit}
+.aircraft-market-totals{display:flex;flex-direction:column;gap:.55em}
+.aircraft-market-totals>div{display:flex;align-items:center;justify-content:space-between;gap:.5em}
+.aircraft-market-totals>div span{font-size:.82em;color:#a6cad9}
+.aircraft-market-totals>div b{font-size:1em}
+.aircraft-market-total{padding-top:.8em;border-top:1px solid #316175}
+.aircraft-market-total strong{font-size:1.2em;color:#b2f392}
+.aircraft-market-total strong.insufficient{color:#ff9a94}
+.aircraft-market-checkout #am-confirm-open{width:100%;padding:1em .7em;margin-top:.25em}
+.aircraft-market-checkout #am-confirm-open:disabled{opacity:.55;cursor:not-allowed}
+.aircraft-market-availability{margin:0;font-size:.8em;color:#b3d3df;line-height:1.42}
+.aircraft-market-rentals{margin-top:auto;border-top:1px solid #28526a;padding-top:.75em;display:flex;flex-direction:column;gap:.4em}
+.aircraft-market-rentals>strong{font-size:.81em;color:#27dbe8}
+.aircraft-market-rentals>div{font-size:.78em;color:#add3e0;line-height:1.4;max-height:8em;overflow:auto}
+.aircraft-market-rentals .rented-row{margin:.3em 0}
+.aircraft-market-caveat{font-size:.77em;color:#9fbfcd;line-height:1.4;padding:.8em;border:1px solid #345269;background:#051824;border-radius:7px;margin:0}
+.aircraft-checkout-dialog{width:min(510px,94vw);border:1px solid #44819a;border-radius:13px;padding:1.2em 1.5em;background:linear-gradient(145deg,#092b3c,#041725);color:#f1fcff;box-shadow:0 18px 70px #000b}
+.aircraft-checkout-dialog::backdrop{background:#000c;backdrop-filter:blur(4px)}
+.aircraft-checkout-heading{display:flex;justify-content:space-between;align-items:center;gap:1em}
+.aircraft-checkout-heading h2{font-size:1.55em;margin:.1em 0}
+.aircraft-checkout-heading button{background:transparent;color:#fff;border:0;font-size:1.7em}
+.aircraft-checkout-dialog>p{color:#c4e0e8;line-height:1.5}
+.aircraft-checkout-summary{display:grid;grid-template-columns:1fr 1.2fr;gap:.65em;padding:1em;background:#061a29;border:1px solid #275a73;border-radius:9px}
+.aircraft-checkout-summary span{color:#93bdce}
+.aircraft-checkout-summary strong{text-align:right}
+.aircraft-checkout-dialog .aircraft-checkout-note{font-size:.82em;color:#e5d0a0}
+.aircraft-checkout-dialog footer{display:flex;justify-content:flex-end;gap:.65em;margin-top:1.2em}
+@media(max-width:1170px){
+ .aircraft-market-layout{grid-template-columns:minmax(170px,30%) minmax(270px,1fr)}
+ .aircraft-market-checkout{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;align-content:start}
+ .aircraft-market-checkout>.aircraft-market-section-heading{grid-column:1/-1}
+ .aircraft-market-rentals,.aircraft-market-caveat{margin-top:0}
+}
+@media(max-width:760px){
+ .aircraft-market-layout{display:flex;flex-direction:column;overflow-y:auto}
+ .aircraft-market-list{max-height:230px}
+ .aircraft-market-hero{height:210px}
+ .aircraft-market-checkout{display:flex}
+ .aircraft-market-tabs button{padding:.6em .2em}
+ .aircraft-market-tabs button svg{display:none}
+ .aircraft-market-balance{display:none}
+ .aircraft-market-page .page-foot{flex-wrap:wrap}
+}
