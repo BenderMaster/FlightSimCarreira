@@ -3,6 +3,7 @@ const token=location.hash.slice(1);history.replaceState(null,'',location.pathnam
 const $=id=>document.getElementById(id),money=n=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(n),number=(n,d=0)=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:d}),text=(id,v)=>$(id).textContent=v;
 const icon=n=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg'),u=document.createElementNS(s.namespaceURI,'use');u.setAttribute('href','#i-'+n);s.append(u);return s};
 const node=(tag,cls,value)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined)e.textContent=value;return e};
+let selectedFleetRef=null,fleetViewKey='',fleetListKey='';
 let state={},zoom=1,mapPanX=0,mapPanY=0,selectedOffer=null,lastOfferKey='',pollFailures=0,planeTrack=null,planeBearing=0,recenterPlane=false,marketLastKey='',view='dashboard',previousView='dashboard';
 const nav=[['home','Dashboard','dashboard'],['globe','Mercado','regional'],['hangar','Frota / Hangar','fleet'],['map','Planejamento de Voo','planning'],['pilot','Meu Piloto','pilot'],['coins','Finanças','finance'],['building','Companhias','employment'],['book','Logbook','history'],['chart','Análise e Relatórios','reports'],['gear','Configurações','settings']];
 for(const [ic,label,action] of nav){const b=node('button','nav-item'+(action==='dashboard'?' active':''));b.append(icon(ic),node('span','',label));b.dataset.action=action;$('navigation').append(b)}
@@ -32,9 +33,12 @@ function navigate(destination){
  if(destination==='market')destination='regional';
  if(!routeActions.has(destination)&&destination!=='details'&&destination!=='freelance')return;
  view=destination;
- const market=view==='regional'||view==='freelance',module=!market&&view!=='dashboard'&&view!=='details';
+ const market=view==='regional'||view==='freelance',
+       fleet=view==='fleet',
+       module=!market&&!fleet&&view!=='dashboard'&&view!=='details';
  document.querySelector('.workspace').dataset.view=view;
- $('market-page').hidden=!market;$('module-page').hidden=!module;$('details').hidden=view!=='details';
+ $('market-page').hidden=!market;$('fleet-page').hidden=!fleet;
+ $('module-page').hidden=!module;$('details').hidden=view!=='details';
  document.querySelectorAll('.nav-item').forEach(button=>{
   const current=view==='details'?previousView:view;
   const selected=button.dataset.action===(current==='freelance'?'regional':current);
@@ -43,10 +47,29 @@ function navigate(destination){
  });
  mountSharedMap(view==='details'&&!!selectedOffer);
  if(market)renderMarketView(state,true);
+ if(fleet)renderFleetView(state,true);
  if(module)renderModuleView(state);
 }
 document.querySelector('.workspace').dataset.view=view;
 document.addEventListener('click',e=>{
+ const operation=e.target.closest('[data-fleet-operation]');
+ if(operation){
+   if(operation.disabled)return;
+   const plane=(state.fleet?.owned||[]).find(x=>x.ref===selectedFleetRef);
+   if(!plane){toast('Selecione uma aeronave de sua propriedade.');return;}
+   if(operation.dataset.fleetOperation==='fleet_refuel'){
+     if(!plane.is_active){toast('Defina esta aeronave como ativa antes de abastecer.');return;}
+     openRefuelDialog();return;
+   }
+   command(operation.dataset.fleetOperation,plane.ref);return;
+ }
+ const item=e.target.closest('[data-fleet-ref]');
+ if(item){
+   selectedFleetRef=item.dataset.fleetRef;
+   fleetViewKey='';
+   renderFleetView(state,true);
+   return;
+ }
  const b=e.target.closest('[data-action]');
  if(b){const action=b.dataset.action;
   if(action==='refuel'){openRefuelDialog();return;}
@@ -155,6 +178,95 @@ const moduleTitles={
  reports:['ANÁLISE E RELATÓRIOS','Indicadores da carreira e histórico operacional.'],
  settings:['CONFIGURAÇÕES','Estado da integração com o MSFS e preferências.']
 };
+function fleetImage(plane){
+ if(plane?.photo_url)return {src:plane.photo_url,kind:'custom'};
+ if(plane?.code==='c152')return {src:'/c152.jpg',kind:'stock'};
+ return {src:null,kind:'none'};
+}
+function setFleetImage(img,placeholder,plane){
+ const image=fleetImage(plane);
+ if(image.src){
+   if(img.getAttribute('src')!==image.src)img.setAttribute('src',image.src);
+   img.hidden=false;
+   if(placeholder)placeholder.hidden=true;
+   img.alt=image.kind==='custom'?'Fotografia cadastrada da aeronave '+plane.title:
+      'Imagem ilustrativa de '+plane.title;
+ }else{
+   img.hidden=true;
+   if(placeholder)placeholder.hidden=false;
+   img.removeAttribute('src');
+ }
+ return image.kind;
+}
+function renderFleetView(s,force=false){
+ if(view!=='fleet'||!s?.progress)return;
+ const owned=s.fleet?.owned||[];
+ if(!owned.some(x=>x.ref===selectedFleetRef)){
+   selectedFleetRef=owned.find(x=>x.is_active)?.ref||owned[0]?.ref||null;
+   force=true;
+ }
+ const selected=owned.find(x=>x.ref===selectedFleetRef);
+ const listKey=JSON.stringify([selectedFleetRef,owned.map(x=>[x.ref,x.title,x.kind,x.photo_url,x.condition,x.airport,x.is_active])]);
+ const key=JSON.stringify([selected,s.phase,s.connection]);
+ if(!force&&key===fleetViewKey&&listKey===fleetListKey)return;
+ const redrawList=force||listKey!==fleetListKey;
+ fleetViewKey=key;
+ if(redrawList){
+ fleetListKey=listKey;
+ text('fleet-count',owned.length+' '+(owned.length===1?'aeronave':'aeronaves'));
+ text('fleet-list-count',owned.length+' adquiridas');
+ const list=$('fleet-list');list.replaceChildren();
+ if(!owned.length)list.append(node('p','fleet-empty','Nenhuma aeronave adquirida. O resgate do Cessna inicial e a compra de novos modelos ficam na futura área de aquisição, separada do Hangar.'));
+ for(const plane of owned){
+   const card=node('button','fleet-item'+(plane.ref===selectedFleetRef?' selected':''));
+   card.type='button';card.dataset.fleetRef=plane.ref;
+   card.setAttribute('aria-pressed',String(plane.ref===selectedFleetRef));
+   const image=fleetImage(plane);
+   if(image.src){
+     const thumb=node('img','fleet-thumb');
+     thumb.src=image.src;thumb.alt='';thumb.loading='lazy';card.append(thumb);
+   }else{
+     const placeholder=node('span','fleet-item-placeholder');
+     placeholder.append(icon('plane'));card.append(placeholder);
+   }
+   const detail=node('span','fleet-item-copy');
+   detail.append(node('strong','',plane.title||plane.code),
+     node('small','',(plane.airport||'Sem localização')+' • '+number(plane.condition,1)+'%'));
+   if(plane.is_active)detail.append(node('em','','EM USO'));
+   card.append(detail);list.append(card);
+ }
+ }
+ const has=!!selected;
+ text('fleet-name',selected?.title||'Nenhuma aeronave');
+ text('fleet-model',has?selected.ref+' • '+({starter:'Inicial',legacy:'Adquirida (legado)',new:'Comprada nova',used:'Comprada usada'}[selected.kind]||'Própria'):'Selecione sua aeronave da lista');
+ $('fleet-active').hidden=!selected?.is_active;
+ const imageKind=setFleetImage($('fleet-photo'),$('fleet-photo-placeholder'),selected);
+ $('fleet-photo-credit').hidden=imageKind!=='stock';
+ text('fleet-airport',selected?.airport||'—');
+ text('fleet-hours',has?number(selected.hours,1)+' h':'—');
+ text('fleet-condition',has?number(selected.condition,1)+'%':'—');
+ const ratio=has&&selected.fuel_capacity?selected.fuel_gallons/selected.fuel_capacity:null;
+ text('fleet-fuel',ratio!==null?number(selected.fuel_gallons,1)+' gal ('+number(ratio*100)+'%)':'Sem leitura');
+ for(const [id,value]of [['fleet-conditionbar',has?selected.condition/100:0],['fleet-fuelbar',ratio]]){
+   const el=$(id);el.style.width=Math.max(0,Math.min(100,(value||0)*100))+'%';
+   el.style.background=value!==null&&value<=.2?'#f5836e':value!==null&&value<=.4?'#ffc400':'#26dce8';
+ }
+ text('fleet-photo-caption',imageKind==='custom'?'Fotografia personalizada salva no banco da carreira e exibida também na Dashboard.':
+   imageKind==='stock'?'Foto ilustrativa padrão do Cessna 152. Use Adicionar / trocar foto para cadastrar seu próprio avião.':
+   'Ainda sem foto padrão deste modelo. Adicione uma imagem do seu avião no MSFS.');
+ text('fleet-operation-kind',selected?.code?.toUpperCase()||'Sem aeronave');
+ text('fleet-insurance',has?(selected.insured?'Segurada':'Sem seguro'):'—');
+ text('fleet-acquisition',has?({starter:'Aeronave inicial',legacy:'Frota legada',new:'Compra nova',used:'Compra usada'}[selected.kind]||selected.kind):'—');
+ const airborne=s.phase==='EM VOO'||s.phase==='AIRBORNE';
+ const active=!!selected?.is_active;
+ const buttons={'fleet-use':!has||active||airborne,
+  'fleet-refuel':!has||!active||airborne||s.connection!=='connected',
+  'fleet-revise':!has||airborne||selected.condition>=99.9,
+  'fleet-upload':!has,'fleet-remove-photo':!selected?.photo_url};
+ for(const [id,disabled]of Object.entries(buttons))$(id).disabled=!!disabled;
+ $('fleet-use').title=active?'Já é a aeronave ativa':airborne?'Não altere a aeronave em voo':'Definir esta aeronave como ativa';
+ $('fleet-refuel').title=!active?'Ative esta aeronave antes do abastecimento':'Ajustar combustível em solo';
+}
 function renderModuleView(s){
  if(!moduleTitles[view]||!s?.progress)return;
  const [title,description]=moduleTitles[view];text('module-title',title);text('module-description',description);
@@ -227,7 +339,7 @@ function renderWeather(s){
  }
 }
 function render(s){state=s;if(!s.progress)return;const p=s.pilot;const country=s.country==='BR'?'':s.country?' · '+s.country:'';text('callsign',(p?.callsign||'CADASTRAR PILOTO')+country);if(s.country==='BR'){const flag=node('span','flag-br');flag.title='Brasil • país da base';$('callsign').append(flag)}text('qualification',p?({autonomo:'Piloto autônomo',empregado:'Piloto empregado',proprietario:'Companhia própria'}[s.employment]||s.employment)+' • '+s.summary.qualifications.join(' / '):'Crie sua carreira');text('level',p?'NÍVEL '+s.progress.level:'NÍVEL —');text('xp',p?'XP '+s.progress.xp+' / '+s.progress.target+' ('+Math.round(s.progress.fraction*100)+'%)':'XP —');bar('xpbar',s.progress.fraction);text('balance',money(s.balance));text('connection',{connected:'Conectado',reconnecting:'Reconectando',disconnected:'Desconectado'}[s.connection]);$('led').style.background={connected:'#86fc24',reconnecting:'#ffc400',disconnected:'#e06a75'}[s.connection];$('avatar').hidden=!s.avatar;if(s.avatar&&$('avatar').src!==s.avatar)$('avatar').src=s.avatar;
-text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderMarketView(s);renderModuleView(s);renderSummary(s);
+text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderMarketView(s);renderModuleView(s);renderFleetView(s);renderSummary(s);
 const m=s.mission;const bonus=s.bonus?.bonus_fraction||0;text('route',m?m.origin+' → '+m.destination:'Selecione uma missão');text('distance',m?'Distância: '+(m.distance===null?'—':number(m.distance)+' NM')+'  |  Prev. voo: '+(m.minutes===null?'—':m.minutes+' min'):'Explore o mercado regional para começar');text('category',m?.category||'');text('reward',m?money(m.reward):'—');text('bonus-value',m?'+'+number(bonus*100,1)+'%':'—');text('mission-status',m?(s.bonus?.frozen?'EM VOO • CONGELADO':'RESERVADO'):'');
 for(const [key,, ,unit] of metricNames){const e=$('metric-'+key);if(key==='phase'){e.textContent=s.phase;e.style.color='#8df63e';continue}e.replaceChildren(document.createTextNode(s.telemetry?number(s.telemetry[key]):'—'),node('small','',' '+unit))}text('telemetry-status',s.mode==='Demo'?'DEMONSTRAÇÃO':s.telemetry?.stale?'ÚLTIMA LEITURA • SEM ATUALIZAÇÃO':s.connection==='connected'?'':'AGUARDANDO MSFS');renderWeather(s);text('log',s.log.slice(-8).join('\n'));$('log').scrollTop=$('log').scrollHeight;text('realism-total',m?'+'+number(bonus*100,1)+'%':'—');
 const labels=['Relógio UTC verificado','Assistência de voo verificada','Pista / iluminação revisada','Rota revisada','Combustível adequado','Peso dentro do limite'];const components=Object.values(s.bonus?.components||{});$('checklist').replaceChildren();labels.forEach((label,i)=>{const sensor=i===0?s.audit?.clock:i===1?s.audit?.assists:undefined;
@@ -235,7 +347,12 @@ const ok=i<2?sensor===true:components[i]?.ok;
 const e=node('div',ok?'ok':'');e.append(icon('check'),node('span','',label));
 e.title=i<2?(sensor==null?'Sensor indisponível • sem bônus':sensor?'Verificado pelo MSFS':'Condição não atendida'):
  (components[i]?'+'+number(components[i].rate*100,1)+'% • ':'')+(i<4?'Conferência manual':'Telemetria/estimativa');$('checklist').append(e)});text('edit-plan',s.bonus?.frozen?'Congelado na decolagem • Ver despacho':'Revisar no despacho →');
-const a=s.plane;const photo=a?.code==='c152';$('aircraft-photo').hidden=!photo;$('photo-credit').hidden=!photo;document.querySelector('.aircraft-art').classList.toggle('has-photo',photo);document.querySelector('.aircraft-art>svg').style.display=photo?'none':'';document.querySelector('.aircraft-art>span').hidden=photo;text('aircraft-name',a?.title||'Nenhuma aeronave');text('aircraft-ref',a?a.ref+' • '+a.kind:'Selecione no Hangar');document.querySelectorAll('[data-action=refuel],[data-action=service]').forEach(b=>{b.disabled=!!a?.ref.startsWith('contract:');b.title=b.disabled?'Aeronave fornecida pelo contratante':''});text('location',a?.airport||'—');text('condition',a?.condition!==null&&a?number(a.condition,1)+'%':'Indisponível');bar('conditionbar',a?a.condition/100:0);$('conditionbar').style.background=a?.condition<40?'#ef6464':a?.condition<75?'#ffc400':'';const f=s.fuel;const q=f.quantity;const ratio=q!==null&&f.capacity?q/f.capacity:null;text('fuel-value',q!==null?number(q,1)+' gal'+(ratio!==null?' ('+number(ratio*100)+'%)':''):'Sem leitura validada');bar('fuelbar',ratio);text('fuel-title','Controle: '+(f.enabled?'ATIVO':'DESLIGADO'));text('fuel-status',f.enabled?(s.connection==='connected'?'Confira a confirmação no registro':'Aguardando MSFS • sem confirmação'):'Penalidade de 30% em R$ e XP');$('fuel-toggle').classList.toggle('on',f.enabled);const alerts=$('resource-alerts');alerts.replaceChildren();
+const a=s.plane;const photoKind=setFleetImage($('aircraft-photo'),null,a);
+ const photo=photoKind!=='none';
+ $('photo-credit').hidden=photoKind!=='stock';
+ document.querySelector('.aircraft-art').classList.toggle('has-photo',photo);
+ document.querySelector('.aircraft-art>svg').style.display=photo?'none':'';
+ document.querySelector('.aircraft-art>span').hidden=photo;text('aircraft-name',a?.title||'Nenhuma aeronave');text('aircraft-ref',a?a.ref+' • '+a.kind:'Selecione no Hangar');document.querySelectorAll('[data-action=refuel],[data-action=service]').forEach(b=>{b.disabled=!!a?.ref.startsWith('contract:');b.title=b.disabled?'Aeronave fornecida pelo contratante':''});text('location',a?.airport||'—');text('condition',a?.condition!==null&&a?number(a.condition,1)+'%':'Indisponível');bar('conditionbar',a?a.condition/100:0);$('conditionbar').style.background=a?.condition<40?'#ef6464':a?.condition<75?'#ffc400':'';const f=s.fuel;const q=f.quantity;const ratio=q!==null&&f.capacity?q/f.capacity:null;text('fuel-value',q!==null?number(q,1)+' gal'+(ratio!==null?' ('+number(ratio*100)+'%)':''):'Sem leitura validada');bar('fuelbar',ratio);text('fuel-title','Controle: '+(f.enabled?'ATIVO':'DESLIGADO'));text('fuel-status',f.enabled?(s.connection==='connected'?'Confira a confirmação no registro':'Aguardando MSFS • sem confirmação'):'Penalidade de 30% em R$ e XP');$('fuel-toggle').classList.toggle('on',f.enabled);const alerts=$('resource-alerts');alerts.replaceChildren();
 if(s.maintenance_alerts?.fuel_low)alerts.append(node('div','alert-fuel','⚠ Combustível ≤20% • Abasteça antes de decolar'));
 if(s.maintenance_alerts?.condition_low)alerts.append(node('div','alert-wear','⚠ Aeronave ≤20% de condição • Revisão recomendada'));
 alerts.hidden=!alerts.childElementCount;
@@ -246,7 +363,7 @@ const routeNames={atc_sent:'Enviado ao ATC • GPS/VFR NÃO confirmado',
 text('dispatch-progress',m?('Plano: '+(routeNames[ds.route]||ds.route||'não preparado')+
  ' • Carga: '+(ds.payload||'não preparada')+
  (ds.message?' • '+ds.message:'')):'Aceite uma missão para preparar plano e carga automaticamente.');
-text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?s.status:'Conecte ao MSFS em Configurações.');renderMap(s)}
+text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?s.status:'Conecte ao MSFS em Configurações.');if(view==='dashboard'||view==='details')renderMap(s)}
 function svgNode(tag,attrs,textValue){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs||{}))e.setAttribute(k,v);if(textValue!==undefined)e.textContent=textValue;return e}
 function headingDisplay(t){
  if(t?.stale)return 'POSIÇÃO DESATUALIZADA';

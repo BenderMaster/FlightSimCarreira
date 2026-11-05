@@ -201,3 +201,12 @@ Consulte [Bloco 3](BLOCO_3_CARREIRAS.md).
 - [x] Aplicado ícone principal aprovado no build.
 - [ ] Validar pacote de facilities no MSFS 2020 real.
 - [ ] Explorar via SDK WASM/Coherent ou integração específica de aviônicos, sem prometer carregamento universal de GPS/VFR.
+
+## v0.8.0 — Bloco 1: Frota / Hangar Midnight
+- [x] Oficializar a base v0.7.8.2 homologada em simulador real na main.
+- [x] Tela própria com lista de aeronaves adquiridas, visualização central e painel lateral de operações.
+- [x] Ocultar aluguéis, freelancer e aeronaves de empresas na Frota do piloto.
+- [x] Foto exclusiva por exemplar, SQLite no save da carreira, Dashboard sincronizada e imagens sem distorção.
+- [x] Selecionar aeronave ativa, abastecer e manutenção com confirmação/pagamento real via motor existente.
+- [ ] Homologar visual e foto personalizada no Windows real.
+- [ ] Bloco futuro: Loja/Aluguel de aeronaves em página independente, sem misturar com Frota.

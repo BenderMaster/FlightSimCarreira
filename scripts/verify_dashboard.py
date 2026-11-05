@@ -109,6 +109,48 @@ with tempfile.TemporaryDirectory() as temp:
                 assert 'FREELANCER' in offer.inner_text()
             page.locator('[data-market-view="regional"]').click()
             assert page.locator('#market-list .market-option').count()>0
+            # Bloco 1: frota usa página própria, não o módulo placeholder / loja.
+            page.locator('.nav-item[data-action="fleet"]').click()
+            assert page.locator('#fleet-page').is_visible()
+            assert not page.locator('#module-page').is_visible()
+            assert page.locator('.sidebar').is_visible()
+            assert 'FROTA' in page.locator('#fleet-page-title').inner_text()
+            assert page.locator('#fleet-list .fleet-item').count()==1
+            assert page.locator('#fleet-name').inner_text()=='Cessna 152'
+            assert page.locator('#fleet-active').is_visible()
+            assert page.locator('#fleet-photo').is_visible()
+            assert page.locator('#fleet-photo').evaluate('(e)=>getComputedStyle(e).objectFit')=='contain'
+            assert page.locator('#fleet-use').is_disabled()
+            assert page.locator('#fleet-upload').is_enabled()
+            # Duas unidades do mesmo modelo são listadas independentemente;
+            # foto personalizada deve refletir no quadro e Dashboard ativa.
+            custom=page.evaluate("""() => {
+              const original=state;
+              const owned=state.fleet.owned;
+              const twin={...owned[0],ref:'unit:98765',photo_url:'/c152.jpg?v=98765',
+                          kind:'used',is_active:false,title:'Cessna 152 (teste)'};
+              const synthetic={...state,fleet:{...state.fleet,owned:[...owned,twin]}};
+              render(synthetic);
+              const count=document.querySelectorAll('#fleet-list .fleet-item').length;
+              document.querySelector('#fleet-list [data-fleet-ref="unit:98765"]').click();
+              const result={count,selected:document.getElementById('fleet-name').textContent,
+                img:document.getElementById('fleet-photo').getAttribute('src')};
+              render(original);
+              return result;
+            }""")
+            assert custom['count']==2,custom
+            assert 'teste' in custom['selected'] and '98765' in custom['img'],custom
+            assert page.locator('#fleet-list .fleet-item').count()==1
+            photo=page.evaluate("""() => {
+              const original=state;
+              const file='/c152.jpg?v=simulated-unique';
+              render({...original,plane:{...original.plane,photo_url:file}});
+              const src=document.getElementById('aircraft-photo').getAttribute('src');
+              const visible=!document.getElementById('aircraft-photo').hidden;
+              const credit=document.getElementById('photo-credit').hidden;
+              render(original);return {src,visible,credit};
+            }""")
+            assert photo['src']=="/c152.jpg?v=simulated-unique" and photo['visible'] and photo['credit'],photo
             page.locator('.nav-item[data-action="planning"]').click()
             assert page.locator('#module-page').is_visible()
             assert 'PLANEJAMENTO' in page.locator('#module-title').inner_text()

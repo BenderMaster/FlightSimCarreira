@@ -156,6 +156,9 @@ class FleetManager:
         with self.conn:
             r=self.conn.execute('DELETE FROM fleet_units WHERE id=?',(int(ref.split(':')[1]),))
             if r.rowcount!=1: raise ValueError('Aeronave indisponível')
+            # O exemplar deixa de pertencer à carreira; a foto não pode
+            # ficar órfã nem ser herdada por outra aeronave do mesmo modelo.
+            self.conn.execute('DELETE FROM fleet_photos WHERE aircraft_ref=?',(ref,))
             self.db._money_movement(f'fleet-sell:{ref}:{time_ns()}','venda_aviao',price,f'Venda de {plane["title"]}')
             if self.db.get_setting('active_aircraft_ref')==ref:
                 self.conn.execute("DELETE FROM settings WHERE key='active_aircraft_ref'")

@@ -14,6 +14,7 @@ from dataclasses import replace
 from .flight_audit import real_clock_verified, assistance_verified
 from .finance import estimated_minutes, AIRCRAFT_ECONOMY
 from .manifest import mission_manifest
+from .fleet_photos import owned_fleet, photo_stamps
 from .msfs_airports import strict_mission, restricted_mission
 from .reputation import pilot_reputation
 from .weather import MetarCache, sim_conditions, within_nm
@@ -140,7 +141,21 @@ class DashboardPresenter:
         start=0 if progress['level']==1 else next_level_xp(progress['level']-1)
         stats['qualifications']=sorted(stats['qualifications'])
         progress.update(xp=stats['xp']-start,target=stats['next_level_xp']-start)
-        plane=db.fleet_manager().selected()
+        fm=db.fleet_manager()
+        active_plane=fm.selected()
+        metadata=photo_stamps(db)
+        photo_link=getattr(self,'photo_url_for',lambda ref,stamp:None)
+        fleet_owned=[]
+        for owned in owned_fleet(db):
+            fuel_record=app.fuel_manager.get(owned['ref'])
+            tanks=fuel_record['tanks'] if fuel_record else {}
+            caps=fuel_record['capacities'] if fuel_record else {}
+            fleet_owned.append(dict(owned,
+                photo_url=photo_link(owned['ref'],metadata.get(owned['ref'])),
+                fuel_gallons=sum(tanks.values()) if tanks else None,
+                fuel_capacity=sum(caps.values()) if caps else None,
+                is_active=bool(active_plane and owned['ref']==active_plane['ref'])))
+        plane=active_plane
         fuel=app.fuel_manager.get(plane['ref']) if plane else None
         s=app.last_sample;m=app.career.mission;plan=app._saved_preflight()
         if m and m.freelance and m.employer_plane in PLANE_BY_CODE:
@@ -148,6 +163,8 @@ class DashboardPresenter:
             plane={'ref':'contract:'+m.id,'code':m.employer_plane,'title':assigned.name,
                    'condition':None,'airport':m.origin,'kind':'Aeronave do contratante'}
             fuel=app.fuel_manager.get(plane['ref'])
+        if plane:
+            plane=dict(plane,photo_url=photo_link(plane['ref'],metadata.get(plane['ref'])))
         verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s)}
                   if s and app.mode=='MSFS' and app.connected and time()-s.timestamp<10 else {})
         if (m and getattr(app,'dispatch_state',{}).get('mission_id')==m.id and
@@ -217,7 +234,10 @@ class DashboardPresenter:
             mission=mission_data(restricted_mission(m,app.airport_catalog) if app.mode!='Demo' else m,
                                  plane['code'] if plane else None) if m else None,
             market=dict(icao=self.center.icao,name=self.center.name,lat=self.center.latitude,lon=self.center.longitude) if self.center else None,offers=offers,
-            plane=plane,maintenance_alerts=dict(fuel_low=fuel_warning,condition_low=wear_warning),
+            plane=plane,fleet=dict(owned=fleet_owned,
+                active_ref=active_plane['ref'] if active_plane else None,
+                count=len(fleet_owned)),
+            maintenance_alerts=dict(fuel_low=fuel_warning,condition_low=wear_warning),
             fuel=dict(enabled=db.get_setting('fuel_control_enabled')=='1',quantity=quantity,
             capacity=capacity,
             refundable_liters=app.fuel_manager._refundable(plane['ref']) if plane and fuel else 0,

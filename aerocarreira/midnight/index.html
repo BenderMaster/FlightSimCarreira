@@ -39,7 +39,7 @@
  <button class="settings icon-button" data-action="settings" title="Configurações"><svg><use href="#i-gear"/></svg></button>
 <div class="window-controls"><button class="icon-button" id="minimize" title="Minimizar">−</button><button class="icon-button" data-action="close" title="Fechar com segurança">×</button></div></header>
 <main class="workspace">
- <aside class="sidebar card"><nav id="navigation"></nav><div class="scenery"><span>SEU PRÓXIMO DESTINO<br><b>COMEÇA AQUI.</b></span></div><small class="build">MIDNIGHT OPS • 0.7.8.2 α3</small></aside>
+ <aside class="sidebar card"><nav id="navigation"></nav><div class="scenery"><span>SEU PRÓXIMO DESTINO<br><b>COMEÇA AQUI.</b></span></div><small class="build">MIDNIGHT OPS • 0.8.0 α1</small></aside>
  <section class="left-column">
   <section class="market card"><div class="section-title"><div><h2>MERCADO REGIONAL</h2><small id="market-base">Cadastre sua base</small></div><button class="plain refresh" data-action="refresh" title="Atualizar ofertas"><svg><use href="#i-refresh"/></svg></button></div><div id="offers" class="offers"></div><button class="button all-missions" data-action="market"><svg><use href="#i-search"/></svg>Ver todas as missões</button></section>
   <section class="summary card"><h2><svg><use href="#i-chart"/></svg>RESUMO DA CARREIRA</h2><div id="summary"></div><div class="summary-level"><small>PROGRESSO DO NÍVEL</small><div class="progress green"><i id="summary-progress"></i></div></div></section>
@@ -58,6 +58,49 @@
   <div class="market-toolbar"><label for="market-search">Buscar contratos</label><input id="market-search" type="search" autocomplete="off" placeholder="Destino, ICAO ou tipo de serviço..." aria-label="Buscar contratos"><span id="market-count" aria-live="polite"></span></div>
   <div id="market-list" class="market-list" role="list" aria-live="polite"></div>
   <footer class="page-foot"><small id="market-view-hint">As ofertas são geradas localmente e verificadas novamente no aceite.</small><button class="button" data-action="dashboard">Voltar ao Dashboard</button></footer>
+ </section>
+ <section id="fleet-page" class="page-shell fleet-page card" hidden aria-labelledby="fleet-page-title">
+  <header class="page-head fleet-head">
+   <div><small class="eyebrow">MIDNIGHT OPS • PATRIMÔNIO DO PILOTO</small><h1 id="fleet-page-title">FROTA / HANGAR</h1>
+    <p>Seu hangar pessoal. Somente aeronaves adquiridas na carreira.</p></div>
+   <div class="fleet-head-summary"><svg><use href="#i-hangar"/></svg><strong id="fleet-count">0 aeronaves</strong><small>Compra e aluguel serão módulos separados.</small></div>
+  </header>
+  <div class="fleet-layout">
+   <aside class="fleet-owned card" aria-label="Aeronaves adquiridas">
+    <div class="fleet-section-heading"><strong>MINHAS AERONAVES</strong><small id="fleet-list-count">0 disponíveis</small></div>
+    <div id="fleet-list" class="fleet-owned-list" role="list" aria-live="polite"></div>
+   </aside>
+   <section class="fleet-selected card" aria-label="Aeronave selecionada">
+    <div class="fleet-selected-head"><div><small class="eyebrow">AERONAVE SELECIONADA</small><h2 id="fleet-name">Nenhuma aeronave</h2>
+      <small id="fleet-model">Escolha uma aeronave da lista</small></div><span id="fleet-active" class="fleet-active-status" hidden>EM USO</span></div>
+    <div class="fleet-image-frame">
+     <img id="fleet-photo" alt="Foto da aeronave escolhida" hidden>
+     <div id="fleet-photo-placeholder" class="fleet-photo-placeholder"><svg><use href="#i-plane"/></svg><span>Sem fotografia • adicione uma imagem do seu simulador</span></div>
+     <small id="fleet-photo-credit" class="fleet-photo-credit" hidden>Foto ilustrativa do modelo • Wikimedia Commons (CC BY-SA 4.0)</small>
+    </div>
+    <div class="fleet-selected-stats">
+     <div><small>LOCALIZAÇÃO</small><strong id="fleet-airport">—</strong></div>
+     <div><small>HORAS REGISTRADAS</small><strong id="fleet-hours">—</strong></div>
+     <div><small>CONDIÇÃO</small><strong id="fleet-condition">—</strong><span class="fleet-meter"><i id="fleet-conditionbar"></i></span></div>
+     <div><small>COMBUSTÍVEL</small><strong id="fleet-fuel">—</strong><span class="fleet-meter"><i id="fleet-fuelbar"></i></span></div>
+    </div>
+    <div id="fleet-photo-caption" class="fleet-caption">Fotos personalizadas pertencem a cada exemplar e também aparecem na Dashboard.</div>
+   </section>
+   <aside class="fleet-operations card" aria-label="Operações da aeronave">
+    <div class="fleet-section-heading"><strong>OPERAÇÕES</strong><small id="fleet-operation-kind">Aeronave própria</small></div>
+    <div class="fleet-operations-stack">
+     <button id="fleet-use" data-fleet-operation="fleet_select" class="button primary"><svg><use href="#i-check"/></svg>Definir como ativa</button>
+     <button id="fleet-refuel" data-fleet-operation="fleet_refuel" class="button"><svg><use href="#i-fuel"/></svg>Abastecer</button>
+     <button id="fleet-revise" data-fleet-operation="fleet_service" class="button"><svg><use href="#i-tool"/></svg>Revisar aeronave</button>
+     <div class="fleet-actions-divider"></div>
+     <button id="fleet-upload" data-fleet-operation="fleet_photo" class="button"><svg><use href="#i-camera"/></svg>Adicionar / trocar foto</button>
+     <button id="fleet-remove-photo" data-fleet-operation="fleet_photo_clear" class="button">Restaurar imagem padrão</button>
+    </div>
+    <div class="fleet-operation-summary"><small>SEGURO</small><strong id="fleet-insurance">—</strong><small>TIPO DE AQUISIÇÃO</small><strong id="fleet-acquisition">—</strong></div>
+    <div class="fleet-operation-note">Abastecimento somente na aeronave ativa, conectada e no solo. A revisão utiliza o saldo da carreira.</div>
+   </aside>
+  </div>
+  <footer class="page-foot"><small>Fotos salvas dentro do SQLite do piloto, sem modificar pinturas ou arquivos do MSFS.</small><button class="button" data-action="dashboard">Voltar à Dashboard</button></footer>
  </section>
  <section id="module-page" class="page-shell module-page card" hidden aria-labelledby="module-title">
   <header class="page-head"><div><small class="eyebrow">FLIGHTSIMCARREIRA • PAINEL INTEGRADO</small><h1 id="module-title">MÓDULO</h1><p id="module-description"></p></div></header>

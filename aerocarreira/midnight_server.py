@@ -1,5 +1,8 @@
 """Private loopback transport. Token authentication, same-origin writes, bounded queue."""
 import json
+import hashlib
+import hmac
+import re
 from math import isfinite
 import secrets
 import threading
@@ -8,13 +11,15 @@ from pathlib import Path
 from queue import Queue, Full
 
 ACTIONS={'pilot','market','fleet','planning','finance','employment','history','reports','settings','connect','disconnect',
-         'demo','demo_next','legacy','cancel','plan','fuel','refuel','service','avatar','refresh','offer','close','save_log','installed','analyze','locate','local_panel','prepare'}
+         'demo','demo_next','legacy','cancel','plan','fuel','refuel','service','avatar','refresh','offer','close','save_log','installed','analyze','locate','local_panel','prepare','fleet_select','fleet_photo','fleet_photo_clear','fleet_service'}
 ASSETS=Path(__file__).with_name('midnight')
 class DashboardServer:
     def __init__(self):
         self.token=secrets.token_urlsafe(32)
         self.commands=Queue(maxsize=32)
         self.state=b'{}'
+        self.photos={}
+        self.photo_lock=threading.RLock()
         owner=self
         class Handler(BaseHTTPRequestHandler):
             def log_message(self,*args):pass
@@ -31,6 +36,12 @@ class DashboardServer:
                 if not self.valid_host():self.reply(403,b'{}');return
                 if self.path=='/state':
                     self.reply(200,owner.state) if self.authorized() else self.reply(403,b'{}');return
+                match=re.fullmatch(r'/fleet-photo/([0-9a-f]{64})\.jpg(?:\?v=[0-9]{1,24})?',self.path)
+                if match:
+                    with owner.photo_lock:
+                        jpeg=owner.photos.get(match.group(1))
+                    self.reply(200,jpeg,'image/jpeg') if jpeg else self.reply(404,b'{}')
+                    return
                 paths={'/brand-icon.png':('brand-icon.png','image/png'),'/scenery.jpg':('scenery.jpg','image/jpeg'),'/c152.jpg':('c152.jpg','image/jpeg'),'/':('index.html','text/html; charset=utf-8'),'/style.css':('style.css','text/css'),'/app.js':('app.js','text/javascript'),'/free-map.js':('free-map.js','text/javascript'),'/vendor/maplibre-gl.js':('vendor/maplibre-gl.js','text/javascript'),'/vendor/maplibre-gl.css':('vendor/maplibre-gl.css','text/css'),'/scenery.svg':('scenery.svg','image/svg+xml'),'/fonts/BarlowSemiCondensed-Regular.ttf':('fonts/BarlowSemiCondensed-Regular.ttf','font/ttf'),'/fonts/BarlowSemiCondensed-SemiBold.ttf':('fonts/BarlowSemiCondensed-SemiBold.ttf','font/ttf')}
                 if self.path not in paths:self.reply(404,b'{}');return
                 name,mime=paths[self.path];asset=ASSETS/name
@@ -64,6 +75,24 @@ class DashboardServer:
         self.origin='http://'+self.host
         self.url=self.origin+'/#'+self.token
         self.thread=threading.Thread(target=self.server.serve_forever,daemon=True)
+    def _photo_key(self,ref):
+        return hmac.new(self.token.encode('ascii'),ref.encode('utf-8'),hashlib.sha256).hexdigest()
+
+    def photo_url(self,ref,stamp):
+        return f'/fleet-photo/{self._photo_key(ref)}.jpg?v={int(stamp)}' if stamp else None
+
+    def set_photos(self,photos_by_ref):
+        with self.photo_lock:
+            self.photos={self._photo_key(ref):data for ref,data in photos_by_ref.items()}
+
+    def set_photo(self,ref,image):
+        with self.photo_lock:
+            self.photos[self._photo_key(ref)]=image
+
+    def remove_photo(self,ref):
+        with self.photo_lock:
+            self.photos.pop(self._photo_key(ref),None)
+
     def start(self):self.thread.start()
     def publish(self,state):self.state=json.dumps(state,ensure_ascii=False,allow_nan=False).encode()
     def stop(self):self.server.shutdown();self.server.server_close();self.thread.join(timeout=2)

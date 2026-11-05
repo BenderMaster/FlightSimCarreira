@@ -14,6 +14,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+      - name: Install image normalization dependency
+        run: python -m pip install "Pillow>=10.4,<13"
       - name: Compile
         run: python -m compileall -q aerocarreira
       - name: Tests
@@ -55,5 +57,5 @@ jobs:
         run: .\\dist\\FlightSimCarreira\\FlightSimCarreira.exe --verify-native-webview
       - uses: actions/upload-artifact@v4
         with:
-          name: FlightSimCarreira-0.7.8.2-midnight-alpha3-Windows
+          name: FlightSimCarreira-0.8.0-midnight-alpha1-Windows
           path: dist/FlightSimCarreira/

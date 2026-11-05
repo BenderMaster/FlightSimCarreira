@@ -1,3 +1,24 @@
+# FlightSimCarreira v0.8.0 Midnight Ops Alpha.1 — Bloco 1: Frota / Hangar
+
+**Base:** v0.7.8.2 Alpha.3 homologada pelo piloto em MSFS 2020 (37.209 aeroportos do catálogo nativo confirmados); commit de integração: `5f8995d`. Nenhuma mudança na classificação de voo, importação de aeroportos, carga ou combustível.
+
+## Nova interface Frota
+- Página Midnight própria, menu lateral sempre presente, **sem abrir Tk popup como tela principal**. Somente aeronaves efetivamente adquiridas: inicial (legacy/starter), outras compradas na carreira antiga e novas/usadas `unit:<id>`. **Não exibe aluguéis `rent:<id>` nem aeronaves freelancer `contract:<id>`**.
+- Lista de aeronaves no painel esquerdo; aeronave selecionada no centro com foto, horas, condição, ICAO e combustível inventariado; painel de operações à direita para selecionar a aeronave ativa, abastecer, revisar e trocar/remover fotografia. Compra e aluguel permanecem no mecanismo legado por enquanto, mas serão integrados em uma página separada de mercado de aeronaves.
+- Clicar para visualizar **não** troca automaticamente a aeronave ativa. O botão "Definir como ativa" aplica o comando explicitamente, bloqueado em voo. Abastecimento só é habilitado para o exemplar ativo, MSFS conectado e no solo; usa o popup de litros existente. Manutenção usa o mesmo motor financeiro e respeita aeronaves do cadastro legado e modernas.
+
+## Fotografias
+- Cada aeronave própria tem uma foto **independente por identificador do exemplar**. PNG, JPEG, WEBP ou BMP do usuário; suporte à orientação EXIF. Origem limitada a 16 MB / 36 megapixels e normalizada a JPEG de no máximo 1600×1100 px. Proporção sempre preservada com `object-fit:contain` no Hangar e Dashboard.
+- Bytes normalizados guardados diretamente na tabela **SQLite `fleet_photos` do próprio `carreira.db`**. Ao fazer backup do banco com o app fechado, as fotos seguem junto. Não são copiadas para a pasta do MSFS. A imagem escolhida para o exemplar ativo aparece também na Dashboard.
+- Para C152 sem personalização, usa a imagem ilustrativa já incluída (Wikimedia Commons, com crédito). Outros modelos sem foto cadastrada exibem uma ilustração neutra, sem arriscar mostrar o modelo errado nem baixar fotos sem licença.
+- Servidor loopback entrega JPEG somente com chave HMAC opaca por sessão; não publica caminho local original nem endpoint de upload arbitrário. O usuário escolhe a foto via diálogo nativo autorizado pelo app.
+
+**Antes de instalar:** mantenha a v0.7.8.2 em pasta separada e faça backup de `%APPDATA%\\AeroCarreira-Lab\\carreira.db` com o programa fechado. Schema é aditivo. CI completo (Python 3.11/3.13 Windows/Linux + Playwright + build Windows) obrigatório; homologação no MSFS real ainda pendente nesta versão.
+
+Ver [especificação Bloco 1](docs/BLOCO1_FROTA_MIDNIGHT.md).
+
+---
+
 # FlightSimCarreira v0.7.8.2 Midnight Ops Alpha.3 — aeroportos MSFS e desempenho
 
 Corrige o erro REAL da v0.7.8.1: `pacote=20587 bytes, registros=622`. O MSFS 2020 pode incluir um registro fixo extra de 33 bytes (`rgData[1]`) no comprimento da mensagem, além dos `dwArraySize` registros informados. A validação aceita **apenas um** bloco final de tamanho conhecido e decodifica os registros declarados; nunca adiciona dados do campo extra à base.
