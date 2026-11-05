@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 560" role="img" aria-label="Ilustração original Beechcraft Baron G58">
+<title>Beechcraft Baron G58 - imagem ilustrativa original</title>
+<defs>
+<linearGradient id="sky" x2="0" y2="1"><stop stop-color="#4a7da0"/><stop offset=".7" stop-color="#f1b482"/><stop offset="1" stop-color="#203e55"/></linearGradient>
+<linearGradient id="fuselage" x2="0" y2="1"><stop stop-color="#fafdff"/><stop offset=".52" stop-color="#d6e4ec"/><stop offset="1" stop-color="#7a93a3"/></linearGradient>
+<linearGradient id="wing" x2="0" y2="1"><stop stop-color="#f3faff"/><stop offset=".64" stop-color="#91a8b7"/><stop offset="1" stop-color="#49677b"/></linearGradient>
+<radialGradient id="sun"><stop stop-color="#fff9e6" stop-opacity=".8"/><stop offset="1" stop-color="#fff9e6" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="1000" height="560" fill="url(#sky)"/>
+<ellipse cx="730" cy="230" rx="340" ry="220" fill="url(#sun)"/>
+<path d="M28 132q86-43 156-7 108-25 153 21-173 5-309-14ZM584 120q81-43 160-5 94-18 155 29-155 5-315-24Z" fill="#fff" opacity=".3"/>
+<path d="M0 454q180-50 312-10 167-54 312-11 204-40 376-10v137H0Z" fill="#465e72" opacity=".25"/>
+<path d="M0 503q270-30 508 10 289-47 492-13v60H0Z" fill="#2a4964" opacity=".55"/>
+<path d="M0 540l1000-20v40H0Z" fill="#0e2e41"/>
+<path d="M70 554l205-12m323-8 190-7" stroke="#d8e6e6" stroke-width="5" opacity=".36"/>
+<ellipse cx="527" cy="432" rx="320" ry="19" fill="#23465e" opacity=".18"/>
+<g transform="translate(0,-12)"><path d="M270 302l-39-142 29-2 86 143Z" fill="url(#wing)" stroke="#638193" stroke-width="5"/>
+<path d="M243 307l-111-42 27-26 174 53Z" fill="#d9e7ef" stroke="#6b8998" stroke-width="4"/><path d="M426 308l194-62 310 115-277-28-139 6Z" fill="url(#wing)" stroke="#64869a" stroke-width="5"/>
+<path d="M479 332l140 90 185 34-149-114Z" fill="url(#wing)" stroke="#638397" stroke-width="4"/><path d="M195 312Q250 282 380 280l318-2q103 6 140 34 19 13 2 22-30 18-150 14l-314-8q-126-5-181-17Z" fill="url(#fuselage)" stroke="#6d8797" stroke-width="4"/>
+<path d="M202 320q289 29 628 12" stroke="#0978b4" stroke-width="11" fill="none"/>
+<path d="M373 284l149-1 25 31-171-4Z" fill="#173950" stroke="#a9cfde" stroke-width="3"/>
+<path d="M412 282l-5 30m52-28v30m47-30 5 29" stroke="#d2e6ed" stroke-width="4"/><rect x="559" y="284" width="22" height="21" rx="5" fill="#26435b" stroke="#c0d5df" stroke-width="2"/><rect x="590" y="284" width="22" height="21" rx="5" fill="#26435b" stroke="#c0d5df" stroke-width="2"/><rect x="621" y="284" width="22" height="21" rx="5" fill="#26435b" stroke="#c0d5df" stroke-width="2"/><g transform="translate(545 342) scale(0.65)"><path d="M-40-19h80l34 30-32 28h-75Z" fill="#6589a1" stroke="#42647b" stroke-width="4"/><circle r="14" fill="#173a53" stroke="#a1cbdb" stroke-width="4"/><path d="M-2-65q24 33 8 62 44 29 60 71-39-13-65-40-31 40-68 48 23-45 60-77-30-32-44-67 39 18 49 45Z" fill="#e0f6f9" opacity=".45"/></g><g transform="translate(735 342) scale(0.55)"><path d="M-40-19h80l34 30-32 28h-75Z" fill="#6589a1" stroke="#42647b" stroke-width="4"/><circle r="14" fill="#173a53" stroke="#a1cbdb" stroke-width="4"/><path d="M-2-65q24 33 8 62 44 29 60 71-39-13-65-40-31 40-68 48 23-45 60-77-30-32-44-67 39 18 49 45Z" fill="#e0f6f9" opacity=".45"/></g><path d="M360 339l-7 61m330-56 11 58" stroke="#557285" stroke-width="8"/><ellipse cx="353" cy="406" rx="25" ry="20" fill="#172a38"/><ellipse cx="694" cy="408" rx="29" ry="22" fill="#172a38"/></g>
+<rect x="21" y="18" width="235" height="38" rx="8" fill="#051e2c" opacity=".74"/>
+<text x="36" y="43" font-family="Arial,sans-serif" font-weight="700" font-size="17" fill="#ddf5fb" letter-spacing="1">FLIGHTSIMCARREIRA</text>
+</svg>
