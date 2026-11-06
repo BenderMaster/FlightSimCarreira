@@ -130,6 +130,8 @@ def route_stats(plan, catalog, aircraft_title=None, fuel_available=None, sample=
     code = aircraft_model(aircraft_title or "")
     model = AIRCRAFT_ECONOMY.get(code or "")
     cruise = model.cruise_kts if model else 90
+    for leg in legs:
+        leg['minutes'] = round(60 * leg['nm'] / cruise, 1)
     duration = max(8, round(60 * total / cruise + 5))
     required = (model.fuel_lph * duration / 60 / LITERS_PER_GALLON * 1.35) if model else None
     reserve = (required * (0.35 / 1.35)) if required else None
