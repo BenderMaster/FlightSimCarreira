@@ -232,19 +232,57 @@ function achievements(pc){
   root.append(card);
  });
 }
+function licenseSealSvg(code,tier){
+ const svg=make('svg',{viewBox:'0 0 100 100',role:'img','aria-label':'Selo '+code,class:'pc-license-seal-svg'});
+ const colors=['#cad9e6','#c9a574','#85d4e7','#e8c779','#ffecb2'];
+ const metal=colors[tier]||colors[0];
+ svg.append(make('circle',{cx:50,cy:50,r:44,fill:'#09233b',stroke:metal,'stroke-width':3}));
+ svg.append(make('circle',{cx:50,cy:50,r:37,fill:'#123951',stroke:metal,'stroke-width':.9,'stroke-dasharray':'3 4'}));
+ svg.append(make('path',{d:'M12 49L37 40L44 45L16 55ZM88 49L63 40L56 45L84 55Z',
+  fill:metal,stroke:'#0d3349','stroke-width':1.5}));
+ svg.append(make('path',{d:'M17 56L40 49M83 56L60 49',fill:'none',stroke:metal,'stroke-width':3}));
+ if(code==='IFR'){
+  svg.append(make('circle',{cx:50,cy:50,r:19,fill:'#092538',stroke:metal,'stroke-width':2}));
+  svg.append(make('path',{d:'M50 30L57 49L50 70L43 49Z',fill:metal,stroke:'#f2f6ea','stroke-width':1}));
+ }else if(code==='MLTE'){
+  svg.append(make('circle',{cx:42,cy:51,r:10,fill:'#092538',stroke:metal,'stroke-width':2}));
+  svg.append(make('circle',{cx:59,cy:51,r:10,fill:'#092538',stroke:metal,'stroke-width':2}));
+  svg.append(make('path',{d:'M30 63L50 53L70 63M50 35V70',fill:'none',stroke:metal,'stroke-width':3}));
+ }else if(code==='PLA'){
+  svg.append(make('path',{d:'M50 25L56 41L73 41L60 52L65 69L50 59L35 69L40 52L27 41L44 41Z',
+   fill:metal,stroke:'#fff5d6','stroke-width':1.5}));
+ }else{
+  svg.append(make('path',{d:'M50 29L57 45L75 49L58 56L54 73L46 56L25 49L43 45Z',fill:metal,stroke:'#0c283a','stroke-width':1.6}));
+ }
+ svg.append(make('text',{x:50,y:89,'text-anchor':'middle','font-family':'Arial,sans-serif','font-size':10,
+  'font-weight':800,fill:metal,stroke:'none'},code));
+ return svg;
+}
 function licenses(pc){
  const root=el('pc-license-grid');root.replaceChildren();
+ const subtitles=[
+  'PRIMEIROS HORIZONTES','OPERAÇÕES COMERCIAIS','NAVEGAÇÃO POR INSTRUMENTOS',
+  'QUALIFICAÇÃO MULTIMOTOR','COMANDO DE LINHA AÉREA'
+ ];
  pc.licenses.forEach((q,i)=>{
-  const card=n('article','pc-license '+q.status);
-  const header=n('div','pc-license-head');
-  const badge=n('div','pc-license-seal');badge.append(rankSvg({code:['aspirante','tenente2','tenente1','capitao','major'][i]},'small'));
-  header.append(n('small','pc-license-brand','FLIGHTSIMCARREIRA  •  PILOT CAREER'),badge);
-  add(card,header,n('div','pc-license-code',q.code),n('h3','',q.title),
-   n('p','',q.description));
+  const tier=i+1,card=n('article','pc-license pc-license-tier-'+tier+' '+q.status);
+  const metadata=n('div','pc-license-meta');
+  metadata.append(n('small','pc-license-brand','FLIGHTSIMCARREIRA   /   PILOT CREDENTIALS'),
+   n('span','pc-license-serial','SÉRIE 0'+tier+' / 05'));
+  const top=n('div','pc-license-top');
+  const emblem=n('div','pc-license-emblem');emblem.append(licenseSealSvg(q.code,i));
+  const identity=n('div','pc-license-identity');
+  identity.append(n('small','pc-license-subtitle',subtitles[i]),n('strong','pc-license-code',q.code),n('h3','',q.title));
+  top.append(identity,emblem);
+  const accent=n('div','pc-license-filigree');
+  accent.append(n('span',''),n('span',''),n('span',''));
+  const desc=n('p','pc-license-description',q.description);
+  const ribbon=n('div','pc-license-stamp',q.status==='earned'?'CONQUISTADA':q.status==='available'?'ELEGÍVEL':'A CONQUISTAR');
   const footer=n('div','pc-license-foot');
-  footer.append(n('span','',q.status==='earned'?'EMITIDA':q.status==='available'?'REQUISITOS ATENDIDOS':'EM PROGRESSO'));
-  footer.append(n('strong','',q.date?new Date(q.date*1000).toLocaleDateString('pt-BR'):q.requirements));
-  card.append(footer);
+  const status=n('span','pc-license-state',q.status==='earned'?'EMITIDA':q.status==='available'?'REQUISITOS ATENDIDOS':'EM PROGRESSO');
+  const when=n('strong','',q.date?'EMITIDA EM '+new Date(q.date*1000).toLocaleDateString('pt-BR'):q.requirements);
+  footer.append(status,when);
+  card.append(metadata,top,accent,desc,ribbon,footer);
   if(q.status==='available'&&!pc.is_test){
    const button=n('button','button pc-license-claim','Conquistar certificado');
    button.onclick=()=>act('pilot_license_claim',undefined,q.code);
@@ -254,34 +292,107 @@ function licenses(pc){
  });
 }
 function graphSvg(title,data,kind){
- const box=n('section','pc-chart-card');box.append(n('h3','',title));
- const svg=make('svg',{viewBox:'0 0 620 245',role:'img','aria-label':title,preserveAspectRatio:'xMidYMid meet'});
- add(svg,make('path',{d:'M40 18V214H608',fill:'none',stroke:'#426074','stroke-width':2}));
- for(let i=0;i<4;i++)svg.append(make('path',{d:'M40 '+(30+i*55)+'H608',stroke:'#38566a','stroke-width':1,'stroke-dasharray':'4 7'}));
- if(data.length){
-  const use=data.slice(-42);
-  if(kind==='landing'){
-   const max=Math.max(300,...use.map(x=>Math.abs(x.fpm)));
-   const pts=use.map((v,i)=>[50+(540*i)/Math.max(1,use.length-1),214-Math.min(180,Math.abs(v.fpm)/max*180)]);
-   svg.append(make('polyline',{points:pts.map(p=>p.join(',')).join(' '),fill:'none',stroke:'#11def2','stroke-width':3}));
-   pts.forEach(([x,y],i)=>{const dot=make('circle',{cx:x,cy:y,r:4.3,fill:'#f2cf7e'});dot.append(make('title',{},fmt(use[i].fpm)+' ft/min'));svg.append(dot);});
-  }else{
-   const values=use.map(x=>Number(Array.isArray(x)?x[1]:0));
-   const max=Math.max(1,...values);const step=545/use.length;
-   use.forEach((d,i)=>{
-    const h=values[i]/max*168;
-    const rect=make('rect',{x:49+i*step,y:211-h,width:Math.max(3,step-9),height:h,rx:4,fill:i%2?'#14c2db':'#deb96c'});
-    rect.append(make('title',{},String(d[0])+': '+fmt(values[i],1)));svg.append(rect);
+ const card=n('section','pc-chart-card');
+ const isLanding=kind==='landing',isContracts=kind==='contracts';
+ const unit=isLanding?'ft/min':isContracts?'contratos':'horas';
+ const highlight=isLanding?'#17d9ee':'#e3c27d';
+ const heading=n('div','pc-chart-heading');
+ heading.append(n('h3','',title),n('small','pc-chart-unit',unit.toUpperCase()));
+ card.append(heading);
+ const svg=make('svg',{viewBox:'0 0 760 315',role:'img','aria-label':title,preserveAspectRatio:'xMidYMid meet'});
+ svg.append(make('title',{},title));
+ const left=89,right=733,top=21,bottom=238,W=right-left,H=bottom-top;
+ const rows=isLanding?(data||[]).slice(-18):(data||[]).slice(isContracts?-12:-8);
+ const values=rows.map(x=>isLanding?Math.abs(Number(x.fpm)||0):Math.max(0,Number(x[1])||0));
+ const highest=Math.max(1,...values);
+ const roundedStep=(max)=>{
+  if(isContracts)return Math.max(1,Math.ceil(max/4));
+  const pow=Math.pow(10,Math.floor(Math.log10(Math.max(1,max/4))));
+  const part=max/4/pow;
+  return (part<=1?1:part<=2?2:part<=5?5:10)*pow;
+ };
+ const step=roundedStep(highest),max=4*step;
+ const yValue=value=>bottom-Math.max(0,Math.min(max,value))/max*H;
+ const formatValue=v=>isLanding?'-'+fmt(v,0):isContracts?fmt(v,0):fmt(v,1);
+ const labelFor=(x,i)=>isLanding?String((data||[]).length-rows.length+i+1):
+  isContracts?String(x[0]).slice(5,7)+'/'+String(x[0]).slice(2,4):String(x[0]).slice(0,12);
+ for(let k=0;k<=4;k++){
+  const tick=k*step,y=yValue(tick);
+  svg.append(make('path',{d:'M'+left+' '+y+'H'+right,stroke:'#315569',
+   'stroke-width':1,'stroke-dasharray':k===0?'none':'4 7',fill:'none'}));
+  svg.append(make('text',{x:left-10,y:y+4,'text-anchor':'end','font-family':'Arial,sans-serif',
+   'font-size':13,fill:'#b4cfdf',stroke:'none'},formatValue(tick)));
+ }
+ svg.append(make('path',{d:'M'+left+' '+top+'V'+bottom+'H'+right,stroke:'#7193a4','stroke-width':1.6,fill:'none'}));
+ if(rows.length){
+  if(isLanding){
+   const points=rows.map((x,i)=>[rows.length===1?(left+right)/2:left+(W*i)/(rows.length-1),yValue(values[i])]);
+   const average=values.reduce((a,b)=>a+b,0)/values.length,meanY=yValue(average);
+   svg.append(make('path',{d:'M'+left+' '+meanY+'H'+right,stroke:'#eac77c','stroke-width':2,
+    'stroke-dasharray':'8 5',fill:'none',opacity:.95}));
+   svg.append(make('text',{x:right-4,y:Math.max(top+13,meanY-7),'text-anchor':'end',
+    'font-family':'Arial,sans-serif','font-size':12,fill:'#f5d795',stroke:'none'},
+    'MÉDIA -'+fmt(average,0)+' ft/min'));
+   svg.append(make('polyline',{points:points.map(p=>p.join(',')).join(' '),fill:'none',
+    stroke:highlight,'stroke-width':3,'stroke-linejoin':'round','stroke-linecap':'round'}));
+   points.forEach(([x,y],i)=>{
+    const dot=make('circle',{cx:x,cy:y,r:5,fill:'#ffe4a6',stroke:'#0b3044','stroke-width':1.5});
+    dot.append(make('title',{},'Pouso '+labelFor(rows[i],i)+' • '+fmt(rows[i].fpm)+' ft/min'));
+    svg.append(dot);
+    if(i%Math.max(1,Math.ceil(rows.length/9))===0||i===rows.length-1){
+     svg.append(make('text',{x,y:bottom+20,'text-anchor':'middle','font-family':'Arial,sans-serif',
+      'font-size':12,fill:'#a0bed1',stroke:'none'},labelFor(rows[i],i)));
+    }
    });
+   card.append(n('p','pc-chart-summary',
+    'Últimos '+rows.length+' pousos • Média: -'+fmt(average,0)+' ft/min • Melhor registro: '+fmt(rows.reduce((a,b)=>Math.abs(b.fpm)<Math.abs(a.fpm)?b:a).fpm)+' ft/min'));
+  }else{
+   const slot=W/rows.length,barW=Math.min(68,Math.max(12,slot*.62));
+   rows.forEach((item,i)=>{
+    const x=left+i*slot+slot/2,barHeight=values[i]/max*H;
+    const rect=make('rect',{x:x-barW/2,y:bottom-barHeight,width:barW,height:barHeight,rx:4,
+     fill:i%2?'#13b9d2':'#dfbe79',stroke:'#d7e9ed','stroke-width':1.1});
+    rect.append(make('title',{},String(item[0])+' • '+formatValue(values[i])+' '+unit));
+    svg.append(rect);
+    svg.append(make('text',{x,y:Math.max(top+12,bottom-barHeight-8),'text-anchor':'middle',
+     'font-family':'Arial,sans-serif','font-size':15,'font-weight':700,fill:'#fff0c7',stroke:'none'},
+     formatValue(values[i])));
+    svg.append(make('text',{x,y:bottom+23,'text-anchor':'middle','font-family':'Arial,sans-serif',
+     'font-size':12,fill:'#acc9d8',stroke:'none'},labelFor(item,i)));
+   });
+   card.append(n('p','pc-chart-summary',isContracts?
+    'Total no período mostrado: '+fmt(values.reduce((a,b)=>a+b,0))+' contratos em '+rows.length+' mês(es).':
+    fmt(values.reduce((a,b)=>a+b,0),1)+' horas registradas entre '+rows.length+' modelo(s) exibidos.'));
+   const detail=n('div','pc-chart-breakdown');
+   rows.forEach((item,i)=>{
+    const line=n('div','pc-chart-breakdown-item');
+    line.append(n('span','',isContracts?String(item[0]).slice(5,7)+'/'+String(item[0]).slice(0,4):String(item[0])),
+     n('strong','',formatValue(values[i])+' '+unit));
+    detail.append(line);
+   });
+   card.append(detail);
   }
- }else svg.append(make('text',{x:310,y:120,'text-anchor':'middle',fill:'#a2c4d6','font-size':17},'Ainda sem dados registrados'));
- box.append(svg);return box;
+ }else{
+  svg.append(make('text',{x:(left+right)/2,y:136,'text-anchor':'middle','font-family':'Arial,sans-serif',
+   'font-size':17,fill:'#b7d5e0',stroke:'none'},'Ainda sem registros suficientes'));
+  card.append(n('p','pc-chart-summary','O gráfico será preenchido conforme os voos forem registrados.'));
+ }
+ const caption=n('div','pc-chart-legend');
+ caption.append(n('i',isLanding?'pc-legend-line':'pc-legend-bar'),
+  n('span','',isLanding?'Ciano: taxa vertical em cada toque • Dourado tracejado: média':
+   isContracts?'Cada barra: contratos efetivamente concluídos no mês':
+   'Cada barra: horas computadas dos voos de um modelo'));
+ card.insertBefore(svg,card.querySelector('.pc-chart-summary')||null);
+ card.append(caption);
+ return card;
 }
 function graphs(pc){
  const g=el('pc-graphs');g.replaceChildren();
- g.append(graphSvg('SENSIBILIDADE DE POUSO • FT/MIN',pc.graphs.landings,'landing'),
- graphSvg('CONTRATOS CONCLUÍDOS POR MÊS',pc.graphs.contracts,'bar'),
- graphSvg('HORAS POR AERONAVE',pc.graphs.hours_by_aircraft,'bar'));
+ g.replaceChildren(
+  graphSvg('SENSIBILIDADE DE POUSO • FT/MIN',pc.graphs.landings,'landing'),
+  graphSvg('CONTRATOS CONCLUÍDOS POR MÊS',pc.graphs.contracts,'contracts'),
+  graphSvg('HORAS POR AERONAVE',pc.graphs.hours_by_aircraft,'hours')
+ );
 }
 function timeline(pc){
  const root=el('pc-timeline-list');root.replaceChildren();
