@@ -4,7 +4,7 @@
  */
 (() => {
 'use strict';
-const AIRCRAFT_PATH='M284 44 L273 41 L253 49 L199 99 L180 95 L189 84 L182 74 L160 92 L142 89 L153 74 L146 63 L122 85 L41 72 L28 86 L153 143 L84 218 L75 220 L42 215 L28 228 L66 244 L95 291 L107 280 L103 241 L182 168 L236 290 L251 275 L244 217 L265 195 L256 186 L241 198 L238 176 L260 155 L251 145 L234 156 L230 123 L275 77 L285 58 Z';
+const AIRCRAFT_PATH=document.querySelector('#i-plane path')?.getAttribute('d')||'M12 1L10 9 1 15 1 17 10 15 10 19 6 21 6 22 12 21 18 22 18 21 14 19 14 15 23 17 23 15 14 9 12 1Z';
 const SAT_TILES='https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg';
 const SAT_CREDIT='EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016 & 2017)';
 const BASE='https://tiles.openfreemap.org/styles/dark';
@@ -114,7 +114,7 @@ function updateMarkers(s){
   previousPosition=pos;
   if(!planeMarker){
    const el=document.createElement('div');el.className='fsc-plane-marker';
-   el.innerHTML='<svg viewBox="0 0 315 320" aria-label="Aeronave"><path d="'+AIRCRAFT_PATH+'"/></svg>';
+   el.innerHTML='<svg viewBox="0 0 24 24" aria-label="Aeronave"><path d="'+AIRCRAFT_PATH+'"/></svg>';
    planeMarker=new maplibregl.Marker({element:el,anchor:'center',rotationAlignment:'map'}).setLngLat([pos.lng,pos.lat]).addTo(map);
   }
   planeMarker.setLngLat([pos.lng,pos.lat]);
@@ -123,7 +123,7 @@ function updateMarkers(s){
   if(Number.isFinite(t.heading_deg)&&t.heading_deg>=0&&t.heading_deg<360)
     bearingDeg=t.heading_deg;
   const svg=planeMarker.getElement().querySelector('svg');
-  if(svg)svg.style.transform='rotate('+(bearingDeg-45)+'deg)';
+  if(svg)svg.style.transform='rotate('+bearingDeg+'deg)';
   planeMarker.getElement().title='Proa magnética (painel): '+(Number.isFinite(t.heading_magnetic_deg)?Math.round(t.heading_magnetic_deg)+'°':'indisponível')+' • proa verdadeira (mapa): '+(Number.isFinite(t.heading_deg)?Math.round(t.heading_deg)+'°':'indisponível');
   planeMarker.getElement().style.opacity=t.stale?'0.5':'1';
  }else{
