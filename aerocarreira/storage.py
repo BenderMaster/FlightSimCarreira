@@ -9,6 +9,7 @@ from .finance import AIRCRAFT_ECONOMY, brl, flight_operating_cost
 from .reputation import pilot_reputation
 from .fleet import init_fleet, FleetManager
 from .fleet_photos import init_photos
+from . import airline_operations as airline
 from .employment import (Vacancy, EMPLOYER_BY_CODE, vacancies, weekly_period,
     employment_eligibility, selection_result, OWN_MIN_LEVEL, OWN_MIN_HOURS,
     OWN_INVESTMENT, valid_company_name)
@@ -132,6 +133,7 @@ class Storage:
                     self.conn.backup(target)
                 finally:
                     target.close()
+        airline.init(self.conn)
         init_fleet(self.conn)
         init_photos(self.conn)
         self.conn.execute("""CREATE TABLE IF NOT EXISTS fleet_fuel (
@@ -242,12 +244,17 @@ class Storage:
                 return False
             # Um contrato gerado pode ser pago apenas UMA vez por ID; isso
             # bloqueia exploração do mercado após reiniciar o aplicativo.
-            actual_reward = reward
-            if mission_id and (mission_id.startswith("REG-") or mission_id.startswith("FREE-") or mission_id.startswith("EMP-")):
+            is_employee=bool(mission_id and mission_id.startswith('EMP-'))
+            is_company=bool(mission_id and mission_id.startswith('OWN-'))
+            claim_ok=True
+            # Airline work pays salary/XP only on weekly settlement.
+            actual_reward=0 if is_employee or is_company else reward
+            if mission_id and mission_id.startswith(('REG-','FREE-','EMP-','OWN-')):
                 claim = self.conn.execute(
                     "INSERT OR IGNORE INTO completed_contracts(contract_id,flight_key,completed_utc) VALUES(?,?,?)",
                     (mission_id, flight_key, time()))
-                if claim.rowcount == 0:
+                claim_ok=claim.rowcount==1
+                if not claim_ok:
                     actual_reward = 0
             realism_amount = round(actual_reward * float(realism_fraction)) if actual_reward > 0 else 0
             pre_penalty_reward = actual_reward + realism_amount
@@ -269,7 +276,7 @@ class Storage:
                 fleet = FleetManager(self)
                 selected = fleet.selected()
                 legacy = self.conn.execute('SELECT condition,hours,insured FROM owned_aircraft WHERE code=?',(model,)).fetchone() if model else None
-                company_plane = bool(mission_id and mission_id.startswith(('FREE-', 'EMP-')))
+                company_plane = bool(mission_id and mission_id.startswith(('FREE-', 'EMP-', 'OWN-')))
                 selected_matches = bool(selected and selected['code']==model)
                 flight_asset = selected if selected_matches else (None if selected else (
                     {'ref':'legacy:'+model,'code':model,'insured':bool(legacy[2]),'kind':'legacy'} if legacy else None))
@@ -332,10 +339,18 @@ class Storage:
                                                            if actual_reward > 0 else 0)
                     # Só altera XP do voo atual; arremetida nunca retira XP
                     # previamente creditado. Ledger é idempotente por flight_key.
-                    xp_gross=max(0,xp_gross+flight_xp_extra+flight_xp_weight_bonus)
+                    xp_gross=(0 if is_employee or is_company else
+                        max(0,xp_gross+flight_xp_extra+flight_xp_weight_bonus))
                     xp_net = max(0,xp_gross - round(xp_gross*fuel_penalty_fraction))
                     self.conn.execute("INSERT OR IGNORE INTO pilot_xp_ledger(flight_key,xp,awarded_utc) VALUES(?,?,?)",
                                       (flight_key, xp_net, time()))
+                if claim_ok and is_employee and model:
+                    airline.record_employee_flight(
+                        self,mission_id,flight_key,start['timestamp'],end['timestamp'])
+                if claim_ok and is_company and model:
+                    airline.settle_company_flight(self,mission_id,flight_key,int(reward),
+                        start['timestamp'],end['timestamp'],model,destination,
+                        fuel_start,fuel_end)
                 self.conn.execute("INSERT INTO settings(key,value) VALUES('balance',?) "
                                   "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (str(new_balance),))
                 self.conn.execute("INSERT INTO settings(key,value) VALUES('flight_checkpoint_v1',?) "
@@ -614,7 +629,9 @@ class Storage:
         rows=self.conn.execute('SELECT vacancy_id,company_code,status,applied_utc,decided_utc FROM job_applications ORDER BY applied_utc DESC LIMIT 30').fetchall()
         return [dict(zip(('vacancy_id','company_code','status','applied_utc','decided_utc'),r)) for r in rows]
 
-    def apply_vacancy(self, vacancy: Vacancy, now: float) -> None:
+    def apply_vacancy(self, vacancy: Vacancy, now: float, commitment: int = 0) -> None:
+        if commitment not in airline.TIERS or type(commitment) is not int:
+            raise ValueError('Compromisso semanal inválido.')
         if self.get_pilot() is None:
             raise ValueError('Cadastre seu piloto primeiro.')
         if self.employment_state()['mode'] != 'autonomo':
@@ -634,7 +651,8 @@ class Storage:
         if not ok:
             raise ValueError(reason)
         profile=self.get_pilot()
-        application={'vacancy':asdict(vacancy), 'callsign':profile['callsign'],
+        application={'vacancy':asdict(vacancy), 'commitment':commitment,
+                     'callsign':profile['callsign'],
                      'stats':{'level':self.pilot_stats()['level'], 'hours':self.pilot_stats()['hours']}}
         with self.conn:
             self.conn.execute('INSERT INTO job_applications VALUES(?,?,?,?,?,NULL)',
@@ -670,6 +688,8 @@ class Storage:
                     if result=='hired':
                         self.conn.execute('UPDATE career_status SET mode=?,employer_code=?,owner_company=NULL,updated_utc=? WHERE id=1',
                                           ('empregado',vacancy.company,now))
+                        airline.hire(self,vacancy.company,now,
+                                     int(app.get('commitment',0)))
                     updates.append({'vacancy_id':vacancy_id,'result':result,'company':vacancy.company})
         return updates
 
@@ -678,27 +698,38 @@ class Storage:
             raise ValueError('Não há emprego ativo para encerrar.')
         with self.conn:
             self.conn.execute('UPDATE career_status SET mode=?,employer_code=NULL,updated_utc=? WHERE id=1',('autonomo',now))
+            airline.quit_employment(self,now)
 
     def found_company(self, company_name: str, now: float) -> dict:
-        company_name=valid_company_name(company_name)
-        if self.get_pilot() is None:
-            raise ValueError('Cadastre um piloto primeiro.')
-        if self.employment_state()['mode'] != 'autonomo':
-            raise ValueError('Encerre o vínculo empregatício antes de fundar sua companhia.')
-        stats=self.pilot_stats()
-        if (stats['level']<OWN_MIN_LEVEL or stats['hours']<OWN_MIN_HOURS
-                or 'PLA' not in stats['qualifications']):
-            raise ValueError(f'Endgame: nível {OWN_MIN_LEVEL}, {OWN_MIN_HOURS:g} h e PLA obrigatórios.')
-        with self.conn:
-            row=self.conn.execute("SELECT value FROM settings WHERE key='balance'").fetchone()
-            balance=int(row[0]) if row else 0
-            if balance < OWN_INVESTMENT:
-                raise ValueError(f'Investimento mínimo: {brl(OWN_INVESTMENT)}.')
-            self._money_movement(f'company:{company_name}:{time_ns()}', 'fundacao', -OWN_INVESTMENT,
-                                 'Registro da companhia própria')
-            self.conn.execute('UPDATE career_status SET mode=?,employer_code=NULL,owner_company=?,updated_utc=? WHERE id=1',
-                              ('empresario',company_name,now))
+        home=self.get_pilot()['home_icao'] if self.get_pilot() else ''
+        airline.found_company(self,company_name,home,now)
         return self.employment_state()
+
+    def airline_employment(self, now: float | None = None) -> dict:
+        now=time() if now is None else now
+        active=airline.ensure_agreement(self,now)
+        if not active:return {'active':False}
+        return dict(active=True,**active,
+                    progress=airline.weekly_progress(self,active,now),
+                    history=[dict(week=r[0],flights=r[1],
+                        hours=round(r[2]/3600,2),tier=r[3],salary=r[4],
+                        xp=r[5],result=r[6],settled=r[7])
+                        for r in self.conn.execute(
+                        """SELECT week,contract_flights,seconds,tier,salary,xp,result,settled_utc
+                           FROM airline_payroll WHERE agreement_id=?
+                           ORDER BY week DESC LIMIT 24""",(active['id'],))])
+
+    def airline_payroll(self, now: float | None = None) -> list[dict]:
+        return airline.payroll(self,time() if now is None else now)
+
+    def company_business(self) -> dict | None:
+        return airline.business_snapshot(self)
+
+    def company_buy_plane(self, code: str, now: float | None = None) -> int:
+        return airline.purchase_company_aircraft(self,code,time() if now is None else now)
+
+    def company_routes(self, center, catalog, period: int):
+        return airline.company_routes(self,center,catalog,period)
 
     def close(self):
         self.conn.close()
