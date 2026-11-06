@@ -178,10 +178,12 @@ class DashboardController:
             seq=getattr(app,'aircraft_market_notice_seq',0)+1
             app.aircraft_market_notice_seq=seq
             app.aircraft_market_notice=dict(seq=seq,ok=ok,message=message,action=action)
-        elif action in ('flightops_save','flightops_export','flightops_send'):
+        elif action in ('flightops_save','flightops_export','flightops_send','flightops_clear'):
             try:
                 if action=='flightops_save':
                     message=app._flightops_save(cmd.get('payload'))
+                elif action=='flightops_clear':
+                    message=app._flightops_clear()
                 else:
                     message=app._flightops_export(send=action=='flightops_send')
                 ok=True
