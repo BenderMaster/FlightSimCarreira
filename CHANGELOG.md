@@ -1,3 +1,15 @@
+## v0.8.4 Midnight Ops Alpha.1 — Financial Center
+
+- Cinco abas financeiras nativas: Resumo, Extrato, Operações, Patrimônio e Banco.
+- Indicadores de receita, despesas, caixa, resultado operacional e patrimônio estimado; gráficos legíveis de fluxo mensal e gastos por categoria.
+- Ledger único preservado, seguradoras e prêmios efetivamente pagos incluídos na contabilidade, sem cobrança nova nem retroatividade.
+- Extrato filtrável com comprovantes e exportação CSV **integral**, mantendo dados antigos inalterados.
+- Rentabilidade do voo derivada de movimentos financeiros reais por flight_key, sem inventar dados onde não existem.
+- Valor investido e valor de revenda apenas para aeronaves compradas; starter e aluguel não geram valor de revenda inventado.
+- Banco: limites de R$ 1.000 a **R$ 150.000**, custo único 8%, parcela personalizada, confirmação antes do débito, deduplicação por UUID transacional.
+- Endpoint CSV autenticado no loopback, sem acesso SQLite na thread HTTP, com testes Python/Playwright/Windows.
+- PR rascunho isolado até homologação visual/funcional no MSFS, protegendo a main v0.8.3 Alpha.3.
+
 ## v0.8.3 Midnight Ops Alpha.3 — FlightSim: nome, insígnias e patrimônio pago
 
 - Marca visual do aplicativo, certificados, janelas e nomes de exportação: **FlightSim**. Repositório, pacote Python `aerocarreira`, identificadores internos do painel SDK e banco original permanecem iguais para não quebrar integrações nem saves.
