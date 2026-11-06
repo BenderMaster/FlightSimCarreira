@@ -15,7 +15,8 @@ ACTIONS={'pilot','market','fleet','planning','finance','employment','history','r
          'aircraft_buy_new','aircraft_buy_used','aircraft_rent','aircraft_sell',
          'flightops_save','flightops_export','flightops_send','flightops_clear',
          'pilot_profile_create','pilot_profile_update','pilot_profile_switch',
-         'pilot_profile_reset','pilot_showcase','pilot_medal_equip','pilot_license_claim'}
+         'pilot_profile_reset','pilot_showcase','pilot_medal_equip','pilot_license_claim',
+         'finance_loan','finance_repay','finance_tax','finance_export'}
 ASSETS=Path(__file__).with_name('midnight')
 class DashboardServer:
     def __init__(self):
@@ -23,6 +24,7 @@ class DashboardServer:
         self.commands=Queue(maxsize=32)
         self.state=b'{}'
         self.photos={}
+        self.finance_csv=None
         self.photo_lock=threading.RLock()
         owner=self
         class Handler(BaseHTTPRequestHandler):
@@ -40,6 +42,12 @@ class DashboardServer:
                 if not self.valid_host():self.reply(403,b'{}');return
                 if self.path=='/state':
                     self.reply(200,owner.state) if self.authorized() else self.reply(403,b'{}');return
+                if self.path=='/finance-export':
+                    if not self.authorized():self.reply(403,b'{}');return
+                    with owner.photo_lock:
+                        data=owner.finance_csv
+                    self.reply(200,data,'text/csv; charset=utf-8') if data is not None else self.reply(404,b'{}')
+                    return
                 match=re.fullmatch(r'/fleet-photo/([0-9a-f]{64})\.jpg(?:\?v=[0-9]{1,24})?',self.path)
                 if match:
                     with owner.photo_lock:
@@ -110,6 +118,10 @@ class DashboardServer:
     def remove_photo(self,ref):
         with self.photo_lock:
             self.photos.pop(self._photo_key(ref),None)
+
+    def set_finance_csv(self,content):
+        with self.photo_lock:
+            self.finance_csv=content
 
     def start(self):self.thread.start()
     def publish(self,state):self.state=json.dumps(state,ensure_ascii=False,allow_nan=False).encode()
