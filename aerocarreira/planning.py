@@ -40,6 +40,7 @@ class Preflight:
     planned_weight_lbs: float | None = None
     max_weight_lbs: float | None = None
     altitude_ft: int = 2500
+    planned_distance_nm: float | None = None
 
     def snapshot(self):
         return asdict(self)
@@ -59,6 +60,13 @@ def inspect_preflight(mission: Mission, data: Preflight, cruise_kts: float = 90.
         a,b = AIRPORTS.get(mission.origin),AIRPORTS.get(mission.destination)
         if a and b:
             distance = distance_nm(a.latitude,a.longitude,b.latitude,b.longitude)
+    if data.planned_distance_nm is not None:
+        planned = data.planned_distance_nm
+        if type(planned) not in (float,int) or not isfinite(planned) or planned < 0:
+            raise ValueError('Distância planejada inválida')
+        # Desvios via waypoint aumentam a estimativa; nunca diminuem
+        # a distância geodésica do contrato em busca de bônus.
+        distance = max(distance or 0, planned)
     aircraft_code = aircraft_model(data.aircraft_title)
     if aircraft_code in AIRCRAFT_ECONOMY:
         cruise_kts = AIRCRAFT_ECONOMY[aircraft_code].cruise_kts
