@@ -134,6 +134,7 @@ class Storage:
                 finally:
                     target.close()
         airline.init(self.conn)
+        airline.migrate_legacy_company(self)
         init_fleet(self.conn)
         init_photos(self.conn)
         self.conn.execute("""CREATE TABLE IF NOT EXISTS fleet_fuel (
@@ -711,6 +712,7 @@ class Storage:
         if not active:return {'active':False}
         return dict(active=True,**active,
                     progress=airline.weekly_progress(self,active,now),
+                    promotions=airline.promotions(self,active),
                     history=[dict(week=r[0],flights=r[1],
                         hours=round(r[2]/3600,2),tier=r[3],salary=r[4],
                         xp=r[5],result=r[6],settled=r[7])
