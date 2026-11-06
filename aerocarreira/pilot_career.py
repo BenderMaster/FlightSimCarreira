@@ -183,7 +183,7 @@ def snapshot(db, profile=None):
             actual=data.get(source,0) >= limit
             row=db.conn.execute("SELECT first_awarded,active FROM pilot_medals WHERE code=?",(code,)).fetchone()
             if actual and row is None:
-                when=_achieved_when(source,limit,data) or timestamp
+                when=_achieved_when(source,limit,base) or timestamp
                 db.conn.execute("INSERT INTO pilot_medals VALUES(?,?,?,?)",(code,when,1,timestamp))
                 event(db,f"medal:{code}:first",when,"gain",code,title)
             elif row and variable and bool(row[1])!=actual:
@@ -265,7 +265,7 @@ def snapshot(db, profile=None):
                 moment=achieved_at.get(entry[0]) or timestamp
                 event(db,"rank:"+entry[0],moment,"promotion",entry[0],
                       "Promoção a "+entry[1])
-     for id_,when in db.conn.execute("""SELECT id,acquired_utc FROM fleet_units ORDER BY acquired_utc"""):
+    for id_,when in db.conn.execute("""SELECT id,acquired_utc FROM fleet_units ORDER BY acquired_utc"""):
         add("aircraft-purchased:"+str(id_),when,"purchase","Aeronave adquirida")
     for (when,) in base["hired"]:
         add("employment:"+str(when),when,"employment","Contratação por companhia")
