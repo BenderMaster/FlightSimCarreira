@@ -427,6 +427,7 @@ if(recenterPlane&&s.telemetry){
   recenterPlane=false;
 }
 const xy=p=>[450+(p.lon-lon0)*cos*scale+mapPanX,170-(p.lat-lat0)*scale+mapPanY];
+window.FSCFlightOps?.setFallbackProjection?.({lat0,lon0,cos,scale,panX:mapPanX,panY:mapPanY});
 // Mapa local interativo (offline) permanece disponível quando não há chave Google.
 const loaded=0;
 document.querySelector('.map-caption').textContent='MAPA LOCAL • COORDENADAS REAIS';
