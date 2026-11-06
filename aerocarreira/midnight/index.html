@@ -173,7 +173,7 @@
     <div class="flightops-block"><strong>STATUS SIMCONNECT</strong><p id="fo-dispatch-state">Plano não enviado</p><small>Envio ao ATC não comprova carregamento no GPS/mapa VFR.</small></div>
    </section>
   </div>
-  <footer class="page-foot flightops-footer"><small id="fo-message" role="status">Escolha os aeroportos e salve o planejamento.</small><div class="flightops-actions"><button id="fo-save" class="button primary" type="button">Salvar planejamento</button><button id="fo-export" class="button" type="button">Exportar .PLN</button><button id="fo-send" class="button" type="button">Enviar ao MSFS</button></div></footer>
+  <footer class="page-foot flightops-footer"><small id="fo-message" role="status">Escolha os aeroportos e salve o planejamento.</small><div class="flightops-actions"><button id="fo-save" class="button primary" type="button">Salvar planejamento</button><button id="fo-clear" class="button" type="button">Limpar plano</button><button id="fo-export" class="button" type="button">Exportar .PLN</button><button id="fo-send" class="button" type="button">Enviar ao MSFS</button></div></footer>
  </section>
 
  <section id="pilot-career-page" class="page-shell pc-page card" hidden aria-labelledby="pc-page-title">
@@ -291,6 +291,15 @@
  </section>
  </main>
 
+ <dialog id="fo-map-point-dialog" class="pc-profiles-dialog fo-map-point-dialog">
+  <div class="pc-dialog-top"><h2>ADICIONAR WAYPOINT</h2><button id="fo-map-cancel-top" type="button" aria-label="Fechar">×</button></div>
+  <p>Coordenadas selecionadas no mapa. Confirme o ponto antes de alterar a rota.</p>
+  <div class="pc-form-trio">
+   <label>Nome do ponto<input id="fo-map-label" maxlength="12" placeholder="FSC01"></label>
+   <label>Latitude<input id="fo-map-lat" readonly></label><label>Longitude<input id="fo-map-lon" readonly></label>
+  </div>
+  <div class="fo-map-dialog-actions"><button id="fo-map-cancel" class="button" type="button">Cancelar</button><button id="fo-map-confirm" class="button primary" type="button">Adicionar waypoint</button></div>
+ </dialog>
  <dialog id="pc-profiles-dialog" class="pc-profiles-dialog">
   <div class="pc-dialog-top"><h2>GERENCIADOR DE PILOTOS</h2><button id="pc-close-profiles" type="button" aria-label="Fechar">×</button></div>
   <div class="pc-dialog-section"><h3>ALTERNAR CARREIRA</h3><p>Cada piloto possui seu próprio banco SQLite. Para trocar, desconecte do MSFS e termine o voo.</p>
