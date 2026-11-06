@@ -45,7 +45,7 @@ ACHIEVEMENTS = (
     ("reputation90", "Reputação 90", "Excelência sustentada", "reputation", 90, True),
     ("first_job", "Primeiro Emprego", "Contratado por uma companhia", "jobs", 1, False),
     ("first_plane", "Primeira Aeronave", "Primeira aeronave adquirida", "purchases", 1, False),
-    ("three_planes", "Frota Estabelecida", "Três aeronaves próprias", "fleet", 3, False),
+    ("three_planes", "Frota Estabelecida", "Três aeronaves próprias", "fleet", 3, True),
     ("first_license", "Habilitação Avançada", "Obter licença além da PPA", "licenses", 1, False),
 )
 BY_CODE = {a[0]: a for a in ACHIEVEMENTS}
