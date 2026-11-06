@@ -104,7 +104,7 @@ def valid_company_name(name: str) -> str:
 
 OWN_MIN_LEVEL = 18
 OWN_MIN_HOURS = 25.0
-OWN_INVESTMENT = 100000
+OWN_INVESTMENT = 400000
 
 
 def generate_employer_routes(company_code: str, origin, catalog, stats: dict,
