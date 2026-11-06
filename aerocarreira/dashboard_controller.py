@@ -195,13 +195,18 @@ class DashboardController:
             app.flightops_notice_seq=seq
             app.flightops_notice=dict(seq=seq,ok=ok,message=message,action=action)
         elif action in ('pilot_profile_create','pilot_profile_update','pilot_profile_switch',
-                        'pilot_profile_reset','pilot_showcase','pilot_medal_equip'):
+                        'pilot_profile_reset','pilot_showcase','pilot_medal_equip','pilot_license_claim'):
             try:
                 if action=='pilot_profile_create':message=app._profile_create(cmd.get('payload'))
                 elif action=='pilot_profile_update':message=app._profile_update(cmd.get('payload'))
                 elif action=='pilot_profile_switch':message=app._relaunch_profile(target=cmd.get('id'))
                 elif action=='pilot_profile_reset':message=app._relaunch_profile(reset=True)
                 elif action=='pilot_showcase':message=app._pilot_showcase(cmd.get('payload'))
+                elif action=='pilot_license_claim':
+                    code=cmd.get('id')
+                    if not isinstance(code,str):raise ValueError('Código de licença inválido.')
+                    granted=app.storage.earn_qualification(code)
+                    message='Licença '+code+' conquistada.' if granted else 'Licença já registrada.'
                 else:message=app._pilot_equip(cmd.get('id'))
                 ok=True
             except (ValueError,TypeError,KeyError,OSError) as exc:
