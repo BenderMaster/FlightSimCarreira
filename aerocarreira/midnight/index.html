@@ -1,4 +1,4 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FlightSimCarreira • Midnight Ops</title><link rel="stylesheet" href="/vendor/maplibre-gl.css"><link rel="stylesheet" href="/style.css"><link rel="icon" type="image/png" href="/brand-icon.png"></head><body>
+<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FlightSim • Midnight Ops</title><link rel="stylesheet" href="/vendor/maplibre-gl.css"><link rel="stylesheet" href="/style.css"><link rel="icon" type="image/png" href="/brand-icon.png"></head><body>
 <svg class="sprites" xmlns="http://www.w3.org/2000/svg"><defs>
 <symbol id="i-takeoff" viewBox="0 0 48 48"><g transform="translate(3 0) scale(1.75)"><path d="M12 1.1C10.6 1.1 10.4 3.1 10.4 6.1V9.6L2.1 14.1C1.4 14.5 1.1 15 1.1 15.7V16.8L10.25 14.9L10.45 19.3L6.55 21V22.2L11.1 21.2L12 23.4L12.9 21.2L17.45 22.2V21L13.55 19.3L13.75 14.9L22.9 16.8V15.7C22.9 15 22.6 14.5 21.9 14.1L13.6 9.6V6.1C13.6 3.1 13.4 1.1 12 1.1Z" fill="currentColor" stroke="none"/></g><path d="M4 45h40" stroke="currentColor" stroke-width="3"/></symbol>
 <symbol id="i-new-tag" viewBox="0 0 64 64"><path d="M10 15 38 9 57 30 35 56 7 35Z" stroke="currentColor" stroke-width="4" fill="none"/><circle cx="37" cy="20" r="5" stroke="currentColor" stroke-width="3" fill="none"/><path d="M39 16C43-2 64 3 59 23" stroke="currentColor" stroke-width="3.5" fill="none"/><text x="31" y="40" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="900" fill="currentColor" stroke="none" transform="rotate(11 31 40)">NEW</text></symbol>
@@ -31,7 +31,7 @@
 <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M3 23v-3a9 9 0 0 1 18 0v3"/></symbol>
 </defs></svg>
 <header class="header pywebview-drag-region">
- <div class="brand"><span class="logo"><img src="/brand-icon.png" alt="FlightSimCarreira" width="64" height="64"></span><div><strong>FLIGHTSIM<span>CARREIRA</span></strong><small>SISTEMA DE CARREIRA PARA MSFS</small></div></div>
+ <div class="brand"><span class="logo"><img src="/brand-icon.png" alt="FlightSim" width="64" height="64"></span><div><strong>Flight<span>Sim</span></strong><small>SISTEMA DE CARREIRA PARA MSFS</small></div></div>
  <button class="avatar" data-action="avatar" title="Carregar ou trocar foto do piloto"><svg><use href="#i-user"/></svg><img id="avatar" alt="Foto escolhida pelo piloto" hidden><span id="pc-header-medal" class="pc-header-medal" hidden></span></button>
  <button class="identity plain" data-action="pilot"><strong id="callsign">CADASTRAR PILOTO</strong><span id="qualification">Crie sua carreira</span></button>
  <div class="level"><span id="pc-header-rank" class="pc-header-rank" aria-label="Patente atual"></span><div><div class="spread"><strong id="level">NÍVEL —</strong><small id="xp">XP —</small></div><div class="progress"><i id="xpbar"></i></div></div></div>
@@ -201,7 +201,7 @@
       <div id="pc-main-medal" class="pc-main-medal" title="Medalha especial equipada" hidden></div>
      </div>
      <div class="pc-hero-info">
-      <small class="pc-overline">IDENTIDADE DE CARREIRA • FLIGHTSIMCARREIRA</small>
+      <small class="pc-overline">IDENTIDADE DE CARREIRA • FLIGHTSIM</small>
       <h2 id="pc-name">—</h2>
       <div class="pc-hero-callsign"><strong id="pc-callsign">—</strong><span id="pc-employment">—</span></div>
       <div class="pc-hero-meta"><span>BASE <b id="pc-base">—</b></span><span>DESDE <b id="pc-joined">—</b></span></div>
@@ -226,7 +226,7 @@
     <div id="pc-medal-gallery" class="pc-medal-gallery"></div>
    </div>
    <div id="pc-tab-licenses" class="pc-tab-content" hidden>
-    <div class="pc-section-head"><h2>DOCUMENTOS E HABILITAÇÕES</h2><small>Certificados FlightSimCarreira • progresso e requisitos</small></div>
+    <div class="pc-section-head"><h2>DOCUMENTOS E HABILITAÇÕES</h2><small>Certificados FlightSim • progresso e requisitos</small></div>
     <div id="pc-license-grid" class="pc-license-grid"></div>
    </div>
    <div id="pc-tab-graphs" class="pc-tab-content" hidden>
@@ -255,10 +255,10 @@
     <button class="button pc-danger" id="pc-profile-reset">Reiniciar perfil Teste (com backup)</button>
    </div>
   </div>
-  <footer class="pc-page-foot"><span id="pc-message" role="status">Uma carreira é construída um voo de cada vez.</span><span>FLIGHTSIMCARREIRA · PILOT CAREER</span></footer>
+  <footer class="pc-page-foot"><span id="pc-message" role="status">Uma carreira é construída um voo de cada vez.</span><span>FLIGHTSIM · PILOT CAREER</span></footer>
  </section>
  <section id="module-page" class="page-shell module-page card" hidden aria-labelledby="module-title">
-  <header class="page-head"><div><small class="eyebrow">FLIGHTSIMCARREIRA • PAINEL INTEGRADO</small><h1 id="module-title">MÓDULO</h1><p id="module-description"></p></div></header>
+  <header class="page-head"><div><small class="eyebrow">FLIGHTSIM • PAINEL INTEGRADO</small><h1 id="module-title">MÓDULO</h1><p id="module-description"></p></div></header>
   <div id="module-context" class="module-context" aria-live="polite"></div>
   <footer class="page-foot"><small>As operações avançadas deste módulo ainda estão em migração para a interface integrada.</small><div class="module-buttons"><button class="button" data-action="dashboard">Dashboard</button><button id="module-legacy" class="button primary">Abrir ferramentas clássicas</button></div></footer>
  </section>
@@ -318,7 +318,7 @@
  <dialog id="pc-unlock" class="pc-unlock" data-kind="gain">
   <div class="pc-unlock-deco"></div><small id="pc-unlock-kicker">NOVA CONQUISTA</small>
   <div id="pc-unlock-art" class="pc-unlock-art"></div><h2 id="pc-unlock-title">—</h2>
-  <small class="pc-unlock-brand">FLIGHTSIMCARREIRA · PILOT CAREER</small><button id="pc-unlock-dismiss" class="button pc-unlock-dismiss" type="button">Fechar</button>
+  <small class="pc-unlock-brand">FLIGHTSIM · PILOT CAREER</small><button id="pc-unlock-dismiss" class="button pc-unlock-dismiss" type="button">Fechar</button>
   <button id="pc-close-unlock" class="pc-unlock-close" aria-label="Fechar animação">×</button>
  </dialog>
  <dialog id="refuel-dialog" class="refuel-dialog" aria-labelledby="refuel-title">
