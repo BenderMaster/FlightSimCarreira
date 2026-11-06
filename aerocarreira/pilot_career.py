@@ -82,8 +82,11 @@ def counts(db):
       mission_id, aircraft_title FROM flights ORDER BY started_utc,id""").fetchall()
     contracts = [r for r in rows if r[4]]
     hours = sum(max(0, r[2]-r[1]) for r in rows)/3600
-    purchased = db.conn.execute("SELECT COUNT(*) FROM owned_aircraft").fetchone()[0]
+    owned = db.conn.execute("SELECT COUNT(*) FROM owned_aircraft").fetchone()[0]
     units = db.conn.execute("SELECT COUNT(*) FROM fleet_units").fetchone()[0]
+    # O Cessna 152 inicial é cortesia, não uma compra.
+    bought_legacy = db.conn.execute("SELECT COUNT(*) FROM owned_aircraft WHERE code != 'c152'").fetchone()[0]
+    purchased = bought_legacy + units
     job_rows = db.conn.execute("""SELECT decided_utc FROM job_applications WHERE status='hired'
                                ORDER BY decided_utc""").fetchall()
     licenses = db.conn.execute("""SELECT code,awarded_utc FROM pilot_qualifications
@@ -92,7 +95,7 @@ def counts(db):
     return dict(rows=rows, contracts=contracts, hours=hours,
                 flights=len(rows), contract_count=len(contracts),
                 reputation=rep["score"], jobs=len(job_rows),
-                purchases=purchased+units, fleet=purchased+units,
+                purchases=purchased, fleet=owned+units,
                 licenses=sum(1 for code,_ in licenses if code!="PPA"),
                 license_rows=licenses, hired=job_rows)
 
@@ -131,11 +134,14 @@ def _override(db, active_profile):
 def set_showcase(db, active_profile, payload):
     if not _override_allowed(db,active_profile):
         raise ValueError("Admin disponível somente no perfil Teste.")
-    if not isinstance(payload,dict) or set(payload)!={"level","reputation","licenses","achievements","rank"}:
+    if not isinstance(payload,dict) or set(payload)!={"level","xp","reputation","licenses","achievements","rank"}:
         raise ValueError("Formato de showcase inválido.")
     level=payload["level"]
+    xp=payload["xp"]
     rep=payload["reputation"]
-    if type(level) is not int or not 1<=level<=100 or type(rep) is not int or not 0<=rep<=100:
+    if (type(level) is not int or not 1<=level<=100
+            or type(xp) is not int or not 0<=xp<=5_000_000
+            or type(rep) is not int or not 0<=rep<=100):
         raise ValueError("Nível/reputação inválido.")
     licenses=payload["licenses"];achievements=payload["achievements"];rank=payload["rank"]
     if not isinstance(licenses,dict) or not isinstance(achievements,dict):
@@ -195,8 +201,10 @@ def snapshot(db, profile=None):
     rank=rank_for_level(stats["level"])
     level=stats["level"]
     rep=base["reputation"]
+    xp=stats["xp"]
     if preview:
         level=showcase.get("level",level);rep=showcase.get("reputation",rep)
+        xp=showcase.get("xp",xp)
         rank=next((r for r in RANKS if r[0]==showcase.get("rank")),rank_for_level(level))
     active_codes=set()
     medal_items=[]
@@ -225,10 +233,11 @@ def snapshot(db, profile=None):
             prerequisites=list(q.prerequisites)))
     level_start=0 if level==1 else next_level_xp(level-1)
     level_end=next_level_xp(level)
-    # Progresso do admin é 0 se nível manual; permanece isolado do ledger.
+    # XP do Admin é apenas visual, jamais ajusta pilot_xp_ledger.
+    fraction=max(0.0,min(1.0,(xp-level_start)/max(1,level_end-level_start)))
     progress=level_progress(stats["xp"]) if not preview else dict(
         level=level,next_level=level+1 if level<100 else None,
-        fraction=0.0,remaining=level_end-level_start)
+        fraction=fraction,remaining=max(0,level_end-xp))
     timeline=[]
     def add(key,when,kind,title,code=None):
         if when is not None:timeline.append(dict(key=key,when=when,kind=kind,title=title,code=code))
@@ -241,9 +250,29 @@ def snapshot(db, profile=None):
                                             "contract",f"{index}º contrato concluído")
     for code,when in base["license_rows"]:
         add("qualification:"+code,when,"license","Certificado "+code,code)
+    xp_rows=db.conn.execute("""SELECT xp,awarded_utc FROM pilot_xp_ledger
+                               ORDER BY awarded_utc,flight_key""").fetchall()
+    accumulated=0
+    achieved_at={}
+    for gained,when in xp_rows:
+        accumulated+=gained
+        for entry in RANKS[1:]:
+            if entry[0] not in achieved_at and accumulated>=next_level_xp(entry[2]-1):
+                achieved_at[entry[0]]=when
+    with db.conn:
+        for entry in RANKS[1:]:
+            if stats["level"]>=entry[2]:
+                moment=achieved_at.get(entry[0]) or timestamp
+                event(db,"rank:"+entry[0],moment,"promotion",entry[0],
+                      "Promoção a "+entry[1])
+     for id_,when in db.conn.execute("""SELECT id,acquired_utc FROM fleet_units ORDER BY acquired_utc"""):
+        add("aircraft-purchased:"+str(id_),when,"purchase","Aeronave adquirida")
+    for (when,) in base["hired"]:
+        add("employment:"+str(when),when,"employment","Contratação por companhia")
     for id_,when,kind,code,title in db.conn.execute("""SELECT event_key,occurred_utc,kind,code,title
                                           FROM pilot_career_events ORDER BY id DESC LIMIT 100"""):
         add(id_,when,kind,("Conquista perdida: " if kind=="loss" else
+                         "Promoção: " if kind=="promotion" else
                          "Conquista: ")+title,code)
     timeline.sort(key=lambda x:x["when"] or 0,reverse=True)
     landings=[dict(when=row[2],fpm=row[3]) for row in base["rows"]
@@ -258,7 +287,7 @@ def snapshot(db, profile=None):
         "code":rank[0],"title":rank[1],"min":rank[2],"max":rank[3]},
         rank_gallery=[dict(code=r[0],title=r[1],min=r[2],max=r[3],
                            state="earned" if level>=r[2] else "locked") for r in RANKS],
-        reputation=rep,medals=medal_items,equipped=equipped,
+        reputation=rep,xp=xp,medals=medal_items,equipped=equipped,
         licenses=certificates,progress=progress,flights=stats["flights"],
         hours=round(stats["hours"],1),contracts=base["contract_count"],
         aircraft_types=len(hours_by_plane),earned_money=db.conn.execute(
