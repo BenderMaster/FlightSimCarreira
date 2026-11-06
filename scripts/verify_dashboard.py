@@ -216,8 +216,8 @@ with tempfile.TemporaryDirectory() as temp:
             # Medalhas devem contar a conquista pela própria arte, não só pela cor.
             assert page.locator('#pc-medal-gallery svg.pc-medal-first_plane').count()==1
             assert page.locator('#pc-medal-gallery svg.pc-medal-three_planes').count()==1
-            assert '90%' in page.locator('#pc-medal-gallery svg.pc-medal-reputation90').inner_text()
-            assert '70%' in page.locator('#pc-medal-gallery svg.pc-medal-reputation70').inner_text()
+            assert '90%' in page.locator('#pc-medal-gallery svg.pc-medal-reputation90').text_content()
+            assert '70%' in page.locator('#pc-medal-gallery svg.pc-medal-reputation70').text_content()
             page.locator('[data-pc-tab="licenses"]').click()
             assert page.locator('#pc-license-grid .pc-license').count()==5
             for tier in range(1,6):
