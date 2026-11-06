@@ -213,6 +213,16 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#pc-medal-gallery').count()==1
             page.locator('[data-pc-tab="achievements"]').click()
             assert page.locator('#pc-medal-gallery .pc-achievement').count()>=10
+            assert page.title().startswith('FlightSim')
+            assert page.locator('.brand strong').inner_text()=='FlightSim'
+            assert page.locator('symbol#i-plane path').count()==1
+            for code,number in [('first_plane','1º'),('first_flight','1º'),
+                                ('hundred_hours','100h'),('reputation70','70%'),
+                                ('reputation90','90%')]:
+                medal=page.locator('#pc-medal-gallery svg.pc-medal-'+code)
+                assert medal.count()==1
+                assert number in medal.locator('text').all_text_contents()
+            assert page.locator('#pc-medal-gallery svg.pc-medal-first_plane use[href="#i-plane"]').count()==1
             # Medalhas devem contar a conquista pela própria arte, não só pela cor.
             assert page.locator('#pc-medal-gallery svg.pc-medal-first_plane').count()==1
             assert page.locator('#pc-medal-gallery svg.pc-medal-three_planes').count()==1
@@ -220,6 +230,7 @@ with tempfile.TemporaryDirectory() as temp:
             assert '70%' in page.locator('#pc-medal-gallery svg.pc-medal-reputation70').text_content()
             page.locator('[data-pc-tab="licenses"]').click()
             assert page.locator('#pc-license-grid .pc-license').count()==5
+            assert page.locator('#pc-license-grid .pc-license-seal-svg use[href="#i-plane"]').count()==5
             for tier in range(1,6):
                 assert page.locator(f'#pc-license-grid .pc-license-tier-{tier} .pc-license-emblem svg').count()==1
                 assert page.locator(f'#pc-license-grid .pc-license-tier-{tier} .pc-license-stamp').count()==1
