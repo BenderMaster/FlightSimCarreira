@@ -248,7 +248,7 @@ class DashboardPresenter:
                     'aircraft_title':plane['title'] if plane else None,
                     'contract':dict(id=m.id,origin=m.origin,destination=m.destination,
                                     payload_kg=m.payload_kg,manifest=m.manifest_label) if m else None}
-        if active_catalog and candidate.get('origin') and candidate.get('destination'):
+        if stored and active_catalog and candidate.get('origin') and candidate.get('destination'):
             try:
                 proposed={k:candidate[k] for k in
                           ('mode','origin','destination','altitude_ft','waypoints','checks')}
