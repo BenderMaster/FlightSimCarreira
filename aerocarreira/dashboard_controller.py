@@ -12,7 +12,7 @@ from .dashboard import DashboardPresenter
 from .midnight_server import DashboardServer
 from .fleet_photos import normalize_photo, save_photo, delete_photo, photo_bytes, owned_fleet
 from .aircraft_marketplace import execute_market
-from . import pilot_career, financial_center
+from . import pilot_career, financial_center, airline_operations as airline
 
 class DashboardController:
     def __init__(self,app):
@@ -21,6 +21,7 @@ class DashboardController:
         self.server=DashboardServer()
         self.presenter.photo_url_for=self.server.photo_url
         self.server.set_photos(photo_bytes(app.storage))
+        self.last_payroll_check=0
         self.server.publish(self.presenter.snapshot());self.server.start()
         self.tick_id=app.root.after(500,self.tick)
         if os.getenv('FLIGHTSIM_HEADLESS')!='1':
@@ -36,6 +37,17 @@ class DashboardController:
                 except Empty:break
                 self.dispatch(command)
                 if self.closed:return
+            if time()-self.last_payroll_check>=30:
+                self.last_payroll_check=time()
+                settled=app.storage.airline_payroll(time()) if (app:=self.app) else []
+                if settled:
+                    app.career.balance=int(app.storage.get_setting('balance') or 0)
+                    app.balance_var.set(brl(app.career.balance))
+                    self.presenter.pilot_career_cache=None
+                    self.presenter.finance_cache=None
+                    self._airline_notice(True,'Folha semanal encerrada: '+
+                        '; '.join(airline.EMPLOYER_BY_CODE[e['company']].name+
+                        ' • '+brl(e['salary'])+' / '+str(e['xp'])+' XP' for e in settled))
             self.server.publish(self.presenter.snapshot())
             if self.process and self.process.poll() is not None:
                 if self.process.returncode:
@@ -127,6 +139,13 @@ class DashboardController:
             app._log('FROTA: manutenção executada em '+plane['title'])
         except (ValueError,KeyError) as exc:
             app._log('MANUTENÇÃO: '+str(exc))
+
+    def _airline_notice(self,ok,message,action='airline'):
+        app=self.app
+        app.airline_notice_seq=getattr(app,'airline_notice_seq',0)+1
+        app.airline_notice=dict(seq=app.airline_notice_seq,ok=ok,
+                                message=message,action=action)
+        app._log('COMPANHIAS: '+message)
 
     def dispatch(self,cmd):
         app=self.app;action=cmd['action']
@@ -259,6 +278,55 @@ class DashboardController:
                                     message=message,action=action)
             self.presenter.finance_cache=None
             app._log('FINANÇAS: '+message)
+        elif action in ('airline_apply','airline_review','airline_resign',
+                          'airline_found','airline_buy_plane'):
+            try:
+                if app.tracker.phase==Phase.AIRBORNE or app.career.mission:
+                    raise ValueError('Finalize/cancele o contrato e permaneça em solo.')
+                value=cmd.get('id')
+                if action=='airline_apply':
+                    if not isinstance(value,str) or '|' not in value:
+                        raise ValueError('Selecione vaga e compromisso semanal.')
+                    vacancy_id,tier_s=value.rsplit('|',1)
+                    if tier_s not in ('0','10','20'):
+                        raise ValueError('Compromisso inválido.')
+                    region=(self.presenter.center.icao if self.presenter.center
+                            else app.storage.get_pilot()['home_icao'])
+                    vacancy=next((v for v in airline.vacancies(
+                        airline.weekly_period(time()),region)
+                        if v.id==vacancy_id),None)
+                    if vacancy is None:raise ValueError('Vaga expirada.')
+                    app.storage.apply_vacancy(vacancy,time(),int(tier_s))
+                    message='Candidatura enviada com compromisso '+tier_s+'%. A seleção é semanal.'
+                elif action=='airline_review':
+                    results=app.storage.review_applications(time())
+                    paid=app.storage.airline_payroll(time())
+                    self.presenter.refresh_market(force=True)
+                    message=('Seleção: '+', '.join(x['company']+' '+x['result'] for x in results)
+                        if results else 'Seleção ainda em análise.')
+                    if paid:message+=' Folha encerrada: '+', '.join(brl(x['salary'])+' / '+str(x['xp'])+' XP' for x in paid)
+                elif action=='airline_resign':
+                    app.storage.resign_employment(time())
+                    self.presenter.refresh_market(force=True)
+                    message='Vínculo encerrado. Progresso já registrado foi preservado.'
+                elif action=='airline_found':
+                    if not isinstance(value,str):raise ValueError('Nome de companhia obrigatório.')
+                    result=app.storage.found_company(value,time())
+                    self.presenter.refresh_market(force=True)
+                    message='Companhia '+result['owner_company']+' fundada com aporte de R$ 400.000.'
+                else:
+                    if value not in airline.AIRCRAFT_ECONOMY:raise ValueError('Modelo inválido.')
+                    plane=airline.AIRCRAFT_ECONOMY[value]
+                    app.storage.company_buy_plane(value)
+                    self.presenter.refresh_market(force=True)
+                    message='Aeronave empresarial adquirida: '+plane.title+' • '+brl(plane.purchase_price)
+                app.career.balance=int(app.storage.get_setting('balance') or 0)
+                app.balance_var.set(brl(app.career.balance))
+                self.presenter.finance_cache=None
+                self.presenter.pilot_career_cache=None
+                self._airline_notice(True,message,action)
+            except (ValueError,TypeError,KeyError,AttributeError) as exc:
+                self._airline_notice(False,'Operação recusada: '+str(exc),action)
         elif action=='prepare':
             if not app.career.mission:
                 app._log('DESPACHO: aceite um contrato antes de preparar plano e carga.');return
