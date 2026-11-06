@@ -20,6 +20,7 @@ from .contracts import (AirportCatalog, TYPES, TYPE_BY_CODE, PLANE_BY_CODE,
 from .employment import (EMPLOYER_BY_CODE, vacancies, weekly_period,
     employment_eligibility, generate_employer_routes, OWN_MIN_LEVEL, OWN_INVESTMENT)
 from .flightplan import export_vfr_plan
+from .flight_operations import save as save_flight_operations, read_saved as read_flight_operations, validated as validated_flight_operations, to_mission as flight_operations_mission, SETTING as FLIGHTOPS_SETTING
 from .finance import AIRCRAFT_ECONOMY, brl, estimated_minutes
 from .contracts import aircraft_model
 from .fuel import FuelManager
@@ -766,7 +767,20 @@ class Application:
             self.career.mission=m
         try:
             data=self._saved_preflight()
-            path=export_vfr_plan(m,state_dir()/'planos_vfr', data.altitude_ft if data else 2500)
+            # O contrato pode ter uma rota editada e salva; nunca herdar rota livre.
+            saved_route = read_flight_operations(self.storage, m)
+            stops = []
+            if saved_route and saved_route["mode"] == "contract":
+                try:
+                    valid_route = validated_flight_operations(
+                        {k: saved_route[k] for k in
+                         ("mode", "origin", "destination", "altitude_ft", "waypoints", "checks")},
+                        self._flightops_catalog(), m)
+                    stops = valid_route["waypoints"]
+                except (KeyError, ValueError, TypeError):
+                    stops = []
+            path=export_vfr_plan(m,state_dir()/'planos_vfr',
+                                 data.altitude_ft if data else 2500,waypoints=stops)
             self._log(f'Plano VFR exportado: {path}')
         except (OSError,ValueError) as exc:
             self._log('PLANO VFR: '+str(exc))
@@ -1554,6 +1568,71 @@ class Application:
             return data if data.mission_id==current_id else None
         except (TypeError, ValueError, KeyError):
             return None
+
+    def _flightops_catalog(self):
+        """Somente aeroportos da sessão confirmada, sem fallback externo no MSFS."""
+        if self.mode != "Demo" and not self.msfs_airports_ready:
+            raise ValueError("Catálogo de aeroportos do MSFS ainda não verificado.")
+        if self.airport_catalog is None:
+            raise ValueError("Aguardando aeroportos da sessão.")
+        return self.airport_catalog
+
+    def _flightops_read_valid(self):
+        catalog = self._flightops_catalog()
+        stored = read_flight_operations(self.storage, self.career.mission)
+        if not stored:
+            raise ValueError("Salve um planejamento válido antes da operação.")
+        draft = {k: stored[k] for k in
+                 ("mode", "origin", "destination", "altitude_ft", "waypoints", "checks")}
+        return validated_flight_operations(draft, catalog, self.career.mission)
+
+    def _flightops_save(self, data):
+        if self.tracker.phase == Phase.AIRBORNE:
+            raise ValueError("Planejamento e checklist ficam congelados após decolar.")
+        plan = save_flight_operations(self.storage, data, self._flightops_catalog(), self.career.mission)
+        # Bônus só pertence a contratos aceitos: voo livre nunca cria recompensa.
+        if plan["mode"] == "contract":
+            m = self.career.mission
+            s = self.last_sample
+            live = bool(self.mode == "MSFS" and self.connected and s and
+                        time() - s.timestamp < 10 and s.on_ground)
+            if m.freelance:
+                assigned = PLANE_BY_CODE.get(m.employer_plane)
+                title = assigned.name if assigned else ""
+            else:
+                active = self.storage.fleet_manager().selected()
+                title = active["title"] if active else (s.aircraft_title if live else "")
+            preflight = Preflight(
+                mission_id=m.id, aircraft_title=title or "",
+                altitude_ft=plan["altitude_ft"], **plan["checks"],
+                planned_fuel_gal=s.fuel_gallons if live else None,
+                planned_weight_lbs=s.total_weight_lbs if live else None,
+                max_weight_lbs=s.max_gross_weight_lbs if live else None)
+            self.storage.set_setting("preflight_v1",
+                json.dumps(preflight.snapshot(), ensure_ascii=False))
+        self._checkpoint(force=True)
+        self._log(f"FLIGHT OPS: planejamento {plan['mode']} salvo: {plan['origin']} → {plan['destination']}.")
+        return "Planejamento e checklist salvos. Revalidação automática na decolagem."
+
+    def _flightops_export(self, *, send=False):
+        plan = self._flightops_read_valid()
+        mission = flight_operations_mission(plan, self.airport_catalog, self.career.mission)
+        path = export_vfr_plan(mission, state_dir()/"planos_vfr",
+                              plan["altitude_ft"], waypoints=plan["waypoints"])
+        if not send:
+            self._log("FLIGHT OPS: plano .PLN exportado: "+str(path))
+            return "Arquivo .PLN exportado em "+str(path)
+        s = self.last_sample
+        if not (self.mode == "MSFS" and self.connected and s and
+                time() - s.timestamp < 10 and s.on_ground):
+            raise ValueError("Envio exige MSFS conectado, telemetria recente e aeronave em solo.")
+        self.sim.request_plan_load(path)
+        if plan["mode"] == "contract" and self.dispatch_state.get("mission_id") == mission.id:
+            self.dispatch_state["route"] = "loading"
+            self._queue_payload_load()
+        self._checkpoint(force=True)
+        self._log("FLIGHT OPS: .PLN enviado ao SimConnect; não confirma GPS/mapa VFR.")
+        return "Plano enviado ao SimConnect (ATC). GPS/mapa VFR não confirmados."
 
     def _planning_window(self):
         if not self.career.mission:
