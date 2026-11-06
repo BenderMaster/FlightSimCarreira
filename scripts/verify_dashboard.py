@@ -213,6 +213,16 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#pc-medal-gallery').count()==1
             page.locator('[data-pc-tab="achievements"]').click()
             assert page.locator('#pc-medal-gallery .pc-achievement').count()>=10
+            assert page.title().startswith('FlightSim')
+            assert page.locator('.brand strong').inner_text()=='FlightSim'
+            assert page.locator('symbol#i-plane path').count()==1
+            for code,number in [('first_plane','1º'),('first_flight','1º'),
+                                ('hundred_hours','100h'),('reputation70','70%'),
+                                ('reputation90','90%')]:
+                medal=page.locator('#pc-medal-gallery svg.pc-medal-'+code)
+                assert medal.count()==1
+                assert number in medal.locator('text').all_text_contents()
+            assert page.locator('#pc-medal-gallery svg.pc-medal-first_plane use[href="#i-plane"]').count()==1
             # Medalhas devem contar a conquista pela própria arte, não só pela cor.
             assert page.locator('#pc-medal-gallery svg.pc-medal-first_plane').count()==1
             assert page.locator('#pc-medal-gallery svg.pc-medal-three_planes').count()==1
@@ -220,6 +230,7 @@ with tempfile.TemporaryDirectory() as temp:
             assert '70%' in page.locator('#pc-medal-gallery svg.pc-medal-reputation70').text_content()
             page.locator('[data-pc-tab="licenses"]').click()
             assert page.locator('#pc-license-grid .pc-license').count()==5
+            assert page.locator('#pc-license-grid .pc-license-seal-svg use[href="#i-plane"]').count()==5
             for tier in range(1,6):
                 assert page.locator(f'#pc-license-grid .pc-license-tier-{tier} .pc-license-emblem svg').count()==1
                 assert page.locator(f'#pc-license-grid .pc-license-tier-{tier} .pc-license-stamp').count()==1
@@ -250,13 +261,19 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#pc-new-admin').is_checked()
             page.locator('#pc-close-profiles').click()
             assert not page.locator('#pc-profiles-dialog').is_visible()
-            # Estados de Admin são prévia de design, sem mutação financeira.
+            # Estados Admin são somente DOM sintético, nunca SQLite.
+            # O polling pode redesenhar o piloto oficial enquanto o teste
+            # aguarda uma animação; manter a fixture APENAS na página Playwright.
             page.evaluate("""() => {
-              const clone=structuredClone(state);
-              clone.pilot_career.is_test=true;
-              clone.pilot_career.showcase={level:90,xp:500000,reputation:90,
-                achievements:{veteran:'earned'},licenses:{PLA:'earned'},rank:'marechal'};
-              FSCPilotCareer.render(clone);
+              const renderOriginal=FSCPilotCareer.render;
+              FSCPilotCareer.render=(fresh)=>{
+                const clone=structuredClone(fresh);
+                clone.pilot_career.is_test=true;
+                clone.pilot_career.showcase={level:90,xp:500000,reputation:90,
+                  achievements:{veteran:'earned'},licenses:{PLA:'earned'},rank:'marechal'};
+                renderOriginal(clone);
+              };
+              FSCPilotCareer.render(state);
             }""")
             page.locator('[data-pc-tab="admin"]').click()
             assert page.locator('#pc-admin-rank-gallery .pc-gallery-rank').count()==18
@@ -301,8 +318,8 @@ with tempfile.TemporaryDirectory() as temp:
               const after=document.querySelector('#route-map g[data-heading]')?.getAttribute('transform');
               return {before,after};
             }""")
-            assert heading['before'] and 'rotate(-30)' in heading['before'],heading
-            assert heading['after'] and 'rotate(90)' in heading['after'],heading
+            assert heading['before'] and 'rotate(15)' in heading['before'],heading
+            assert heading['after'] and 'rotate(135)' in heading['after'],heading
             # Render e leitura devem ocorrer no MESMO frame JS: o poll do
             # snapshot roda a cada 500ms e pode substituir o texto entre
             # duas leituras Playwright (falso negativo intermitente).
@@ -436,8 +453,8 @@ with tempfile.TemporaryDirectory() as temp:
               const after=document.querySelector('.fsc-plane-marker svg').style.transform;
               return {before,after};
             }""")
-            assert 'rotate(-30deg)' in orientations['before'],orientations
-            assert 'rotate(90deg)' in orientations['after'],orientations
+            assert 'rotate(15deg)' in orientations['before'],orientations
+            assert 'rotate(135deg)' in orientations['after'],orientations
             # Instância MapLibre e canvas permanecem os mesmos ao abrir detalhes.
             map_page.locator('.nav-item[data-action="regional"]').click()
             map_page.locator('#market-list .market-option').first.click()

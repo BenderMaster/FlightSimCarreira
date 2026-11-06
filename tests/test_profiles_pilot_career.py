@@ -152,6 +152,67 @@ class PilotCareerTests(unittest.TestCase):
         self.assertEqual(next(x for x in restored['medals']
                           if x['code']=='three_planes')['status'],'earned')
 
+    def test_starter_is_not_paid_aircraft_for_first_purchase_or_fleet(self):
+        # Reproduz o banco legado em que o Cessna 152 foi dado gratuitamente.
+        with self.db.conn:
+            self.db.conn.execute("""INSERT INTO owned_aircraft
+                (code,condition,hours,insured,purchased_utc)
+                VALUES ('c152',100,0,0,1000)""")
+        self.db.set_setting('starter_claimed','1')
+        def medal(code):
+            return next(x for x in snapshot(self.db,self.profile)['medals'] if x['code']==code)
+        self.assertEqual(medal('first_plane')['status'],'locked')
+        self.assertEqual(medal('first_plane')['current'],0)
+        self.assertEqual(medal('three_planes')['current'],0)
+        self.assertEqual(medal('three_planes')['status'],'locked')
+
+        def purchase(code,registration):
+            with self.db.conn:
+                c=self.db.conn.execute("""INSERT INTO fleet_units(
+                  code,aircraft_title,kind,price_paid,condition,flight_hours,
+                  airport,registration,acquired_utc)
+                  VALUES (?,?,'new',80000,100,0,'SBRF',?,1000)""",
+                  (code,'Cessna 152' if code=='c152' else 'Cessna 172',registration))
+                ref='unit:'+str(c.lastrowid)
+                self.db.conn.execute("""INSERT INTO fleet_log(aircraft_ref,kind,description,occurred_utc)
+                    VALUES (?,'new_purchase',?,1000)""",(ref,ref))
+                return c.lastrowid
+
+        one=purchase('c152','PRA001')
+        self.assertEqual(medal('first_plane')['status'],'earned')
+        self.assertEqual(medal('first_plane')['current'],1)
+        self.assertEqual(medal('three_planes')['current'],1)
+        purchase('c172','PRA002')
+        self.assertEqual(medal('three_planes')['status'],'locked')
+        self.assertEqual(medal('three_planes')['current'],2)
+        purchase('c172','PRA003')
+        self.assertEqual(medal('three_planes')['status'],'earned')
+        self.assertEqual(medal('three_planes')['current'],3)
+        with self.db.conn:
+            self.db.conn.execute("DELETE FROM fleet_units WHERE id=?",(one,))
+        after=snapshot(self.db,self.profile)
+        self.assertEqual(next(x for x in after['medals']
+                              if x['code']=='three_planes')['status'],'locked')
+        self.assertEqual(next(x for x in after['medals']
+                              if x['code']=='first_plane')['status'],'earned')
+        self.assertEqual(next(x for x in after['medals']
+                              if x['code']=='first_plane')['current'],3)
+
+    def test_starter_does_not_unlock_fleet_at_two_paid_aircraft(self):
+        with self.db.conn:
+            self.db.conn.execute("""INSERT INTO owned_aircraft
+              (code,condition,hours,insured,purchased_utc) VALUES ('c152',100,0,0,1000)""")
+            for code in ('c172','g58'):
+                self.db.conn.execute("""INSERT INTO fleet_units(
+                    code,aircraft_title,kind,price_paid,condition,flight_hours,
+                    airport,registration,acquired_utc)
+                    VALUES (?,?,'new',50000,100,0,'SBRF',?,1000)""",
+                    (code,code,'PR'+code))
+        got=next(x for x in snapshot(self.db,self.profile)['medals']
+                 if x['code']=='three_planes')
+        self.assertEqual(got['current'],2)
+        self.assertEqual(got['status'],'locked')
+
     def test_permanent_medals_not_lost_with_bad_landing(self):
         self.flight(1)
         self.assertEqual(next(x for x in snapshot(self.db,self.profile)['medals']

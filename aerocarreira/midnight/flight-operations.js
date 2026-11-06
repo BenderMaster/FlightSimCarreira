@@ -1,4 +1,4 @@
-/* FlightSimCarreira Flight Operations v0.8.2 — UI sem estado financeiro. */
+/* FlightSim Flight Operations v0.8.2 — UI sem estado financeiro. */
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);

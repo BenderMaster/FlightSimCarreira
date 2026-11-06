@@ -92,6 +92,6 @@ def export_vfr_plan(mission: Mission, directory: str | Path, cruising_altitude_f
     folder=Path(directory)
     folder.mkdir(parents=True, exist_ok=True)
     # O identificador fica fora do nome do arquivo para evitar path traversal.
-    path=folder / f'FlightSimCarreira_{mission.origin}_{mission.destination}.pln'
+    path=folder / f'FlightSim_{mission.origin}_{mission.destination}.pln'
     path.write_bytes(data)
     return path.resolve()

@@ -1,3 +1,14 @@
+## v0.8.3 Midnight Ops Alpha.3 — FlightSim: nome, insígnias e patrimônio pago
+
+- Marca visual do aplicativo, certificados, janelas e nomes de exportação: **FlightSim**. Repositório, pacote Python `aerocarreira`, identificadores internos do painel SDK e banco original permanecem iguais para não quebrar integrações nem saves.
+- Executável e distribuição Windows passam a se chamar `FlightSim.exe` e `FlightSim-0.8.3-midnight-alpha3-Windows`.
+- Silhueta padrão de aeronave redesenhada a partir da referência enviada pelo piloto: vista superior, limpa, sem inclinação ou isometria. Ícones e marcadores de avião passam a usar o mesmo símbolo, inclusive no mapa (proa 0 = nariz para cima).
+- Medalha **Primeira Aeronave** agora apresenta aeronave centralizada em pista e número **1º** legível. Ajustados **Primeiro Voo**, **100 Horas** e os números **70%/90%** para não ficarem encobertos.
+- Selos de licença PPA → PLA substituem a estrela deformada por silhueta aeronáutica simétrica, mantendo acabamentos progressivos já homologados.
+- A propriedade do **C152 inicial gratuito não conta** em Primeira Aeronave nem Frota Estabelecida. Comprar um C152 adicional conta normalmente.
+- Frota de três conta apenas unidades pagas que ainda pertencem ao piloto (vendas podem suspender a medalha). Primeira Aeronave reconhece compras históricas mesmo após venda, usando `fleet_log` de forma idempotente, sem apagar conquistas válidas.
+- Testes de regressão de starter, compra, aluguel, venda, marca, ícones, interface e empacotamento. O PR permanece separado da `main` até homologação física e visual pelo piloto.
+
 # FlightSimCarreira v0.8.1 Midnight Ops Alpha.1 — Mercado de Aeronaves
 
 O Bloco 1 **Frota/Hangar v0.8.0** e as fotografias próprias foram testados pelo piloto no Windows e incorporados à `main` no PR #14 (merge `18f7925`). Esta versão trabalha isolada em `feature/v0.8.1-mercado-aeronaves`, até homologação da nova área.

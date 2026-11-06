@@ -82,11 +82,31 @@ def counts(db):
       mission_id, aircraft_title FROM flights ORDER BY started_utc,id""").fetchall()
     contracts = [r for r in rows if r[4]]
     hours = sum(max(0, r[2]-r[1]) for r in rows)/3600
-    owned = db.conn.execute("SELECT COUNT(*) FROM owned_aircraft").fetchone()[0]
-    units = db.conn.execute("SELECT COUNT(*) FROM fleet_units").fetchone()[0]
-    # O Cessna 152 inicial é cortesia, não uma compra.
-    bought_legacy = db.conn.execute("SELECT COUNT(*) FROM owned_aircraft WHERE code != 'c152'").fetchone()[0]
-    purchased = bought_legacy + units
+    # A aeronave inicial é cortesia, independentemente do uso ou das horas.
+    # As unidades adquiridas pelo mercado ficam em fleet_units (inclusive
+    # Cessna 152 adicionais); aluguel nunca entra nessa tabela.
+    # Manter também o log de aquisições para que Primeira Aeronave continue
+    # conquistada mesmo depois de vender o exemplar pago.
+    owned_legacy = {code for (code,) in db.conn.execute(
+        "SELECT code FROM owned_aircraft")}
+    # Compras do mercado legado geram movimento único purchase:<modelo>;
+    # esse lançamento distingue um C152 PAGO do starter gratuito, mesmo
+    # quando a licença da aeronave gratuita já foi concedida.
+    legacy_purchase_codes = {key.split(':',1)[1] for (key,) in db.conn.execute(
+        """SELECT event_key FROM finance_ledger
+           WHERE kind='compra_aviao' AND event_key LIKE 'purchase:%' AND amount<0""")}
+    paid_legacy_now = (owned_legacy - {'c152'}) | (owned_legacy & legacy_purchase_codes)
+    paid_legacy_ever = (owned_legacy - {'c152'}) | legacy_purchase_codes
+    purchased_now = {"unit:" + str(r[0]) for r in db.conn.execute(
+        "SELECT id FROM fleet_units")}
+    purchased_history = {str(r[0]) for r in db.conn.execute(
+        """SELECT description FROM fleet_log
+           WHERE kind IN ('new_purchase','used_purchase')
+           AND description LIKE 'unit:%'""")}
+    purchased = len(paid_legacy_ever) + len(purchased_now | purchased_history)
+    # Frota Estabelecida é patrimônio ATUAL comprado. O starter gratuito e
+    # unidades alugadas não contam; a venda pode fazer a medalha ficar inativa.
+    paid_fleet = len(paid_legacy_now) + len(purchased_now)
     job_rows = db.conn.execute("""SELECT decided_utc FROM job_applications WHERE status='hired'
                                ORDER BY decided_utc""").fetchall()
     licenses = db.conn.execute("""SELECT code,awarded_utc FROM pilot_qualifications
@@ -95,7 +115,7 @@ def counts(db):
     return dict(rows=rows, contracts=contracts, hours=hours,
                 flights=len(rows), contract_count=len(contracts),
                 reputation=rep["score"], jobs=len(job_rows),
-                purchases=purchased, fleet=owned+units,
+                purchases=purchased, fleet=paid_fleet,
                 licenses=sum(1 for code,_ in licenses if code!="PPA"),
                 license_rows=licenses, hired=job_rows)
 

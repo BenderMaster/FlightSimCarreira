@@ -358,7 +358,7 @@ class Application:
             return
         window = Toplevel(self.root)
         self.pilot_dialog = window
-        window.title("FlightSimCarreira • Piloto e habilitações (virtuais)")
+        window.title("FlightSim • Piloto e habilitações (virtuais)")
         window.geometry("850x760")
         window.minsize(720, 550)
         window.configure(bg=BG)
@@ -660,7 +660,7 @@ class Application:
             return
         window = Toplevel(self.root)
         self.market_dialog = window
-        window.title("FlightSimCarreira • Mercado regional e Freelancer")
+        window.title("FlightSim • Mercado regional e Freelancer")
         window.geometry("1060x680")
         window.minsize(870,560)
         window.configure(bg=BG)
@@ -918,7 +918,7 @@ class Application:
             return
         window=Toplevel(self.root)
         self.employment_dialog=window
-        window.title('FlightSimCarreira • Modalidades de carreira e vagas')
+        window.title('FlightSim • Modalidades de carreira e vagas')
         window.geometry('1050x720')
         window.minsize(850,610)
         window.configure(bg=BG)
@@ -1076,7 +1076,7 @@ class Application:
     def _save_log(self):
         path = state_dir() / "diagnostico_voo.txt"
         path.parent.mkdir(parents=True, exist_ok=True)
-        info = ["FlightSimCarreira " + __version__, f"modo={self.mode}",
+        info = ["FlightSim " + __version__, f"modo={self.mode}",
                 f"fase={self.tracker.phase.value}",
                 f"missao={self.career.snapshot()}",
                 "LOG:", self.log_text.get("1.0", END)]
@@ -1464,7 +1464,7 @@ class Application:
             return
         window = Toplevel(self.root)
         self.finance_dialog = window
-        window.title("FlightSimCarreira • Finanças, frota e manutenção")
+        window.title("FlightSim • Finanças, frota e manutenção")
         window.geometry("980x730")
         window.minsize(800,650)
         window.configure(bg=BG)
@@ -1550,7 +1550,7 @@ class Application:
                     return
                 self.storage.set_setting('fuel_control_enabled',str(int(fuel_var.get())))
                 self._log('Controle combustível '+('ATIVO' if fuel_var.get() else 'DESLIGADO: -30% R$/XP nos próximos voos'))
-            Checkbutton(fuel_opts,text='Combustível controlado pelo FlightSimCarreira',variable=fuel_var,
+            Checkbutton(fuel_opts,text='Combustível controlado pelo FlightSim',variable=fuel_var,
                         command=change_fuel_mode,bg=BG,fg=FG,selectcolor=PANEL,
                         activebackground=BG,activeforeground=FG).pack(side='left',padx=(0,12))
             self.label(fuel_opts,'Desligado: -30% dinheiro e XP. Com controle ativo, abasteça pela Frota avançada.',
@@ -1672,7 +1672,7 @@ class Application:
         m=self.career.mission
         window=Toplevel(self.root)
         self.planning_dialog=window
-        window.title('FlightSimCarreira • Despacho pré-voo')
+        window.title('FlightSim • Despacho pré-voo')
         window.geometry('900x760');window.minsize(760,650);window.configure(bg=BG)
         window.protocol('WM_DELETE_WINDOW',lambda:(setattr(self,'planning_dialog',None),window.destroy()))
         body=Frame(window,bg=BG,padx=24,pady=18);body.pack(fill='both',expand=True)
@@ -1746,7 +1746,7 @@ class Application:
         if self.fleet_dialog is not None and self.fleet_dialog.winfo_exists():
             self.fleet_dialog.lift();return
         window=Toplevel(self.root);self.fleet_dialog=window
-        window.title('FlightSimCarreira • Frota 2.0 e aeronaves do MSFS')
+        window.title('FlightSim • Frota 2.0 e aeronaves do MSFS')
         window.geometry('1050x730');window.minsize(890,630);window.configure(bg=BG)
         window.protocol('WM_DELETE_WINDOW',lambda:(setattr(self,'fleet_dialog',None),window.destroy()))
         main=Frame(window,bg=BG,padx=20,pady=14);main.pack(fill='both',expand=True)
@@ -1846,7 +1846,7 @@ class Application:
         redraw();update_offers()
 
     def _installed_aircraft_window(self):
-        win=Toplevel(self.root);win.title('FlightSimCarreira • Aeronaves instaladas MSFS 2020')
+        win=Toplevel(self.root);win.title('FlightSim • Aeronaves instaladas MSFS 2020')
         win.geometry('910x630');win.configure(bg=BG)
         panel=Frame(win,bg=BG,padx=16,pady=14);panel.pack(fill='both',expand=True)
         self.label(panel,'INVENTÁRIO LOCAL DO SIMULADOR',16,CYAN,True).pack(anchor='w')

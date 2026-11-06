@@ -54,7 +54,7 @@ class DashboardController:
         t.pack(fill='both',expand=True);t.insert(END,text);t.configure(state='disabled');w.lift();w.focus_force()
 
     def settings(self):
-        app=self.app;w=Toplevel(app.root);w.title('FlightSimCarreira • Configurações');w.geometry('640x660');w.configure(bg='#081421')
+        app=self.app;w=Toplevel(app.root);w.title('FlightSim • Configurações');w.geometry('640x660');w.configure(bg='#081421')
         app.label(w,'CONEXÃO E FERRAMENTAS',16,bold=True).pack(padx=20,pady=20)
         for label,command in [('Conectar MSFS',app._connect),('Desconectar',app._stop),('Demo sem MSFS',app._demo_start),
             ('Avançar demo',app._demo_next),('Contratos legados de teste',self.legacy),('Cancelar contrato',app._cancel),
@@ -96,7 +96,7 @@ class DashboardController:
         self._owned_ref(ref)
         path=filedialog.askopenfilename(
             parent=self.app.root,
-            title='Fotografia da aeronave no FlightSimCarreira',
+            title='Fotografia da aeronave no FlightSim',
             filetypes=[('Imagens','*.png *.jpg *.jpeg *.webp *.bmp'),('Todos os arquivos','*.*')])
         if not path:return
         try:
