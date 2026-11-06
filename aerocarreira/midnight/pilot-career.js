@@ -214,11 +214,12 @@ function timeline(pc){
 function admin(pc){
  const show=pc.showcase||{},root=el('pc-admin-states');
  if(!adminDraft || lastSignature!==pc.active_profile){
-  adminDraft={level:show.level||pc.level,reputation:show.reputation??pc.reputation,
+  adminDraft={level:show.level||pc.level,xp:show.xp??pc.xp,reputation:show.reputation??pc.reputation,
     licenses:{...show.licenses},achievements:{...show.achievements},rank:show.rank||null};
  }
  set('pc-admin-warning','Ambiente de testes isolado. Mudanças de prévia não alteram voos, saldo nem o piloto principal.');
  el('pc-admin-level').value=String(adminDraft.level);
+ el('pc-admin-xp').value=String(adminDraft.xp||0);
  el('pc-admin-rep').value=String(adminDraft.reputation);
  const select=el('pc-admin-rank');select.replaceChildren();
  select.append(new Option('Automático pelo nível',''));
@@ -336,17 +337,18 @@ function init(){
  el('pc-admin-save').onclick=()=>{
   if(!current?.pilot_career?.is_test)return;
   adminDraft.level=Number(el('pc-admin-level').value);
+  adminDraft.xp=Number(el('pc-admin-xp').value);
   adminDraft.reputation=Number(el('pc-admin-rep').value);
   adminDraft.rank=el('pc-admin-rank').value||null;
   act('pilot_showcase',adminDraft);
  };
  el('pc-admin-reset').onclick=()=>{
-  adminDraft={level:1,reputation:50,rank:null,achievements:{},licenses:{}};
+  adminDraft={level:1,xp:0,reputation:50,rank:null,achievements:{},licenses:{}};
   act('pilot_showcase',adminDraft);
  };
  el('pc-admin-preset').onchange=()=>{
   const lv=Number(el('pc-admin-preset').value);
-  if(lv){el('pc-admin-level').value=lv;el('pc-admin-rep').value=lv>=80?95:lv>=30?75:50;}
+  if(lv){el('pc-admin-level').value=lv;el('pc-admin-xp').value=lv*100;el('pc-admin-rep').value=lv>=80?95:lv>=30?75:50;}
  };
  el('pc-admin-preview-gain').onclick=()=>showUnlock('gain','Veterano • 50 Voos','veteran');
  el('pc-admin-preview-loss').onclick=()=>showUnlock('loss','Reputação 90','reputation90');
