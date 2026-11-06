@@ -4,7 +4,7 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let current=null,activeTab='overview',lastSeq=null,noticeSeq=null,lastSignature='',adminDraft=null;
+let current=null,activeTab='overview',lastSeq=null,noticeSeq=null,lastSignature='',adminDraft=null,lastRenderedSignature='';
 const tabs=['overview','achievements','licenses','graphs','timeline','admin'];
 const xns='http://www.w3.org/2000/svg', fmt=(n,d=0)=>
  Number(n||0).toLocaleString('pt-BR',{maximumFractionDigits:d});
@@ -268,8 +268,14 @@ function profiles(pc,state){
 function render(s){
  if(!s?.pilot_career)return;
  current=s;const pc=s.pilot_career;
- profileHeader(s);overview(pc);achievements(pc);licenses(pc);graphs(pc);timeline(pc);
- profiles(pc,s);if(pc.is_test)admin(pc);
+ const signature=JSON.stringify([pc.active_profile,pc.events_seq,pc.level,pc.rank.code,
+   pc.reputation,pc.equipped,pc.flights,pc.hours,pc.contracts,pc.medals.map(x=>x.status),
+   pc.licenses.map(x=>x.status),pc.showcase,pc.profiles,s.pilot,s.avatar?.length||0]);
+ if(signature!==lastRenderedSignature){
+  profileHeader(s);overview(pc);achievements(pc);licenses(pc);graphs(pc);timeline(pc);
+  profiles(pc,s);if(pc.is_test)admin(pc);
+  lastRenderedSignature=signature;
+ }
  if(pc.notice?.seq!=null&&noticeSeq!==pc.notice.seq){
   noticeSeq=pc.notice.seq;set('pc-message',pc.notice.message);
  }
@@ -284,7 +290,11 @@ function render(s){
 function showUnlock(kind,label,code){
  const dialog=el('pc-unlock');
  const art=el('pc-unlock-art');art.replaceChildren();
- art.append(medalSvg(code||'veteran'));
+ if(kind==='loss'){
+  const left=medalSvg(code||'veteran'),right=medalSvg(code||'veteran');
+  left.classList.add('pc-fragment-left');right.classList.add('pc-fragment-right');
+  art.append(left,right);
+ }else art.append(medalSvg(code||'veteran'));
  dialog.dataset.kind=kind;
  set('pc-unlock-kicker',kind==='loss'?'CONQUISTA PERDIDA':kind==='promotion'?'NOVA PATENTE':'NOVA CONQUISTA');
  set('pc-unlock-title',label||'Conquista');
@@ -294,6 +304,8 @@ function showUnlock(kind,label,code){
 }
 function init(){
  document.querySelectorAll('[data-pc-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.pcTab));
+ el('pc-manage-profiles').onclick=()=>{if(!el('pc-profiles-dialog').open)el('pc-profiles-dialog').showModal();};
+ el('pc-close-profiles').onclick=()=>el('pc-profiles-dialog').close();
  el('pc-profile-select').onchange=()=>{
   el('pc-profile-switch').disabled=el('pc-profile-select').value===current?.pilot_career?.active_profile;
  };
