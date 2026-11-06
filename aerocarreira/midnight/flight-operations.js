@@ -62,7 +62,7 @@ function renderLegs(r){
  (r.legs||[]).forEach(leg=>{
   const line=document.createElement('div');line.className='flightops-leg';
   const desc=document.createElement('span');desc.textContent=leg.from+' → '+leg.to;
-  const metric=document.createElement('b');metric.textContent=number(leg.nm,1)+' NM • '+number(leg.bearing_deg)+'°';
+  const metric=document.createElement('b');metric.textContent=number(leg.nm,1)+' NM • '+number(leg.bearing_deg)+'° • '+number(leg.minutes,1)+' min';
   line.append(desc,metric);parent.append(line);
  });
 }
