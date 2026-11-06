@@ -213,6 +213,10 @@ def snapshot(db, profile=None):
         actual=bool(row and row[1])
         status="earned" if actual else "locked"
         if preview:
+            # O laboratório também simula perda/recuperação por reputação,
+            # preservando sobreposições explícitas do Admin para cada medalha.
+            if variable and source=="reputation":
+                status="earned" if rep>=target else "locked"
             status=showcase.get("achievements",{}).get(code,status)
         if status=="earned":active_codes.add(code)
         medal_items.append(dict(code=code,title=title,description=desc,
