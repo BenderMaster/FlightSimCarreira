@@ -37,7 +37,7 @@ class DashboardController:
                 except Empty:break
                 self.dispatch(command)
                 if self.closed:return
-            if time()-self.last_payroll_check>=30:
+            if time()-getattr(self,'last_payroll_check',time())>=30:
                 self.last_payroll_check=time()
                 settled=app.storage.airline_payroll(time()) if (app:=self.app) else []
                 if settled:
