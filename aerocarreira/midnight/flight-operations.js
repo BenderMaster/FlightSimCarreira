@@ -2,7 +2,7 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let mode='free',fixes=[],draftKey='',dirty=false,noticeSeq=null,currentState=null,lastSuccessful=null;
+let mode='free',fixes=[],draftKey='',dirty=false,noticeSeq=null,currentState=null,lastSuccessful=null,projection=null;
 const ids=['origin','destination','altitude'];
 const checkKeys={runway_checked:'fo-check-runway',route_checked:'fo-check-route',
                  fuel_checked:'fo-check-fuel',payload_checked:'fo-check-payload'};
@@ -80,12 +80,13 @@ function render(s){
  if(!dirty && key!==draftKey){useDraft(saved);draftKey=key;}
  if(data.notice?.seq!=null && data.notice.seq!==noticeSeq){
   noticeSeq=data.notice.seq;text('fo-message',data.notice.message);
-  if(data.notice.ok && data.notice.action==='flightops_save'){
+  if(data.notice.ok && ['flightops_save','flightops_clear'].includes(data.notice.action)){
    dirty=false;draftKey='';lastSuccessful=JSON.stringify(collect());
   }
  }
  el('fo-contract').disabled=!data.contract;
  el('fo-save').disabled=!data.ready||s?.phase==='EM VOO';
+ el('fo-clear').disabled=s?.phase==='EM VOO';
  el('fo-export').disabled=!data.ready||dirty||!data.route;
  el('fo-send').disabled=!data.ready||dirty||!data.route||s?.connection!=='connected'||s?.telemetry?.stale||!(s?.phase!=='EM VOO'&&s?.phase!=='AIRBORNE');
  text('fo-airport-source',data.ready?'ICAOs confirmados pelo MSFS':'Aguardando catálogo MSFS');
@@ -146,6 +147,12 @@ el('fo-add-fix').onclick=()=>{
  fixes.push({label,lat,lon});renderFixes();markDirty();
  for(const id of ['fo-fix-label','fo-fix-lat','fo-fix-lon'])el(id).value='';
 };
+el('fo-clear').onclick=()=>{
+ if(!confirm(mode==='contract'?
+    'Limpar waypoints e checklist? Origem/destino e contrato permanecem.':
+    'Limpar destino, waypoints, altitude e checklist do voo livre?'))return;
+ send('flightops_clear');
+};
 el('fo-save').onclick=()=>{
  const draft=collect();
  if(!Number.isInteger(draft.altitude_ft)||draft.altitude_ft<500||draft.altitude_ft>45000||
@@ -156,5 +163,61 @@ el('fo-save').onclick=()=>{
 };
 el('fo-export').onclick=()=>{if(dirty)return;text('fo-message','Exportando arquivo de navegação...');send('flightops_export');};
 el('fo-send').onclick=()=>{if(dirty)return;text('fo-message','Solicitando envio ao ATC...');send('flightops_send');};
-window.FSCFlightOps={render,show,mapState};
+function proposeWaypoint(lat,lon){
+ if(document.querySelector('.workspace')?.dataset.view!=='planning')return false;
+ if(fixes.length>=8){text('fo-message','Limite de oito waypoints atingido.');return false;}
+ if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)return false;
+ const dialog=el('fo-map-point-dialog');
+ let i=1;while(fixes.some(w=>w.label==='FSC'+String(i).padStart(2,'0')))i++;
+ el('fo-map-label').value='FSC'+String(i).padStart(2,'0');
+ el('fo-map-lat').value=lat.toFixed(6);
+ el('fo-map-lon').value=lon.toFixed(6);
+ if(!dialog.open)dialog.showModal();
+ return true;
+}
+function fromSvgEvent(e){
+ if(!projection||document.querySelector('.workspace')?.dataset.view!=='planning')return false;
+ const svg=el('route-map');
+ let x,y;
+ try{
+  const point=svg.createSVGPoint();point.x=e.clientX;point.y=e.clientY;
+  const transformed=point.matrixTransform(svg.getScreenCTM().inverse());
+  x=transformed.x;y=transformed.y;
+ }catch{return false;}
+ const p=projection;
+ const lon=p.lon0+(x-450-p.panX)/(p.cos*p.scale);
+ const lat=p.lat0-(y-170-p.panY)/p.scale;
+ return proposeWaypoint(lat,lon);
+}
+function registerMapGestures(){
+ const svg=el('route-map');
+ svg.addEventListener('contextmenu',e=>{if(document.querySelector('.workspace')?.dataset.view!=='planning')return;e.preventDefault();fromSvgEvent(e);});
+ svg.addEventListener('click',e=>{if(e.shiftKey && document.querySelector('.workspace')?.dataset.view==='planning'){e.preventDefault();fromSvgEvent(e);}});
+ let touchTimer=null,started=null;
+ svg.addEventListener('pointerdown',e=>{
+  if(e.pointerType!=='touch'||document.querySelector('.workspace')?.dataset.view!=='planning')return;
+  started={x:e.clientX,y:e.clientY};
+  touchTimer=setTimeout(()=>{fromSvgEvent(e);touchTimer=null;},800);
+ });
+ svg.addEventListener('pointermove',e=>{
+  if(started&&Math.hypot(e.clientX-started.x,e.clientY-started.y)>12){
+   clearTimeout(touchTimer);touchTimer=null;started=null;
+  }
+ });
+ for(const eventName of ['pointerup','pointercancel','pointerleave'])
+  svg.addEventListener(eventName,()=>{clearTimeout(touchTimer);touchTimer=null;started=null;});
+}
+el('fo-map-confirm').onclick=()=>{
+ const label=el('fo-map-label').value.trim().toUpperCase();
+ if(!/^[A-Z0-9_-]{1,12}$/.test(label)||fixes.some(w=>w.label===label)){
+  text('fo-message','Nome de waypoint inválido ou duplicado.');return;
+ }
+ fixes.push({label,lat:Number(el('fo-map-lat').value),lon:Number(el('fo-map-lon').value)});
+ renderFixes();markDirty();el('fo-map-point-dialog').close();
+};
+for(const id of ['fo-map-cancel','fo-map-cancel-top'])el(id).onclick=()=>el('fo-map-point-dialog').close();
+registerMapGestures();
+window.FSCFlightOps={render,show,mapState,proposeWaypoint,
+  setFallbackProjection:p=>{projection=p;}};
+
 })();
