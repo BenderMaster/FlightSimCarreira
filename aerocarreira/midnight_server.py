@@ -15,7 +15,7 @@ ACTIONS={'pilot','market','fleet','planning','finance','employment','history','r
          'aircraft_buy_new','aircraft_buy_used','aircraft_rent','aircraft_sell',
          'flightops_save','flightops_export','flightops_send','flightops_clear',
          'pilot_profile_create','pilot_profile_update','pilot_profile_switch',
-         'pilot_profile_reset','pilot_showcase','pilot_medal_equip'}
+         'pilot_profile_reset','pilot_showcase','pilot_medal_equip','pilot_license_claim'}
 ASSETS=Path(__file__).with_name('midnight')
 class DashboardServer:
     def __init__(self):
