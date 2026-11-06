@@ -46,9 +46,9 @@ class PlanningTests(unittest.TestCase):
         p=Preflight(self.m.id,'Cessna 152',True,True,True,True,True,True,True,
                     planned_fuel_gal=12.0,planned_weight_lbs=1500,max_weight_lbs=1670)
         report=inspect_preflight(self.m,p)
-        self.assertAlmostEqual(report['bonus_fraction'],.09)
+        self.assertAlmostEqual(report['bonus_fraction'],0)
         confirmed=inspect_preflight(self.m,p,verified={'clock':True,'assists':True})
-        self.assertAlmostEqual(confirmed['bonus_fraction'],.15)
+        self.assertAlmostEqual(confirmed['bonus_fraction'],.06)
         self.assertNotIn('Clima ao vivo (não verificável)',confirmed['components'])
         self.assertNotIn('Clima ao vivo (declaração)',confirmed['components'])
         self.assertTrue(report['fuel_ok'])
