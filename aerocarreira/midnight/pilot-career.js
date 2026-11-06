@@ -353,6 +353,15 @@ function graphSvg(title,data,kind){
    });
    card.append(n('p','pc-chart-summary',
     'Últimos '+rows.length+' pousos • Média: -'+fmt(average,0)+' ft/min • Melhor registro: '+fmt(rows.reduce((a,b)=>Math.abs(b.fpm)<Math.abs(a.fpm)?b:a).fpm)+' ft/min'));
+   // Também mostramos os números sem exigir hover sobre os pontos.
+   const recent=n('div','pc-chart-breakdown');
+   rows.slice(-6).forEach((record,i)=>{
+    const item=n('div','pc-chart-breakdown-item');
+    const seq=(data||[]).length-Math.min(6,rows.length)+i+1;
+    item.append(n('span','','Pouso '+seq),n('strong','',fmt(record.fpm,0)+' ft/min'));
+    recent.append(item);
+   });
+   card.append(recent);
   }else{
    const slot=W/rows.length,barW=Math.min(68,Math.max(12,slot*.62));
    rows.forEach((item,i)=>{
@@ -373,8 +382,9 @@ function graphSvg(title,data,kind){
    const detail=n('div','pc-chart-breakdown');
    rows.forEach((item,i)=>{
     const line=n('div','pc-chart-breakdown-item');
-    line.append(n('span','',isContracts?String(item[0]).slice(5,7)+'/'+String(item[0]).slice(0,4):String(item[0])),
-     n('strong','',formatValue(values[i])+' '+unit));
+    const label=n('span','',isContracts?String(item[0]).slice(5,7)+'/'+String(item[0]).slice(0,4):String(item[0]));
+    label.title=String(item[0]);
+    line.append(label,n('strong','',formatValue(values[i])+' '+unit));
     detail.append(line);
    });
    card.append(detail);
