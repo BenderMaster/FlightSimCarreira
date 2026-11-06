@@ -207,6 +207,36 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(self.request('/market-invalid.jpg')[0],404)
         self.assertEqual(self.request('/market-c172.svg')[0],404)
 
+    def test_flight_operations_is_native_and_same_map(self):
+        html=(ASSETS/'index.html').read_text(encoding='utf-8')
+        js=(ASSETS/'app.js').read_text(encoding='utf-8')
+        planner=(ASSETS/'flight-operations.js').read_text(encoding='utf-8')
+        self.assertIn('id="flightops-page"',html)
+        self.assertIn('id="flightops-map-slot"',html)
+        self.assertIn('id="fo-waypoints"',html)
+        self.assertIn('id="fo-check-payload"',html)
+        self.assertIn("const parent=view==='planning'",js)
+        self.assertIn("window.FSCFlightOps?.render(s)",js)
+        self.assertIn("flightops_save",planner)
+        self.assertIn("flightops_export",planner)
+        self.assertIn("flightops_send",planner)
+
+    def test_flightops_transport_requires_token_and_does_not_allow_extra_fields(self):
+        self.assertEqual(self.request('/flight-operations.js')[0],200)
+        payload={"mode":"free","origin":"SIPE","destination":"SIFC",
+                 "altitude_ft":2500,"waypoints":[],
+                 "checks":{"route_checked":False,"runway_checked":False,
+                           "fuel_checked":False,"payload_checked":False}}
+        request={"action":"flightops_save","payload":payload}
+        self.assertEqual(self.request('/command',request)[0],202)
+        self.assertEqual(self.server.commands.get_nowait(),request)
+        self.assertEqual(self.request('/command',request,auth=False)[0],403)
+        self.assertEqual(self.request('/command',request,origin=False)[0],403)
+        self.assertEqual(self.request('/command',{**request,"amount":500})[0],400)
+        self.assertEqual(self.request('/command',{"action":"flightops_save","payload":{}})[0],400)
+        self.assertEqual(self.request('/command',{"action":"flightops_send"})[0],202)
+        self.assertEqual(self.request('/flight-operations.py')[0],404)
+
     def test_static_page_contains_no_session_token(self):
         code,body=self.request('/');self.assertEqual(code,200);self.assertNotIn(self.server.token.encode(),body)
         self.assertIn(b'<img src="/brand-icon.png"',body)
