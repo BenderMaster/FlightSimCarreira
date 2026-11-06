@@ -82,17 +82,21 @@ function updateMarkers(s){
   missionKey=key;
   for(const item of airportMarkers)item.remove();airportMarkers=[];
   const start=valid(m?.start)?latlng(m.start):null,end=valid(m?.end)?latlng(m.end):null;
+  const via=Array.isArray(m?.route_points)&&m.route_points.length>=2?
+     m.route_points.filter(valid).map(latlng):null;
+  const path=via?.length>=2?via:[start,end].filter(Boolean);
   const line=start&&end?{type:'Feature',properties:{},
-   geometry:{type:'LineString',coordinates:[[start.lng,start.lat],[end.lng,end.lat]]}}:
+   geometry:{type:'LineString',coordinates:path.map(p=>[p.lng,p.lat])}}:
    {type:'FeatureCollection',features:[]};
   map.getSource('fsc-route').setData(line);
   if(start&&end){
-   for(const [p,label] of [[start,m.origin],[end,m.destination]]){
+   const markerPoints=[[start,m.origin],...((via||[]).slice(1,-1).map((p,i)=>[p,m.waypoints?.[i]?.label||('FIX'+(i+1))])),[end,m.destination]];
+   for(const [p,label] of markerPoints){
     const el=document.createElement('div');el.className='fsc-airport-marker';el.textContent=label;
     airportMarkers.push(new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([p.lng,p.lat]).addTo(map));
    }
    const bounds=new maplibregl.LngLatBounds();
-   bounds.extend([start.lng,start.lat]).extend([end.lng,end.lat]);
+   for(const p of path)bounds.extend([p.lng,p.lat]);
    map.fitBounds(bounds,{padding:35,maxZoom:12,duration:0});
   }else if(s?.telemetry&&Number.isFinite(s.telemetry.lat)&&Number.isFinite(s.telemetry.lon)){
    map.jumpTo({center:[s.telemetry.lon,s.telemetry.lat],zoom:11});
