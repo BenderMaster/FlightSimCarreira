@@ -312,8 +312,8 @@ with tempfile.TemporaryDirectory() as temp:
               const after=document.querySelector('#route-map g[data-heading]')?.getAttribute('transform');
               return {before,after};
             }""")
-            assert heading['before'] and 'rotate(-30)' in heading['before'],heading
-            assert heading['after'] and 'rotate(90)' in heading['after'],heading
+            assert heading['before'] and 'rotate(15)' in heading['before'],heading
+            assert heading['after'] and 'rotate(135)' in heading['after'],heading
             # Render e leitura devem ocorrer no MESMO frame JS: o poll do
             # snapshot roda a cada 500ms e pode substituir o texto entre
             # duas leituras Playwright (falso negativo intermitente).
