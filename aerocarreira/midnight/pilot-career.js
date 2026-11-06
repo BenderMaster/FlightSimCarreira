@@ -500,8 +500,9 @@ function showUnlock(kind,label,code){
  set('pc-unlock-kicker',kind==='loss'?'CONQUISTA PERDIDA':kind==='promotion'?'NOVA PATENTE':'NOVA CONQUISTA');
  set('pc-unlock-title',label||'Conquista');
  if(!dialog.open)dialog.showModal();
- window.clearTimeout(showUnlock.timeout);
- showUnlock.timeout=window.setTimeout(()=>dialog.close(),2500);
+ // A animação termina, mas o diálogo continua aberto até o piloto fechar.
+ // Reabrir um diálogo visível não reinicia automaticamente nenhum prêmio.
+ el('pc-close-unlock').focus({preventScroll:true});
 }
 function init(){
  document.querySelectorAll('[data-pc-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.pcTab));
@@ -572,6 +573,7 @@ function init(){
  el('pc-admin-preview-loss').onclick=()=>showUnlock('loss','Reputação 90','reputation90');
  el('pc-admin-preview-promotion').onclick=()=>showUnlock('promotion','Nova patente','major');
  el('pc-close-unlock').onclick=()=>el('pc-unlock').close();
+ el('pc-unlock-dismiss').onclick=()=>el('pc-unlock').close();
  el('pc-unlock').addEventListener('click',e=>{if(e.target===el('pc-unlock'))el('pc-unlock').close();});
 }
 init();
