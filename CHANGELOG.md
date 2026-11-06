@@ -1,3 +1,14 @@
+## v0.8.2 Midnight Ops Alpha.1 — Planejador + Despacho unificados
+
+- Página Flight Operations com editor de origem/destino, oito waypoints numéricos, altitude VFR e pernas (distância/rumo) calculadas pelo motor Python.
+- Planejamento de voo livre separado de contratos, sem dinheiro, XP ou recompensa; modo contratado não permite trocar origem e destino.
+- Waypoints USER gerados nos arquivos .PLN na ordem planejada. Estado salvo por carreira no SQLite, com revalidação de ICAOs pelo catálogo da sessão MSFS.
+- Mapa MapLibre compartilhado entre Dashboard, detalhes de contrato e planejador; suporte a rotas com múltiplas pernas e sem duplicação de WebGL/créditos.
+- Despacho operacional: checklist nativo, combustível estimado com reserva, peso/MTOW quando disponível, manifestos, meteorologia informativa e estados de envio pelo SimConnect.
+- Bônus existentes seguem avaliados no motor somente para contratos, congelados na decolagem. Sem bônus por clima em tempo real; texto legado de log meteorológico removido.
+- Envio ao SimConnect é indicado como ATC e jamais confirmado como GPS/VFR. Exportação de voo livre não altera a carreira.
+- Testes automatizados e validação de pacote Windows; sem migração destrutiva de saves.
+
 ## v0.8.1 Midnight Ops Alpha.3 — Showcase fotorealista das aeronaves
 
 - Substituídas as quatro ilustrações SVG por imagens fotorealistas originais aprovadas pelo piloto, referentes ao Cessna 172 Skyhawk, Baron G58, King Air 350i e Citation CJ4.
