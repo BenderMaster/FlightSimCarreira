@@ -2,9 +2,9 @@
 <AssetPackage Name="flightsimcarreira-panel" Version="0.6.0">
   <ItemSettings>
     <ContentType>SPB</ContentType>
-    <Title>FlightSimCarreira Experimental Panel</Title>
-    <Manufacturer>FlightSimCarreira</Manufacturer>
-    <Creator>FlightSimCarreira</Creator>
+    <Title >FlightSim Experimental Panel</Title>
+    <Manufacturer >FlightSim</Manufacturer>
+    <Creator >FlightSim</Creator>
   </ItemSettings>
   <Flags><VisibleInStore>false</VisibleInStore><CanBeReferenced>false</CanBeReferenced></Flags>
   <AssetGroups>
