@@ -10,6 +10,7 @@ from .employment import generate_employer_routes
 from .pilot import level_progress
 from .domain import AIRPORTS, Phase, distance_nm
 from .planning import inspect_preflight, Preflight
+from .flight_operations import read_saved as read_flight_operations, draft as flightops_draft, validated as validate_flightops, route_stats as flightops_stats
 from dataclasses import replace
 from .flight_audit import real_clock_verified, assistance_verified
 from .finance import estimated_minutes, AIRCRAFT_ECONOMY
@@ -226,6 +227,34 @@ class DashboardPresenter:
             heading_magnetic_deg=s.heading_magnetic_deg,
             on_any_runway=s.on_any_runway,
             stale=app.mode!='Demo' and (not app.connected or time()-s.timestamp>10))
+        # Flight Operations: somente projeção read-only no snapshot.
+        # Rascunhos antigos permanecem no banco, mas nunca passam por
+        # "aeroporto confirmado" sem catálogo da sessão MSFS atual.
+        active_catalog=app.airport_catalog if (app.mode=='Demo' or
+                        getattr(app,'msfs_airports_ready',False)) else None
+        stored=read_flight_operations(db,m)
+        pilot_origin=(pilot or {}).get('home_icao','')
+        candidate=stored or flightops_draft(m,pilot_origin)
+        flight_ops={'draft':candidate,'ready':bool(active_catalog),
+                    'route':None,
+                    'notice':getattr(app,'flightops_notice',None),
+                    'dispatch':getattr(app,'dispatch_state',{}),
+                    'aircraft_title':plane['title'] if plane else None,
+                    'contract':dict(id=m.id,origin=m.origin,destination=m.destination,
+                                    payload_kg=m.payload_kg,manifest=m.manifest_label) if m else None}
+        if active_catalog and candidate.get('origin') and candidate.get('destination'):
+            try:
+                proposed={k:candidate[k] for k in
+                          ('mode','origin','destination','altitude_ft','waypoints','checks')}
+                checked_plan=validate_flightops(proposed,active_catalog,m)
+                live_fuel=s.fuel_gallons if (s and app.connected and
+                          app.mode=='MSFS' and time()-s.timestamp<10) else quantity
+                flight_ops['route']=flightops_stats(
+                    checked_plan,active_catalog,plane['title'] if plane else None,
+                    live_fuel,s if (s and app.connected and
+                          app.mode=='MSFS' and time()-s.timestamp<10) else None)
+            except (ValueError,KeyError,TypeError):
+                pass
         fuel_warning=bool(fuel and capacity and quantity is not None and quantity/capacity<=.20)
         wear_warning=bool(plane and plane.get('condition') is not None and plane['condition']<=20)
         return dict(pilot=pilot,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
@@ -243,7 +272,7 @@ class DashboardPresenter:
             capacity=capacity,
             refundable_liters=app.fuel_manager._refundable(plane['ref']) if plane and fuel else 0,
             live=s.fuel_gallons if s else None),telemetry=telemetry,phase=app.phase_var.get(),bonus=bonus,
-            dispatch_state=getattr(app,'dispatch_state',{}),
+            dispatch_state=getattr(app,'dispatch_state',{}),flight_operations=flight_ops,
             airports=dict(source='MSFS session only' if app.mode!='Demo' else 'Demo',
                 ready=bool(getattr(app,'msfs_airports_ready',False)) if app.mode!='Demo' else True,
                 count=len(app.airport_catalog.locations) if app.airport_catalog else 0),

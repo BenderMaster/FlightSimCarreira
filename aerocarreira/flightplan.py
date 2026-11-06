@@ -31,7 +31,7 @@ def position(lat: float, lon: float) -> str:
     return f'{_dms(lat, True)},{_dms(lon, False)},+000000.00'
 
 
-def build_vfr_plan(mission: Mission, cruising_altitude_ft: int = 2500) -> bytes:
+def build_vfr_plan(mission: Mission, cruising_altitude_ft: int = 2500, *, waypoints=None) -> bytes:
     if not 500 <= cruising_altitude_ft <= 45000:
         raise ValueError('Altitude de cruzeiro inválida')
     if not all(re.fullmatch(r'[A-Z0-9]{4}', s) for s in (mission.origin, mission.destination)):
@@ -63,11 +63,32 @@ def build_vfr_plan(mission: Mission, cruising_altitude_ft: int = 2500) -> bytes:
         ET.SubElement(wp,'ATCWaypointType').text='Airport'
         ET.SubElement(wp,'WorldPosition').text=world
         ET.SubElement(ET.SubElement(wp,'ICAO'),'ICAOIdent').text=icao
+    # Pontos USER coordenados; não inferir ICAO ou procedimentos de navegação.
+    stops = list(waypoints or ())
+    if len(stops) > 8:
+        raise ValueError('Máximo de oito pontos intermediários.')
+    for fix in stops:
+        from math import isfinite
+        if not isinstance(fix, dict) or set(fix) != {'label', 'lat', 'lon'}:
+            raise ValueError('Formato de waypoint inválido.')
+        label = fix['label']
+        if not isinstance(label, str) or not re.fullmatch(r'[A-Z0-9_-]{1,12}', label):
+            raise ValueError('Nome de waypoint inválido.')
+        lat, lon = fix['lat'], fix['lon']
+        if type(lat) not in (float, int) or type(lon) not in (float, int) or not (
+                isfinite(lat) and isfinite(lon)):
+            raise ValueError('Waypoint sem coordenadas válidas.')
+        world = position(lat, lon)
+        waypoint = ET.Element('ATCWaypoint', {'id':label})
+        ET.SubElement(waypoint, 'ATCWaypointType').text = 'User'
+        ET.SubElement(waypoint, 'WorldPosition').text = world
+        # Inserir entre os dois ATCWaypoint aeroportuários.
+        fp.insert(list(fp).index(fp.findall('ATCWaypoint')[-1]), waypoint)
     return ET.tostring(root, encoding='utf-8',xml_declaration=True)
 
 
-def export_vfr_plan(mission: Mission, directory: str | Path, cruising_altitude_ft: int = 2500) -> Path:
-    data=build_vfr_plan(mission,cruising_altitude_ft)
+def export_vfr_plan(mission: Mission, directory: str | Path, cruising_altitude_ft: int = 2500, *, waypoints=None) -> Path:
+    data=build_vfr_plan(mission,cruising_altitude_ft,waypoints=waypoints)
     folder=Path(directory)
     folder.mkdir(parents=True, exist_ok=True)
     # O identificador fica fora do nome do arquivo para evitar path traversal.

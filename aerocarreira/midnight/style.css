@@ -399,3 +399,43 @@
 .aircraft-market-footer{justify-content:flex-end;flex-shrink:0;padding-top:.3em;min-height:2.8em}
 .aircraft-market-tabs [data-aircraft-market-tab="new"] svg{width:1.8em;height:1.8em}
 @media(max-width:1170px){.aircraft-market-layout{overflow:auto}.aircraft-market-preview{overflow:visible}}
+
+/* v0.8.2 Flight Operations: os três painéis rolam de modo independente. */
+.flightops-page{gap:.75em!important}
+.flightops-head{flex-shrink:0}.flightops-status{display:flex;flex-direction:column;text-align:right;gap:.3em;min-width:11em}.flightops-status strong{font-size:1.05em;color:var(--cyan)}.flightops-status small{font-size:.72em;color:#9ac7d8}
+.flightops-layout{display:grid;grid-template-columns:minmax(220px,24%) minmax(300px,1fr) minmax(230px,27%);gap:.7em;flex:1;min-height:0;min-width:0}
+.flightops-layout>.card{min-width:0;min-height:0;background:linear-gradient(150deg,#072738,#031621);border:1px solid #275469;border-radius:10px;padding:.8em}
+.flightops-route,.flightops-dispatch{display:flex;flex-direction:column;gap:.7em;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable}
+.flightops-route h2,.flightops-dispatch h2{color:#34e1ef;letter-spacing:.06em;font-size:.93em;border-bottom:1px solid #315469;padding-bottom:.6em;flex-shrink:0}
+.flightops-mode{display:grid;grid-template-columns:1fr 1fr;gap:.35em}.flightops-mode .button{min-width:0;padding:.55em .25em;font-size:.83em}
+.flightops-route label{display:flex;flex-direction:column;gap:.35em;font-size:.77em;color:#abd4e3}
+.flightops-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5em}
+.flightops-route input{width:100%;min-width:0;border:1px solid #3c7185;background:#031824;border-radius:6px;padding:.63em;color:#eaf8ff;font:inherit;font-size:1.22em;outline-offset:2px}
+.flightops-route input:focus-visible{outline:1px solid #27e4ee}
+.flightops-route input:disabled{opacity:.5}.flightops-subheading{display:flex;align-items:center;justify-content:space-between;gap:.4em;border-bottom:1px solid #234c61;padding-bottom:.3em}
+.flightops-subheading strong,.flightops-legs>strong{font-size:.78em;color:#24ddea}.flightops-subheading small{font-size:.73em}
+.flightops-waypoints{display:flex;flex-direction:column;gap:.3em;max-height:11em;overflow:auto}
+.flightops-waypoints>div{display:flex;gap:.4em;align-items:center;border:1px solid #265268;border-radius:6px;padding:.45em;font-size:.8em}
+.flightops-waypoints>div span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis}
+.flightops-waypoints>div button{border:1px solid #466a7d;border-radius:5px;background:#071b2a;padding:.2em .45em;color:#f7d3d3}
+.flightops-waypoint-inputs{display:grid;grid-template-columns:1fr 1fr;gap:.3em}.flightops-waypoint-inputs input:first-child{grid-column:1/-1}
+.flightops-legs{display:flex;flex-direction:column;gap:.45em;margin-top:.3em}.flightops-legs>div{display:flex;flex-direction:column;gap:.35em}
+.flightops-leg{display:flex;justify-content:space-between;gap:.45em;font-size:.78em;background:#061b2b;border:1px solid #1f495c;border-radius:5px;padding:.6em}
+.flightops-map-panel{display:flex;flex-direction:column;gap:.55em;overflow:hidden}
+.flightops-map-heading{display:flex;align-items:center;justify-content:space-between;gap:.3em}.flightops-map-heading strong{font-size:.88em;color:var(--cyan)}.flightops-map-heading small{font-size:.72em}
+.flightops-map-slot{position:relative;flex:1;min-height:160px;border:1px solid #1f5269;background:#03131c;overflow:hidden;border-radius:8px}
+.flightops-map-slot>.map-area{position:absolute;inset:0;width:100%;height:100%}
+.flightops-map-panel>small{font-size:.7em;line-height:1.3;color:#9ec0d1}
+.flightops-dispatch .flightops-metrics{display:grid;grid-template-columns:1fr 1fr;gap:.45em}
+.flightops-metrics>div{display:flex;flex-direction:column;gap:.25em;padding:.65em .5em;border-radius:7px;border:1px solid #315668;background:#0b2b3c}
+.flightops-metrics small{color:#9cc8d8;font-size:.72em}.flightops-metrics strong{font-size:1.3em;color:#ffe19a}
+.flightops-block{display:flex;flex-direction:column;gap:.4em;padding:.65em;border:1px solid #28536a;border-radius:8px;background:#061f30}
+.flightops-block>strong{font-size:.82em;color:#35d9ea}.flightops-block p{margin:0;color:#d8f0fb;font-size:.85em;overflow-wrap:anywhere;line-height:1.35}
+.flightops-block>small{font-size:.72em;color:#9fc1ce;line-height:1.4}
+.flightops-reading{display:flex;justify-content:space-between;gap:.4em;font-size:.78em}.flightops-reading b{color:#f9d07d}
+.flightops-checks label{display:flex;align-items:flex-start;gap:.45em;line-height:1.35;color:#dbeefa;font-size:.78em}.flightops-checks label input{accent-color:#06d6ee;flex-shrink:0}
+.flightops-footer{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:.7em;padding-top:.35em;min-height:3em}
+.flightops-footer>small{max-width:52%;font-size:.76em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flightops-actions{display:flex;gap:.45em}.flightops-actions button{padding:.7em .6em;font-size:.88em}
+@media(max-width:1120px){.flightops-layout{grid-template-columns:minmax(200px,30%) minmax(300px,1fr)}.flightops-dispatch{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible}.flightops-dispatch h2{grid-column:1/-1}.flightops-layout{overflow:auto}.flightops-footer{flex-wrap:wrap}.flightops-footer>small{max-width:none}}
+@media(max-width:720px){.flightops-layout{display:flex;flex-direction:column;overflow-y:auto}.flightops-route,.flightops-dispatch{overflow:visible;flex-shrink:0}.flightops-map-slot{height:265px;flex:none}.flightops-dispatch{display:flex}.flightops-footer{flex-direction:column;align-items:stretch}.flightops-actions{flex-wrap:wrap}.flightops-footer>small{max-width:100%}}
