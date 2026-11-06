@@ -276,7 +276,14 @@ function licenses(pc){
   top.append(identity,emblem);
   const accent=n('div','pc-license-filigree');
   accent.append(n('span',''),n('span',''),n('span',''));
-  const desc=n('p','pc-license-description',q.description);
+  const premiumDescriptions={
+   PPA:'Fundamentos de navegação visual e comando de aeronaves leves.',
+   PCA:'Progressão profissional e operações comerciais de maior responsabilidade.',
+   IFR:'Disciplina de instrumentos, precisão e navegação avançada.',
+   MLTE:'Especialização em operações multimotor e gestão de sistemas.',
+   PLA:'O mais alto marco de prestígio e experiência na carreira.'
+  };
+  const desc=n('p','pc-license-description',premiumDescriptions[q.code]||q.description);
   const ribbon=n('div','pc-license-stamp',q.status==='earned'?'CONQUISTADA':q.status==='available'?'ELEGÍVEL':'A CONQUISTAR');
   const footer=n('div','pc-license-foot');
   const status=n('span','pc-license-state',q.status==='earned'?'EMITIDA':q.status==='available'?'REQUISITOS ATENDIDOS':'EM PROGRESSO');
@@ -313,7 +320,7 @@ function graphSvg(title,data,kind){
  };
  const step=roundedStep(highest),max=4*step;
  const yValue=value=>bottom-Math.max(0,Math.min(max,value))/max*H;
- const formatValue=v=>isLanding?'-'+fmt(v,0):isContracts?fmt(v,0):fmt(v,1);
+ const formatValue=v=>isLanding?(v===0?'0':'-'+fmt(v,0)):isContracts?fmt(v,0):fmt(v,1);
  const labelFor=(x,i)=>isLanding?String((data||[]).length-rows.length+i+1):
   isContracts?String(x[0]).slice(5,7)+'/'+String(x[0]).slice(2,4):String(x[0]).slice(0,12);
  for(let k=0;k<=4;k++){
@@ -404,7 +411,7 @@ function timeline(pc){
   const content=n('div','pc-timeline-content');
   content.append(n('strong','',e.title),n('small','',new Date(e.when*1000).toLocaleString('pt-BR')));
   row.append(icon,content);
-  if(['gain','loss'].includes(e.kind)){
+  if(['gain','loss','promotion'].includes(e.kind)){
    const b=n('button','button','Reproduzir');
    b.onclick=()=>showUnlock(e.kind,e.title,e.code);row.append(b);
   }
@@ -482,8 +489,12 @@ function render(s){
  }
  if(lastSeq==null){lastSeq=pc.events_seq;}
  else if(pc.events_seq>lastSeq){
-  const newest=pc.timeline.find(e=>e.kind==='gain'||e.kind==='loss');
-  if(newest)showUnlock(newest.kind,newest.title,newest.code);
+  const newest=pc.timeline.find(e=>['gain','loss','promotion'].includes(e.kind));
+  if(newest){
+   const kind=newest.kind==='gain'&&newest.key?.startsWith('medal:')&&
+    !newest.key.endsWith(':first')?'recovery':newest.kind;
+   showUnlock(kind,newest.title,newest.code);
+  }
   lastSeq=pc.events_seq;
  }
  showTab(activeTab);
@@ -495,9 +506,11 @@ function showUnlock(kind,label,code){
   const left=medalSvg(code||'veteran'),right=medalSvg(code||'veteran');
   left.classList.add('pc-fragment-left');right.classList.add('pc-fragment-right');
   art.append(left,right);
- }else art.append(medalSvg(code||'veteran'));
+ }else if(kind==='promotion')art.append(rankSvg({code:code||'major',title:label||'Nova patente'},'large'));
+ else art.append(medalSvg(code||'veteran'));
  dialog.dataset.kind=kind;
- set('pc-unlock-kicker',kind==='loss'?'CONQUISTA PERDIDA':kind==='promotion'?'NOVA PATENTE':'NOVA CONQUISTA');
+ set('pc-unlock-kicker',kind==='loss'?'CONQUISTA PERDIDA':
+  kind==='promotion'?'NOVA PATENTE':kind==='recovery'?'CONQUISTA RECUPERADA':'NOVA CONQUISTA');
  set('pc-unlock-title',label||'Conquista');
  if(!dialog.open)dialog.showModal();
  // A animação termina, mas o diálogo continua aberto até o piloto fechar.
