@@ -34,3 +34,12 @@ Implementação em `feature/v0.8.3-pilot-career` (PR #17, rascunho). Não mescla
 
 ## Regresso e aceite
 CI Python 3.11/3.13 Windows/Linux, Playwright com visualização/gestos/animações, smoke do executável Windows. Testes de perfis isolados, migração, backup, medalhas condicionais, concessões e bônus por dados verificados. A `main` permanece estável até a aprovação do piloto.
+
+## Revisão de design — Alpha.2 (aprovação pendente)
+- As janelas de evento **não fecham automaticamente**: as animações de ganho, quebra, reconquista e promoção terminam, mas a janela permanece aberta até botão Fechar, ESC ou clique externo do piloto.
+- A patente usa novo desenho esguio, com motivo interno preservado; o distintivo legado do topo foi retirado. A medalha equipável da foto permanece.
+- As 13 conquistas têm **desenhos vetoriais locais exclusivos por significado**, não apenas estrelas coloridas: First Plane inclui avião pousado/1º, Frota mostra três aeronaves/um hangar; Reputação 70/90 contém certificação e valor, com materiais hierarquizados.
+- Os cinco certificados têm acabamento crescente e tipografia técnica, selos personalizados, identidade FlightSimCarreira e estados visuais já suportados (bloqueada/disponível/obtida).
+- Gráficos: escalas e valores explícitos, unidades, legenda explicativa, média de pousos, detalhamento de meses e modelos. Um mês apenas usa uma barra de largura limitada.
+- Linha do tempo, idempotência de conquistas, estado da carreira, perfil Teste e transações não foram reestruturados.
+- Testes reforçados em `scripts/verify_dashboard.py` e `tests/test_midnight.py`; usar pacote Windows **v0.8.3 Alpha.2** em uma pasta separada para homologação antes de integrar na main.
