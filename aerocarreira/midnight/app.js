@@ -364,7 +364,7 @@ if(window.FSCPilotCareer && s.pilot_career){
    const rankHost=$('pc-header-rank'),badgeHost=$('pc-header-medal');
    rankHost.replaceChildren(window.FSCPilotCareer.rankSvg(s.pilot_career.rank,'small'));
    rankHost.title=s.pilot_career.rank.title;
-   $('pc-rank-fallback').hidden=true;
+
    badgeHost.replaceChildren();
    if(s.pilot_career.equipped)badgeHost.append(window.FSCPilotCareer.medalSvg(s.pilot_career.equipped));
    badgeHost.hidden=!s.pilot_career.equipped;
