@@ -175,6 +175,88 @@
   </div>
   <footer class="page-foot flightops-footer"><small id="fo-message" role="status">Escolha os aeroportos e salve o planejamento.</small><div class="flightops-actions"><button id="fo-save" class="button primary" type="button">Salvar planejamento</button><button id="fo-export" class="button" type="button">Exportar .PLN</button><button id="fo-send" class="button" type="button">Enviar ao MSFS</button></div></footer>
  </section>
+
+ <section id="pilot-career-page" class="page-shell pc-page card" hidden aria-labelledby="pc-page-title">
+  <header class="page-head pc-page-head"><div>
+   <small class="eyebrow">MIDNIGHT OPS • PILOT CAREER</small>
+   <h1 id="pc-page-title">MEU PILOTO <span class="pc-header-wing">✦</span></h1>
+   <p>O histórico de quem chegou até aqui. Cada voo, conquista e promoção permanece na sua carreira.</p></div>
+   <button id="pc-manage-profiles" class="button" type="button">Gerenciar perfis</button>
+  </header>
+  <nav class="pc-tabs" aria-label="Seções do perfil">
+   <button class="selected" data-pc-tab="overview" aria-pressed="true">Visão geral</button>
+   <button data-pc-tab="achievements" aria-pressed="false">Conquistas</button>
+   <button data-pc-tab="licenses" aria-pressed="false">Licenças</button>
+   <button data-pc-tab="graphs" aria-pressed="false">Gráficos</button>
+   <button data-pc-tab="timeline" aria-pressed="false">Minha história</button>
+   <button id="pc-tab-button-admin" data-pc-tab="admin" aria-pressed="false" hidden>Admin / Showcase</button>
+  </nav>
+  <div class="pc-scroll">
+   <div id="pc-tab-overview" class="pc-tab-content">
+    <div class="pc-hero">
+     <div class="pc-hero-photo">
+      <img id="pc-portrait" alt="Fotografia do piloto" hidden>
+      <div id="pc-portrait-fallback" class="pc-portrait-fallback"><svg><use href="#i-user"/></svg><span>FOTO DO PILOTO</span></div>
+      <div class="pc-photo-frame"></div>
+      <div id="pc-main-medal" class="pc-main-medal" title="Medalha especial equipada" hidden></div>
+     </div>
+     <div class="pc-hero-info">
+      <small class="pc-overline">IDENTIDADE DE CARREIRA • FLIGHTSIMCARREIRA</small>
+      <h2 id="pc-name">—</h2>
+      <div class="pc-hero-callsign"><strong id="pc-callsign">—</strong><span id="pc-employment">—</span></div>
+      <div class="pc-hero-meta"><span>BASE <b id="pc-base">—</b></span><span>DESDE <b id="pc-joined">—</b></span></div>
+      <div class="pc-level-block">
+       <div id="pc-main-rank" class="pc-main-rank"></div>
+       <div class="pc-level-text"><strong id="pc-level">NÍVEL —</strong><b id="pc-rank-name">—</b><small id="pc-progress-label">—</small>
+        <div class="pc-xp-track"><i id="pc-xpbar"></i></div>
+       </div>
+      </div>
+      <button id="pc-profile-photo" class="button pc-photo-action" type="button">Trocar minha foto</button>
+     </div>
+    </div>
+    <div class="pc-section-head"><h2>MINHA CARREIRA EM NÚMEROS</h2><small>Estatísticas do diário de bordo</small></div>
+    <div id="pc-statistics" class="pc-stat-grid"></div>
+    <div class="pc-overview-panels">
+     <section class="pc-inner-panel"><div class="pc-section-head"><h2>CAMINHO DO AVIADOR</h2><small>Graduações conquistadas</small></div><div id="pc-rank-track" class="pc-rank-track"></div></section>
+     <section class="pc-inner-panel"><div class="pc-section-head"><h2>MEDALHAS EM DESTAQUE</h2><small>Momentos que marcaram a jornada</small></div><div id="pc-featured-medals" class="pc-featured-medals"></div></section>
+    </div>
+   </div>
+   <div id="pc-tab-achievements" class="pc-tab-content" hidden>
+    <div class="pc-section-head"><h2>GALERIA DE CONQUISTAS</h2><small>Equipar uma medalha na fotografia · conquistas condicionais podem ser perdidas</small></div>
+    <div id="pc-medal-gallery" class="pc-medal-gallery"></div>
+   </div>
+   <div id="pc-tab-licenses" class="pc-tab-content" hidden>
+    <div class="pc-section-head"><h2>DOCUMENTOS E HABILITAÇÕES</h2><small>Certificados FlightSimCarreira • progresso e requisitos</small></div>
+    <div id="pc-license-grid" class="pc-license-grid"></div>
+   </div>
+   <div id="pc-tab-graphs" class="pc-tab-content" hidden>
+    <div class="pc-section-head"><h2>EVOLUÇÃO EM NÚMEROS</h2><small>Gráficos atualizados a partir do histórico registrado</small></div><div id="pc-graphs" class="pc-graphs"></div>
+   </div>
+   <div id="pc-tab-timeline" class="pc-tab-content" hidden>
+    <div class="pc-section-head"><h2>MINHA HISTÓRIA</h2><small>Conquistas, marcos, promoções e despedidas</small></div>
+    <div id="pc-timeline-list" class="pc-timeline-list"></div>
+   </div>
+   <div id="pc-tab-admin" class="pc-tab-content" hidden>
+    <div class="pc-section-head"><h2>SHOWCASE / LABORATÓRIO DE DESIGN</h2><small>Exclusivo do perfil Teste</small></div>
+    <p id="pc-admin-warning" class="pc-admin-warning"></p>
+    <div class="pc-admin-toolbar">
+     <label>PRESET<select id="pc-admin-preset"><option value="">Escolher...</option><option value="1">Iniciante (1)</option><option value="25">Intermediário (25)</option><option value="55">Veterano (55)</option><option value="100">Carreira completa (100)</option></select></label>
+     <label>NÍVEL<input id="pc-admin-level" type="number" min="1" max="100" value="1"></label>
+     <label>REPUTAÇÃO<input id="pc-admin-rep" type="number" min="0" max="100" value="50"></label>
+     <label>DISTINTIVO<select id="pc-admin-rank"></select></label>
+     <button class="button primary" id="pc-admin-save">Aplicar prévia</button>
+     <button class="button" id="pc-admin-reset">Restaurar prévia</button>
+    </div>
+    <section class="pc-inner-panel"><div class="pc-section-head"><h2>TODOS OS DISTINTIVOS</h2><small>Clique para escolher a aparência</small></div>
+     <div id="pc-admin-rank-gallery" class="pc-admin-rank-gallery"></div></section>
+    <section class="pc-inner-panel"><div class="pc-section-head"><h2>TESTAR ANIMAÇÕES</h2><small>Sem crédito de conquistas reais</small></div>
+     <div class="pc-animation-actions"><button class="button" id="pc-admin-preview-gain">Reproduzir desbloqueio</button><button class="button" id="pc-admin-preview-loss">Reproduzir medalha quebrando</button><button class="button" id="pc-admin-preview-promotion">Reproduzir promoção</button></div></section>
+    <section class="pc-inner-panel"><h2>ESTADOS DOS CERTIFICADOS E MEDALHAS</h2><div id="pc-admin-states" class="pc-admin-states"></div></section>
+    <button class="button pc-danger" id="pc-profile-reset">Reiniciar perfil Teste (com backup)</button>
+   </div>
+  </div>
+  <footer class="pc-page-foot"><span id="pc-message" role="status">Uma carreira é construída um voo de cada vez.</span><span>FLIGHTSIMCARREIRA · PILOT CAREER</span></footer>
+ </section>
  <section id="module-page" class="page-shell module-page card" hidden aria-labelledby="module-title">
   <header class="page-head"><div><small class="eyebrow">FLIGHTSIMCARREIRA • PAINEL INTEGRADO</small><h1 id="module-title">MÓDULO</h1><p id="module-description"></p></div></header>
   <div id="module-context" class="module-context" aria-live="polite"></div>
@@ -208,6 +290,28 @@
   <footer class="page-foot"><small>Estimativas do modelo selecionado. O motor da carreira revalida os requisitos antes do aceite.</small><button class="button primary" id="dialog-accept">Aceitar missão</button></footer>
  </section>
  </main>
+
+ <dialog id="pc-profiles-dialog" class="pc-profiles-dialog">
+  <div class="pc-dialog-top"><h2>GERENCIADOR DE PILOTOS</h2><button id="pc-close-profiles" type="button" aria-label="Fechar">×</button></div>
+  <div class="pc-dialog-section"><h3>ALTERNAR CARREIRA</h3><p>Cada piloto possui seu próprio banco SQLite. Para trocar, desconecte do MSFS e termine o voo.</p>
+   <div class="pc-inline-form"><select id="pc-profile-select" aria-label="Perfil existente"></select><button id="pc-profile-switch" class="button primary" type="button">Trocar perfil</button></div>
+  </div>
+  <div id="pc-profile-editor" class="pc-dialog-section"><h3>IDENTIDADE DO PILOTO ATUAL</h3>
+   <div class="pc-form-trio"><label>Nome<input id="pc-profile-name" maxlength="50"></label><label>Indicativo<input id="pc-profile-callsign" maxlength="12"></label><label>Base ICAO<input id="pc-profile-base" maxlength="4"></label></div>
+   <button id="pc-profile-save" class="button" type="button">Salvar identidade</button>
+  </div>
+  <div class="pc-dialog-section"><h3>CRIAR NOVO PERFIL</h3><p>O perfil Teste permite prévias Admin sem modificar a carreira principal.</p>
+   <div class="pc-form-trio"><label>Nome<input id="pc-new-name" maxlength="50" value="Teste"></label><label>Indicativo<input id="pc-new-callsign" maxlength="12" value="TESTE"></label><label>Base ICAO<input id="pc-new-base" maxlength="4" value="SBRF"></label></div>
+   <label class="pc-checkbox"><input id="pc-new-admin" type="checkbox" checked> Criar como Teste / Admin (isolado)</label>
+   <button id="pc-profile-create" class="button primary" type="button">Criar perfil</button>
+  </div>
+ </dialog>
+ <dialog id="pc-unlock" class="pc-unlock" data-kind="gain">
+  <div class="pc-unlock-deco"></div><small id="pc-unlock-kicker">NOVA CONQUISTA</small>
+  <div id="pc-unlock-art" class="pc-unlock-art"></div><h2 id="pc-unlock-title">—</h2>
+  <small class="pc-unlock-brand">FLIGHTSIMCARREIRA · PILOT CAREER</small>
+  <button id="pc-close-unlock" class="pc-unlock-close" aria-label="Fechar animação">×</button>
+ </dialog>
  <dialog id="refuel-dialog" class="refuel-dialog" aria-labelledby="refuel-title">
   <header class="refuel-heading"><h2 id="refuel-title">ABASTECIMENTO</h2><button id="refuel-cancel-top" aria-label="Fechar">×</button></header>
   <p id="refuel-aircraft">Aeronave</p>
@@ -226,4 +330,4 @@
   <p class="aircraft-checkout-note">Esta operação altera de verdade o saldo e o patrimônio virtual. Nenhum avião será carregado automaticamente no MSFS.</p>
   <footer><button type="button" class="button" id="am-cancel">Cancelar</button><button type="button" class="button primary" id="am-commit">Confirmar operação</button></footer>
  </dialog>
- <div id="toast" role="status"></div><script src="/free-map.js"></script><script src="/app.js"></script><script src="/aircraft-market.js"></script><script src="/flight-operations.js"></script></body></html>
+ <div id="toast" role="status"></div><script src="/free-map.js"></script><script src="/app.js"></script><script src="/aircraft-market.js"></script><script src="/flight-operations.js"></script><script src="/pilot-career.js"></script></body></html>
