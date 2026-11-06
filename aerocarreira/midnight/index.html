@@ -351,6 +351,33 @@
   </div>
   <footer class="page-foot fin-footer"><small id="fin-message" role="status">Financeiro sincronizado com a carreira.</small><button type="button" class="button" data-action="fleet">Abrir meu Hangar</button></footer>
  </section>
+ <section id="airline-page" class="page-shell airline-page card" hidden aria-labelledby="airline-title">
+  <header class="page-head airline-head">
+   <div><small class="eyebrow">MIDNIGHT OPS • FLIGHTSIM AIRLINE OPERATIONS</small>
+    <h1 id="airline-title">COMPANHIAS AÉREAS</h1>
+    <p>Da primeira contratação à gestão de uma companhia própria.</p></div>
+   <div class="airline-status"><small>MODALIDADE ATUAL</small><strong id="airline-mode">AUTÔNOMO</strong></div>
+  </header>
+  <nav class="airline-tabs" aria-label="Áreas da companhia">
+   <button type="button" data-airline-tab="overview" class="active">Minha carreira</button>
+   <button type="button" data-airline-tab="jobs">Recrutamento</button>
+   <button type="button" data-airline-tab="schedule">Escala de voos</button>
+   <button type="button" data-airline-tab="business">Minha companhia</button>
+   <button type="button" data-airline-tab="history">Histórico</button>
+  </nav>
+  <div id="airline-content" class="airline-content"></div>
+  <footer class="page-foot airline-footer">
+   <small id="airline-message" role="status">Contratos da empresa pagam salário e XP pela folha semanal, não por pouso.</small>
+   <button type="button" class="button" id="airline-review">Atualizar seleção e folha</button>
+  </footer>
+ </section>
+ <dialog id="airline-confirm" class="fin-dialog" aria-labelledby="airline-confirm-title">
+  <div class="fin-dialog-head"><h2 id="airline-confirm-title">REVISAR OPERAÇÃO</h2>
+   <button type="button" id="airline-confirm-x" aria-label="Fechar">×</button></div>
+  <div id="airline-confirm-body" class="fin-confirm-body"></div>
+  <footer><button type="button" id="airline-confirm-cancel" class="button">Cancelar</button>
+   <button type="button" id="airline-confirm-yes" class="button primary">Confirmar</button></footer>
+ </dialog>
  <section id="module-page" class="page-shell module-page card" hidden aria-labelledby="module-title">
   <header class="page-head"><div><small class="eyebrow">FLIGHTSIM • PAINEL INTEGRADO</small><h1 id="module-title">MÓDULO</h1><p id="module-description"></p></div></header>
   <div id="module-context" class="module-context" aria-live="polite"></div>
@@ -442,4 +469,4 @@
   <p class="aircraft-checkout-note">Esta operação altera de verdade o saldo e o patrimônio virtual. Nenhum avião será carregado automaticamente no MSFS.</p>
   <footer><button type="button" class="button" id="am-cancel">Cancelar</button><button type="button" class="button primary" id="am-commit">Confirmar operação</button></footer>
  </dialog>
- <div id="toast" role="status"></div><script src="/free-map.js"></script><script src="/app.js"></script><script src="/aircraft-market.js"></script><script src="/flight-operations.js"></script><script src="/pilot-career.js"></script><script src="/finance-center.js"></script></body></html>
+ <div id="toast" role="status"></div><script src="/free-map.js"></script><script src="/app.js"></script><script src="/aircraft-market.js"></script><script src="/flight-operations.js"></script><script src="/pilot-career.js"></script><script src="/finance-center.js"></script><script src="/airline-operations.js"></script></body></html>
