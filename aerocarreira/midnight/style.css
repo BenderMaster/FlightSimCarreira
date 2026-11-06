@@ -580,3 +580,12 @@
 @media(max-width:800px){.pc-hero{grid-template-columns:minmax(130px,32%) 1fr}.pc-hero-photo{min-height:190px}.pc-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.pc-overview-panels{grid-template-columns:1fr}.pc-medal-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}.pc-graphs{grid-template-columns:1fr}.pc-form-trio{grid-template-columns:1fr}.pc-admin-states{grid-template-columns:1fr}}
 @media(max-width:500px){.pc-hero{display:flex;flex-direction:column}.pc-hero-photo{align-self:center;width:180px}.pc-hero-info{padding-top:.6em}.pc-level-block{gap:.2em}.pc-main-rank{width:77px;height:65px}.pc-stat-grid{grid-template-columns:1fr 1fr}.pc-medal-gallery{grid-template-columns:1fr}.pc-license-grid{grid-template-columns:1fr}.pc-admin-toolbar{grid-template-columns:1fr 1fr}.pc-tabs button{padding:.45em .65em}}
 @media(prefers-reduced-motion:reduce){.pc-unlock *,.pc-xp-track i{animation:none!important;transition:none!important}}
+
+/* Emblemas sempre presentes no identificador e na foto do Dashboard. */
+.pc-header-rank{width:2.7em;height:2.6em;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.pc-header-rank svg{width:100%;height:100%;filter:drop-shadow(0 1px 3px #0009)}
+.pc-header-medal{pointer-events:none;position:absolute;right:-.5em;bottom:-.5em;width:48%;height:49%;z-index:4;filter:drop-shadow(0 2px 4px #000b)}
+.pc-header-medal svg{width:100%;height:100%}
+.pc-header-medal[hidden]{display:none}
+.pc-profiles-dialog input:focus-visible,.pc-profiles-dialog select:focus-visible,
+.pc-page input:focus-visible,.pc-page select:focus-visible{outline:2px solid #14dfed;outline-offset:2px}
