@@ -1217,9 +1217,14 @@ class Application:
                 if self.career.mission:
                     # Autoavaliação: só dados SimConnect válidos valem bônus.
                     # Clima ao vivo não pode ser provado por esta API.
+                    fresh=self.mode=='MSFS' and self.connected and time()-s.timestamp<10
                     verified=({'clock':real_clock_verified(s),
-                               'assists':assistance_verified(s)}
-                              if self.mode=='MSFS' else {})
+                               'assists':assistance_verified(s),
+                               'fuel':s.fuel_gallons is not None and s.fuel_gallons>=0,
+                               'weight':(s.total_weight_lbs is not None and
+                                         s.max_gross_weight_lbs is not None and
+                                         0<s.total_weight_lbs<=s.max_gross_weight_lbs)}
+                              if fresh else {})
                     auto_fraction=.03*int(verified.get('clock') is True)+.03*int(verified.get('assists') is True)
                     if plan and not aircraft_title_matches(plan.aircraft_title,s.aircraft_title):
                         self._log('Despacho: modelo divergente; sem bônus de checklist.')
@@ -1236,12 +1241,16 @@ class Application:
                         except ValueError as exc:
                             self._log('Despacho indisponível: '+str(exc))
                     else:
-                        self.realism_frozen=round(auto_fraction,4)
+                        automatic=Preflight(self.career.mission.id,s.aircraft_title or '',
+                            planned_fuel_gal=s.fuel_gallons,
+                            planned_weight_lbs=s.total_weight_lbs,
+                            max_weight_lbs=s.max_gross_weight_lbs)
+                        self.realism_frozen=inspect_preflight(
+                            self.career.mission,automatic,verified=verified)['bonus_fraction']
                         self.realism_mission=self.career.mission.id
                     self._log(f'Realismo confirmado pelo MSFS/checklist: +{self.realism_frozen*100:.1f}% de XP e pagamento.')
                     if verified.get('clock') is None:self._log('Horário UTC: telemetria indisponível, sem bônus automático.')
                     if verified.get('assists') is None:self._log('Assistências: telemetria incompleta, sem bônus automático.')
-                    self._log('Clima ao vivo não entra no cálculo de XP: preset não verificável.')
                 if self.career.mission and self.career.mission.freelance and not self.career.employer_aircraft_confirmed:
                     self._log("ALERTA FREELANCER: modelo não confirmado na decolagem; sem pagamento até próximo voo correto.")
                 self._checkpoint(force=True)
