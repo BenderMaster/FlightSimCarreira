@@ -58,6 +58,8 @@ def rank_for_level(level):
 
 
 def init(db):
+    if getattr(db, '_pilot_career_initialized', False):
+        return
     db.conn.executescript("""
       CREATE TABLE IF NOT EXISTS pilot_medals (
         code TEXT PRIMARY KEY, first_awarded REAL NOT NULL, active INTEGER NOT NULL,
@@ -66,6 +68,7 @@ def init(db):
         id INTEGER PRIMARY KEY AUTOINCREMENT, event_key TEXT UNIQUE NOT NULL,
         occurred_utc REAL, kind TEXT NOT NULL, code TEXT NOT NULL, title TEXT NOT NULL);
     """)
+    db._pilot_career_initialized = True
 
 
 def event(db, key, moment, kind, code, title):
@@ -168,7 +171,7 @@ def snapshot(db, profile=None):
     stats=db.pilot_stats()
     base=counts(db)
     timestamp=time.time()
-    data={**base,"reputation":base["reputation"]}
+    data={**base,"flight":base["flights"],"contracts":base["contract_count"],"reputation":base["reputation"]}
     with db.conn:
         for code,title,description,source,limit,variable in ACHIEVEMENTS:
             actual=data.get(source,0) >= limit
