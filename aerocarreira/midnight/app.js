@@ -39,14 +39,15 @@ function navigate(destination){
  const market=view==='regional'||view==='freelance',
        fleet=view==='fleet',
        aircraftMarket=view==='aircraft_market',planning=view==='planning',
-       pilotCare=view==='pilot',finance=view==='finance',
-       module=!market&&!fleet&&!aircraftMarket&&!planning&&!pilotCare&&!finance&&view!=='dashboard'&&view!=='details';
+       pilotCare=view==='pilot',finance=view==='finance',airlineView=view==='employment',
+       module=!market&&!fleet&&!aircraftMarket&&!planning&&!pilotCare&&!finance&&!airlineView&&view!=='dashboard'&&view!=='details';
  document.querySelector('.workspace').dataset.view=view;
  $('market-page').hidden=!market;$('fleet-page').hidden=!fleet;
  $('aircraft-market-page').hidden=!aircraftMarket;
  $('flightops-page').hidden=!planning;
  $('pilot-career-page').hidden=!pilotCare;
  $('financial-center-page').hidden=!finance;
+ $('airline-page').hidden=!airlineView;
  $('module-page').hidden=!module;$('details').hidden=view!=='details';
  document.querySelectorAll('.nav-item').forEach(button=>{
   const current=view==='details'?previousView:view;
@@ -62,6 +63,7 @@ function navigate(destination){
  if(planning)window.FSCFlightOps?.show?.();
  if(pilotCare)window.FSCPilotCareer?.show?.();
  if(finance)window.FSCFinancialCenter?.show?.();
+ if(airlineView)window.FSCAirlineOperations?.show?.();
 }
 document.querySelector('.workspace').dataset.view=view;
 document.addEventListener('click',e=>{
@@ -144,7 +146,7 @@ function renderMarketView(s,force=false){
  const inventory=s.mode==='Demo'?'DEMONSTRAÇÃO':s.airports?.ready?'MSFS • '+s.airports.count+' aeródromos verificados':'CONSULTANDO AEROPORTOS MSFS';
  text('market-dialog-base',base+'  |  '+inventory+' | Piloto '+(s.pilot?.callsign||'não cadastrado'));
  text('market-view-hint',freelance?'Aeronave fornecida pelo contratante. Sem custos de compra ou aluguel para este serviço.':'Serviços para o piloto autônomo com aeronave própria. Regras de nível, habilitação e local são verificadas no aceite.');
- const items=s.offers.filter(o=>Boolean(o.freelance)===freelance&&
+ const items=s.offers.filter(o=>!o.company_code&&Boolean(o.freelance)===freelance&&
   (!search||[o.title,o.category,o.origin,o.destination].join(' ').toLocaleLowerCase('pt-BR').includes(search)));
  text('market-count',items.length+' oferta'+(items.length===1?'':'s'));
  $('market-list').replaceChildren();
@@ -371,8 +373,8 @@ if(window.FSCPilotCareer && s.pilot_career){
    if(s.pilot_career.equipped)badgeHost.append(window.FSCPilotCareer.medalSvg(s.pilot_career.equipped));
    badgeHost.hidden=!s.pilot_career.equipped;
   }
-  text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderMarketView(s);renderModuleView(s);renderFleetView(s);window.FSCAircraftMarket?.render(s);window.FSCFlightOps?.render(s);window.FSCPilotCareer?.render(s);window.FSCFinancialCenter?.render(s);renderSummary(s);
-const m=s.mission;const bonus=s.bonus?.bonus_fraction||0;text('route',m?m.origin+' → '+m.destination:'Selecione uma missão');text('distance',m?'Distância: '+(m.distance===null?'—':number(m.distance)+' NM')+'  |  Prev. voo: '+(m.minutes===null?'—':m.minutes+' min'):'Explore o mercado regional para começar');text('category',m?.category||'');text('reward',m?money(m.reward):'—');text('bonus-value',m?'+'+number(bonus*100,1)+'%':'—');text('mission-status',m?(s.bonus?.frozen?'EM VOO • CONGELADO':'RESERVADO'):'');
+  text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderMarketView(s);renderModuleView(s);renderFleetView(s);window.FSCAircraftMarket?.render(s);window.FSCFlightOps?.render(s);window.FSCPilotCareer?.render(s);window.FSCFinancialCenter?.render(s);window.FSCAirlineOperations?.render(s);renderSummary(s);
+const m=s.mission;const bonus=s.bonus?.bonus_fraction||0;text('route',m?m.origin+' → '+m.destination:'Selecione uma missão');text('distance',m?'Distância: '+(m.distance===null?'—':number(m.distance)+' NM')+'  |  Prev. voo: '+(m.minutes===null?'—':m.minutes+' min'):'Explore o mercado regional para começar');text('category',m?.category||'');text('reward',m?(m.company_code&&m.company_code!=='OWN'?'SALÁRIO SEMANAL':m.company_code==='OWN'?'EMPRESA: '+money(m.reward):money(m.reward)):'—');text('bonus-value',m?'+'+number(bonus*100,1)+'%':'—');text('mission-status',m?(s.bonus?.frozen?'EM VOO • CONGELADO':'RESERVADO'):'');
 for(const [key,, ,unit] of metricNames){const e=$('metric-'+key);if(key==='phase'){e.textContent=s.phase;e.style.color='#8df63e';continue}e.replaceChildren(document.createTextNode(s.telemetry?number(s.telemetry[key]):'—'),node('small','',' '+unit))}text('telemetry-status',s.mode==='Demo'?'DEMONSTRAÇÃO':s.telemetry?.stale?'ÚLTIMA LEITURA • SEM ATUALIZAÇÃO':s.connection==='connected'?'':'AGUARDANDO MSFS');renderWeather(s);text('log',s.log.slice(-8).join('\n'));$('log').scrollTop=$('log').scrollHeight;text('realism-total',m?'+'+number(bonus*100,1)+'%':'—');
 const labels=['Relógio UTC sincronizado','Assistências monitoradas desligadas','Combustível suficiente','Peso abaixo do MTOW'];
  const components=Object.values(s.bonus?.components||{});$('checklist').replaceChildren();
