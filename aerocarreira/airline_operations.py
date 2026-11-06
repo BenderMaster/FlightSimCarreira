@@ -96,6 +96,10 @@ def init(conn):
           tier INTEGER NOT NULL, salary INTEGER NOT NULL, xp INTEGER NOT NULL,
           result TEXT NOT NULL, settled_utc REAL NOT NULL,
           PRIMARY KEY (agreement_id,week));
+        CREATE TABLE IF NOT EXISTS airline_promotions(
+          id INTEGER PRIMARY KEY AUTOINCREMENT, agreement_id INTEGER NOT NULL,
+          flight_key TEXT NOT NULL UNIQUE, grade TEXT NOT NULL,
+          title TEXT NOT NULL, awarded_utc REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS airline_week_rates(
           agreement_id INTEGER NOT NULL, week INTEGER NOT NULL,
           base_salary INTEGER NOT NULL, base_xp INTEGER NOT NULL,
@@ -207,12 +211,44 @@ def record_employee_flight(db,mission_id,flight_key,start,end):
     if not isfinite(duration) or not 60<=duration<=24*3600:return False
     week=int((start-active['hired_utc'])//WEEK_SECONDS)
     # A flight spanning a week boundary belongs to takeoff week's roster.
+    previous_grade=work_stats(db,active)['grade']
     _freeze_rate(db,active,week)
     cursor=db.conn.execute("""INSERT OR IGNORE INTO airline_work(
         flight_key,agreement_id,employer,week,duration_seconds,mission_id,completed_utc)
         VALUES (?,?,?,?,?,?,?)""",
         (flight_key,active['id'],active['employer'],week,duration,mission_id,end))
+    if cursor.rowcount==1:
+        new_grade=work_stats(db,active)['grade']
+        if new_grade['index']>previous_grade['index']:
+            db.conn.execute("""INSERT OR IGNORE INTO airline_promotions
+                (agreement_id,flight_key,grade,title,awarded_utc)
+                VALUES(?,?,?,?,?)""",
+                (active['id'],flight_key,new_grade['code'],new_grade['title'],end))
     return cursor.rowcount==1
+
+def promotions(db,agreement):
+    return [dict(id=r[0],grade=r[1],title=r[2],when=r[3])
+            for r in db.conn.execute("""SELECT id,grade,title,awarded_utc
+                 FROM airline_promotions WHERE agreement_id=?
+                 ORDER BY id DESC LIMIT 30""",(agreement['id'],))]
+
+def migrate_legacy_company(db):
+    """Pre-v0.8.5 foundations stay valid without inventing a new R$400k."""
+    state=db.employment_state()
+    if state['mode']!='empresario' or company_account(db):return
+    pilot=db.get_pilot()
+    if not pilot:return
+    with db.conn:
+        db.conn.execute("""INSERT OR IGNORE INTO airline_company
+           (id,name,callsign,home_icao,founded_utc,balance,reputation)
+           VALUES(1,?,?,?,?,0,50)""",
+           (state['owner_company'] or 'Minha Companhia',
+            pilot['callsign'],pilot['home_icao'],time()))
+        db.conn.execute("""INSERT OR IGNORE INTO airline_company_ledger
+           (event_key,kind,amount,balance_after,description,created_utc)
+           VALUES('legacy:foundation','migracao',0,0,
+                  'Companhia anterior à conta empresarial — capital histórico não presumido',?)""",
+           (time(),))
 
 def payroll(db,now):
     """Only completed employment weeks; exactly-once salary+XP settlement."""
