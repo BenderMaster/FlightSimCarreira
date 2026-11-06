@@ -128,6 +128,30 @@ class PilotCareerTests(unittest.TestCase):
         self.assertEqual(back['equipped'],'reputation70')
         self.assertGreater(back['events_seq'],seq)
 
+    def test_variable_fleet_medal_breaks_and_restores_after_sale(self):
+        def buy(label):
+            with self.db.conn:
+                self.db.conn.execute("""INSERT INTO fleet_units(
+                   code,aircraft_title,kind,price_paid,condition,flight_hours,
+                   airport,registration,acquired_utc)
+                   VALUES('c172','Cessna 172 Skyhawk','new',100000,100,0,'SBRF',?,?)""",
+                   ('PR'+label,1000+int(label)))
+        for i in range(1,4):buy(str(i))
+        initial=snapshot(self.db,self.profile)
+        award=next(x for x in initial['medals'] if x['code']=='three_planes')
+        self.assertEqual(award['status'],'earned')
+        with self.db.conn:
+            self.db.conn.execute("DELETE FROM fleet_units WHERE registration='PR1'")
+        lost=snapshot(self.db,self.profile)
+        self.assertEqual(next(x for x in lost['medals']
+                          if x['code']=='three_planes')['status'],'locked')
+        self.assertTrue(any(e['kind']=='loss' and e['code']=='three_planes'
+                            for e in lost['timeline']))
+        buy('4')
+        restored=snapshot(self.db,self.profile)
+        self.assertEqual(next(x for x in restored['medals']
+                          if x['code']=='three_planes')['status'],'earned')
+
     def test_permanent_medals_not_lost_with_bad_landing(self):
         self.flight(1)
         self.assertEqual(next(x for x in snapshot(self.db,self.profile)['medals']
