@@ -180,7 +180,7 @@ function avatar(state){
 }
 function fillRank(host,rank,klass){
  host.replaceChildren(rankSvg(rank,klass));
- host.title=(rank?.title||'Distintivo')+' • FlightSimCarreira';
+ host.title=(rank?.title||'Distintivo')+' • FlightSim';
 }
 function profileHeader(state){
  const pc=state.pilot_career,p=state.pilot||{};
@@ -274,7 +274,7 @@ function licenses(pc){
  pc.licenses.forEach((q,i)=>{
   const tier=i+1,card=n('article','pc-license pc-license-tier-'+tier+' '+q.status);
   const metadata=n('div','pc-license-meta');
-  metadata.append(n('small','pc-license-brand','FLIGHTSIMCARREIRA   /   PILOT CREDENTIALS'),
+  metadata.append(n('small','pc-license-brand','FLIGHTSIM   /   PILOT CREDENTIALS'),
    n('span','pc-license-serial','SÉRIE 0'+tier+' / 05'));
   const top=n('div','pc-license-top');
   const emblem=n('div','pc-license-emblem');emblem.append(licenseSealSvg(q.code,i));
