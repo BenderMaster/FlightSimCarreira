@@ -177,6 +177,20 @@ class DashboardController:
             seq=getattr(app,'aircraft_market_notice_seq',0)+1
             app.aircraft_market_notice_seq=seq
             app.aircraft_market_notice=dict(seq=seq,ok=ok,message=message,action=action)
+        elif action in ('flightops_save','flightops_export','flightops_send'):
+            try:
+                if action=='flightops_save':
+                    message=app._flightops_save(cmd.get('payload'))
+                else:
+                    message=app._flightops_export(send=action=='flightops_send')
+                ok=True
+            except (ValueError,TypeError,KeyError,OSError) as exc:
+                message='Planejamento recusado: '+str(exc)
+                app._log('FLIGHT OPS: '+message)
+                ok=False
+            seq=getattr(app,'flightops_notice_seq',0)+1
+            app.flightops_notice_seq=seq
+            app.flightops_notice=dict(seq=seq,ok=ok,message=message,action=action)
         elif action=='prepare':
             if not app.career.mission:
                 app._log('DESPACHO: aceite um contrato antes de preparar plano e carga.');return
