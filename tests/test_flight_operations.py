@@ -62,6 +62,7 @@ class FlightOperationsTests(unittest.TestCase):
         route=route_stats(plan,self.catalog,"Cessna 152",18,None)
         self.assertEqual(len(route["legs"]),3)
         self.assertTrue(0<=route["legs"][0]["bearing_deg"]<360)
+        self.assertGreater(route["legs"][0]["minutes"],0)
         self.assertGreater(route["distance_nm"],0)
         self.assertGreater(route["minutes"],0)
         self.assertGreater(route["fuel_required_gal"],0)
