@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import replace
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 from queue import Queue, Empty
 from tkinter import Tk, Toplevel, Frame, Label, Button, Entry, StringVar, IntVar, Checkbutton, Canvas, filedialog, messagebox, Text, END
@@ -10,6 +12,8 @@ from tkinter import ttk
 from time import strftime, localtime, time
 from .domain import FlightTracker, Career, MISSIONS, AIRPORTS, distance_nm, Phase, Airport
 from .storage import Storage
+from .profiles import ProfileManager
+from . import pilot_career
 from .sim_adapter import SimConnectWorker
 from .connection_notices import ReconnectWarningFilter
 from .demo import demo_samples
@@ -64,7 +68,9 @@ class Application:
         self.sim = None
         self.tracker = FlightTracker()
         self.post_landing_taxi = PostLandingTaxi()
-        self.storage = Storage(state_dir() / "carreira.db")
+        self.profiles=ProfileManager(state_dir())
+        self.profile_dir=self.profiles.path()
+        self.storage=Storage(self.profiles.database())
         self.location_recovered=self.storage.recover_legacy_location()
         self.fuel_manager=FuelManager(self.storage)
         self.pending_fuel_ref=None
@@ -779,7 +785,7 @@ class Application:
                     stops = valid_route["waypoints"]
                 except (KeyError, ValueError, TypeError):
                     stops = []
-            path=export_vfr_plan(m,state_dir()/'planos_vfr',
+            path=export_vfr_plan(m,self.profile_dir/'planos_vfr',
                                  data.altitude_ft if data else 2500,waypoints=stops)
             self._log(f'Plano VFR exportado: {path}')
         except (OSError,ValueError) as exc:
@@ -1619,7 +1625,7 @@ class Application:
     def _flightops_export(self, *, send=False):
         plan = self._flightops_read_valid()
         mission = flight_operations_mission(plan, self.airport_catalog, self.career.mission)
-        path = export_vfr_plan(mission, state_dir()/"planos_vfr",
+        path = export_vfr_plan(mission, self.profile_dir/"planos_vfr",
                               plan["altitude_ft"], waypoints=plan["waypoints"])
         if not send:
             self._log("FLIGHT OPS: plano .PLN exportado: "+str(path))
@@ -1878,6 +1884,51 @@ class Application:
         except Exception as exc:
             self._log(f"Inspeção interrompida: {exc}")
             messagebox.showerror("Análise interrompida",str(exc))
+
+    def _profile_create(self,payload):
+        if not isinstance(payload,dict) or set(payload)!={'name','callsign','home_icao','test_admin'}:
+            raise ValueError('Dados de perfil inválidos.')
+        entry=self.profiles.create(payload['name'],payload['callsign'],
+                                   payload['home_icao'],test_admin=payload['test_admin'])
+        self._log('PERFIS: '+entry['name']+' criado em banco separado.')
+        return 'Perfil '+entry['name']+' criado. Selecione-o para entrar.'
+
+    def _profile_update(self,payload):
+        if not isinstance(payload,dict) or set(payload)!={'name','callsign','home_icao'}:
+            raise ValueError('Dados de cadastro inválidos.')
+        if self.storage.get_pilot() is None:
+            raise ValueError('Cadastre o piloto antes de editar.')
+        updated=self.storage.update_pilot(payload['name'],payload['callsign'],payload['home_icao'])
+        self.profiles.update_active(**{k:updated[k] for k in ('name','callsign','home_icao')})
+        self._refresh_pilot_summary()
+        return 'Identificação atualizada, carreira preservada.'
+
+    def _relaunch_profile(self,target=None,reset=False):
+        if self.tracker.phase==Phase.AIRBORNE or self.connected:
+            raise ValueError('Desconecte o MSFS e termine o voo antes de trocar ou reiniciar o perfil.')
+        selected=self.profiles.active()['id']
+        if reset and self.profiles.active()['kind']!='test':
+            raise ValueError('Reset disponível exclusivamente para perfis Teste.')
+        if not reset and not self.profiles.get(target):
+            raise ValueError('Perfil inexistente.')
+        if not reset and target==selected:
+            return 'Este perfil já está ativo.'
+        self._checkpoint(force=True)
+        if not reset:self.profiles.switch(target)
+        self._close()
+        if reset:self.profiles.reset_test(selected)
+        args=([sys.executable,*sys.argv[1:]] if getattr(sys,'frozen',False)
+              else [sys.executable,'-m','aerocarreira'])
+        subprocess.Popen(args,close_fds=True)
+        return 'Reiniciando no perfil selecionado.'
+
+    def _pilot_showcase(self,payload):
+        return pilot_career.set_showcase(self.storage,self.profiles.active(),payload)
+
+    def _pilot_equip(self,code):
+        current=pilot_career.snapshot(self.storage,self.profiles.active())
+        active={b['code'] for b in current['medals'] if b['status']=='earned'}
+        return pilot_career.equip(self.storage,self.profiles.active(),code,active)
 
     def _close(self):
         if getattr(self,"_closing",False):return
