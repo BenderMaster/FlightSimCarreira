@@ -1701,7 +1701,6 @@ class Application:
                 for key,val in details['components'].items():
                     report.insert(END,f'{"OK" if val["ok"] else "PENDENTE"}: {key} (+{val["rate"]*100:g}%)\n')
                 report.insert(END,f'\nBônus previsto: +{details["bonus_fraction"]*100:.1f}% sobre pagamento e XP do contrato\n')
-                report.insert(END,'Clima ao vivo: preset não verificável, bônus indisponível.\n')
                 report.insert(END,'Relógio UTC e assistência de voo: pontuados automaticamente apenas se o MSFS fornecer dados válidos.\n')
                 report.insert(END,'Pista/rota são declarações revisadas pelo piloto, não sensores de aeroporto.\n')
                 if save:
