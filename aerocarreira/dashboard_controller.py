@@ -238,7 +238,7 @@ class DashboardController:
                     else:
                         import re
                         if not isinstance(value,str) or not re.fullmatch(
-                            r'(?:0|[1-9][0-9]{0,5})\\|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value):
+                            r'(?:0|[1-9][0-9]{0,5})\|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value):
                             raise ValueError('Formato financeiro inválido.')
                         amount_str,request_id=value.split('|',1)
                         amount=int(amount_str)
