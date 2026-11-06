@@ -16,15 +16,18 @@ const routeActions=new Set(nav.map(item=>item[2]));
 // sem recriar mapa/canvas/WebGL nem gerar segunda camada de créditos.
 const dashboardMapHost=document.querySelector('.center-column .map-card');
 const sharedMapArea=dashboardMapHost.querySelector('.map-area');
-function routeMapState(s){return view==='details'&&selectedOffer?{...s,mission:selectedOffer}:s}
+function routeMapState(s){
+ if(view==='planning')return window.FSCFlightOps?.mapState(s)||{...s,mission:null};
+ return view==='details'&&selectedOffer?{...s,mission:selectedOffer}:s;
+}
 function mountSharedMap(onDetails){
- const parent=onDetails?$('detail-map-slot'):dashboardMapHost;
- if(onDetails){
+ const parent=view==='planning'?$('flightops-map-slot'):onDetails?$('detail-map-slot'):dashboardMapHost;
+ if(onDetails||view==='planning'){
   if(sharedMapArea.parentElement!==parent)parent.append(sharedMapArea);
  }else if(sharedMapArea.parentElement!==dashboardMapHost){
   dashboardMapHost.insertBefore(sharedMapArea,dashboardMapHost.querySelector('.map-tabs'));
  }
- if(view==='dashboard'||view==='details')requestAnimationFrame(()=>requestAnimationFrame(()=>{
+ if(view==='dashboard'||view==='details'||view==='planning')requestAnimationFrame(()=>requestAnimationFrame(()=>{
   window.FSCFreeMap?.resizeToContainer?.();
   renderMap(state);
  }));
@@ -35,11 +38,12 @@ function navigate(destination){
  view=destination;
  const market=view==='regional'||view==='freelance',
        fleet=view==='fleet',
-       aircraftMarket=view==='aircraft_market',
-       module=!market&&!fleet&&!aircraftMarket&&view!=='dashboard'&&view!=='details';
+       aircraftMarket=view==='aircraft_market',planning=view==='planning',
+       module=!market&&!fleet&&!aircraftMarket&&!planning&&view!=='dashboard'&&view!=='details';
  document.querySelector('.workspace').dataset.view=view;
  $('market-page').hidden=!market;$('fleet-page').hidden=!fleet;
  $('aircraft-market-page').hidden=!aircraftMarket;
+ $('flightops-page').hidden=!planning;
  $('module-page').hidden=!module;$('details').hidden=view!=='details';
  document.querySelectorAll('.nav-item').forEach(button=>{
   const current=view==='details'?previousView:view;
@@ -52,6 +56,7 @@ function navigate(destination){
  if(fleet)renderFleetView(state,true);
  if(aircraftMarket)window.FSCAircraftMarket?.render(state,true);
  if(module)renderModuleView(state);
+ if(planning)window.FSCFlightOps?.show?.();
 }
 document.querySelector('.workspace').dataset.view=view;
 document.addEventListener('click',e=>{
@@ -350,7 +355,7 @@ function renderWeather(s){
  }
 }
 function render(s){state=s;if(!s.progress)return;const p=s.pilot;const country=s.country==='BR'?'':s.country?' · '+s.country:'';text('callsign',(p?.callsign||'CADASTRAR PILOTO')+country);if(s.country==='BR'){const flag=node('span','flag-br');flag.title='Brasil • país da base';$('callsign').append(flag)}text('qualification',p?({autonomo:'Piloto autônomo',empregado:'Piloto empregado',proprietario:'Companhia própria'}[s.employment]||s.employment)+' • '+s.summary.qualifications.join(' / '):'Crie sua carreira');text('level',p?'NÍVEL '+s.progress.level:'NÍVEL —');text('xp',p?'XP '+s.progress.xp+' / '+s.progress.target+' ('+Math.round(s.progress.fraction*100)+'%)':'XP —');bar('xpbar',s.progress.fraction);text('balance',money(s.balance));text('connection',{connected:'Conectado',reconnecting:'Reconectando',disconnected:'Desconectado'}[s.connection]);$('led').style.background={connected:'#86fc24',reconnecting:'#ffc400',disconnected:'#e06a75'}[s.connection];$('avatar').hidden=!s.avatar;if(s.avatar&&$('avatar').src!==s.avatar)$('avatar').src=s.avatar;
-text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderMarketView(s);renderModuleView(s);renderFleetView(s);window.FSCAircraftMarket?.render(s);renderSummary(s);
+text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderMarketView(s);renderModuleView(s);renderFleetView(s);window.FSCAircraftMarket?.render(s);window.FSCFlightOps?.render(s);renderSummary(s);
 const m=s.mission;const bonus=s.bonus?.bonus_fraction||0;text('route',m?m.origin+' → '+m.destination:'Selecione uma missão');text('distance',m?'Distância: '+(m.distance===null?'—':number(m.distance)+' NM')+'  |  Prev. voo: '+(m.minutes===null?'—':m.minutes+' min'):'Explore o mercado regional para começar');text('category',m?.category||'');text('reward',m?money(m.reward):'—');text('bonus-value',m?'+'+number(bonus*100,1)+'%':'—');text('mission-status',m?(s.bonus?.frozen?'EM VOO • CONGELADO':'RESERVADO'):'');
 for(const [key,, ,unit] of metricNames){const e=$('metric-'+key);if(key==='phase'){e.textContent=s.phase;e.style.color='#8df63e';continue}e.replaceChildren(document.createTextNode(s.telemetry?number(s.telemetry[key]):'—'),node('small','',' '+unit))}text('telemetry-status',s.mode==='Demo'?'DEMONSTRAÇÃO':s.telemetry?.stale?'ÚLTIMA LEITURA • SEM ATUALIZAÇÃO':s.connection==='connected'?'':'AGUARDANDO MSFS');renderWeather(s);text('log',s.log.slice(-8).join('\n'));$('log').scrollTop=$('log').scrollHeight;text('realism-total',m?'+'+number(bonus*100,1)+'%':'—');
 const labels=['Relógio UTC verificado','Assistência de voo verificada','Pista / iluminação revisada','Rota revisada','Combustível adequado','Peso dentro do limite'];const components=Object.values(s.bonus?.components||{});$('checklist').replaceChildren();labels.forEach((label,i)=>{const sensor=i===0?s.audit?.clock:i===1?s.audit?.assists:undefined;
@@ -374,7 +379,7 @@ const routeNames={atc_sent:'Enviado ao ATC • GPS/VFR NÃO confirmado',
 text('dispatch-progress',m?('Plano: '+(routeNames[ds.route]||ds.route||'não preparado')+
  ' • Carga: '+(ds.payload||'não preparada')+
  (ds.message?' • '+ds.message:'')):'Aceite uma missão para preparar plano e carga automaticamente.');
-text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?s.status:'Conecte ao MSFS em Configurações.');if(view==='dashboard'||view==='details')renderMap(s)}
+text('connection-hint',s.mode==='Demo'?'DEMONSTRAÇÃO • Telemetria simulada':s.connection==='connected'?s.status:'Conecte ao MSFS em Configurações.');if(view==='dashboard'||view==='details'||view==='planning')renderMap(s)}
 function svgNode(tag,attrs,textValue){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs||{}))e.setAttribute(k,v);if(textValue!==undefined)e.textContent=textValue;return e}
 function headingDisplay(t){
  if(t?.stale)return 'POSIÇÃO DESATUALIZADA';
@@ -393,7 +398,10 @@ function renderMap(s){
     text('map-mode',headingDisplay(s.telemetry));
     return;
   }
-  const svg=$('route-map');svg.replaceChildren();const m=s.mission;const points=[];if(!m&&!s.telemetry&&s.market)points.push({lat:s.market.lat,lon:s.market.lon,label:s.market.icao,type:'airport'});if(m?.start)points.push({lat:m.start[0],lon:m.start[1],label:m.origin,type:'airport'});if(m?.end)points.push({lat:m.end[0],lon:m.end[1],label:m.destination,type:'airport'});if(s.telemetry)points.push({lat:s.telemetry.lat,lon:s.telemetry.lon,label:s.mode==='Demo'?'DEMO':'AERONAVE',type:'plane'});if(!points.length){svg.append(svgNode('text',{x:450,y:160,'text-anchor':'middle',fill:'#a4c2d0',stroke:'none','font-size':18},'Selecione um contrato para visualizar a rota'));svg.append(svgNode('text',{x:450,y:190,'text-anchor':'middle',fill:'#5c8c9d',stroke:'none','font-size':12},'Mapa offline • nenhuma rota fictícia'));return}
+  const svg=$('route-map');svg.replaceChildren();const m=s.mission;const points=[];if(!m&&!s.telemetry&&s.market)points.push({lat:s.market.lat,lon:s.market.lon,label:s.market.icao,type:'airport'});if(m?.start)points.push({lat:m.start[0],lon:m.start[1],label:m.origin,type:'airport'});if(Array.isArray(m?.route_points)&&m.route_points.length>2) {
+ for(const [i,p] of m.route_points.slice(1,-1).entries())points.push({lat:p[0],lon:p[1],label:m.waypoints?.[i]?.label||('FIX'+(i+1)),type:'fix'});
+}
+if(m?.end)points.push({lat:m.end[0],lon:m.end[1],label:m.destination,type:'airport'});if(s.telemetry)points.push({lat:s.telemetry.lat,lon:s.telemetry.lon,label:s.mode==='Demo'?'DEMO':'AERONAVE',type:'plane'});if(!points.length){svg.append(svgNode('text',{x:450,y:160,'text-anchor':'middle',fill:'#a4c2d0',stroke:'none','font-size':18},'Selecione um contrato para visualizar a rota'));svg.append(svgNode('text',{x:450,y:190,'text-anchor':'middle',fill:'#5c8c9d',stroke:'none','font-size':12},'Mapa offline • nenhuma rota fictícia'));return}
 const lat0=(Math.max(...points.map(p=>p.lat))+Math.min(...points.map(p=>p.lat)))/2;const lon0=(Math.max(...points.map(p=>p.lon))+Math.min(...points.map(p=>p.lon)))/2;const cos=Math.max(.05,Math.cos(lat0*Math.PI/180));const xspan=Math.max(.2,...points.map(p=>Math.abs(p.lon-lon0)*cos*2)),yspan=Math.max(.15,...points.map(p=>Math.abs(p.lat-lat0)*2));const scale=Math.min(700/xspan,230/yspan)*zoom;
 if(recenterPlane&&s.telemetry){
   // Centraliza o avião na projeção SVG local, mesmo com missão aberta.
@@ -408,7 +416,14 @@ document.querySelector('.map-caption').textContent='MAPA LOCAL • COORDENADAS R
 for(let x=30;x<900;x+=60)svg.append(svgNode('line',{x1:x,y1:0,x2:x,y2:340,stroke:'#49636b','stroke-width':.5,opacity:loaded?.18:1}));for(let y=20;y<340;y+=40)svg.append(svgNode('line',{x1:0,y1:y,x2:900,y2:y,stroke:'#49636b','stroke-width':.5,opacity:loaded?.18:1}));
 for(let x=90;x<900;x+=180)svg.append(svgNode('text',{x,y:328,fill:'#557f8c',stroke:'none','font-size':10,'text-anchor':'middle'},(lon0+(x-450-mapPanX)/cos/scale).toFixed(2)+'°'));
 for(let y=60;y<300;y+=80)svg.append(svgNode('text',{x:8,y,fill:'#557f8c',stroke:'none','font-size':10},(lat0-(y-170-mapPanY)/scale).toFixed(2)+'°'));
-if(m?.start&&m?.end){const a=xy(points[0]),b=xy(points[1]);svg.append(svgNode('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'#00e9f9','stroke-width':9,opacity:.12}));svg.append(svgNode('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'#00e9f9','stroke-width':3}))}
+if(m?.start&&m?.end){
+ const pathPoints=points.filter(p=>p.type!=='plane');
+ for(let i=0;i<pathPoints.length-1;i++){
+  const a=xy(pathPoints[i]),b=xy(pathPoints[i+1]);
+  svg.append(svgNode('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'#00e9f9','stroke-width':9,opacity:.12}));
+  svg.append(svgNode('line',{x1:a[0],y1:a[1],x2:b[0],y2:b[1],stroke:'#00e9f9','stroke-width':3}));
+ }
+}
 for(const p of points){const [x,y]=xy(p);if(x<20||x>880||y<20||y>315)continue;if(p.type==='plane'){
   const current={lat:p.lat,lng:p.lon};
   if(planeTrack&&window.FSCFreeMap&&
