@@ -684,3 +684,8 @@
 .pc-unlock-close{cursor:pointer}
 .pc-unlock-art .pc-medal-svg{max-width:100%}
 @media(prefers-reduced-motion:reduce){.pc-unlock-art svg,.pc-unlock-deco{animation:none!important}}
+
+/* Distintivo de patente e reconquista na apresentação de progresso. */
+.pc-unlock-art .pc-rank-svg{width:112px;height:160px;max-width:112px;max-height:160px}
+.pc-unlock[data-kind="recovery"]{border-color:#c9d393;background:radial-gradient(ellipse at center,#24554f,#071c2d 72%)}
+.pc-unlock[data-kind="recovery"]>small:first-of-type{color:#d7eca5}
