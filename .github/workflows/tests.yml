@@ -47,6 +47,17 @@ jobs:
         run: python scripts/fetch_maplibre.py
       - name: Generate approved Windows icon
         run: python scripts/prepare_app_icon.py
+      - name: Restore original achievement MP3
+        shell: pwsh
+        run: |
+          @'
+          import base64,hashlib
+          from pathlib import Path
+          root=Path('aerocarreira/midnight')
+          data=base64.b64decode((root/'achievement-unlock.mp3.b64').read_text(encoding='ascii'),validate=True)
+          assert hashlib.sha256(data).hexdigest()=='8351405c9597e1c4c37f42c524d501712e941c03091db4ed84e74490924236b2','Achievement MP3 differs from supplied file'
+          (root/'achievement-unlock.mp3').write_bytes(data)
+          '@ | python -
       - name: Build standalone Windows folder
         run: python -m PyInstaller --icon assets/flight_sim_carreira.ico --noconfirm --clean --noupx --onedir --name FlightSim --collect-all webview --collect-all pythonnet --collect-all clr_loader --collect-all cffi --hidden-import clr --collect-all SimConnect --add-data "aerocarreira/midnight;aerocarreira/midnight" --add-data "in_game;in_game" launch_midnight.py
       - name: Validate packaged airport catalog and UI assets
