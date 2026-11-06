@@ -237,7 +237,6 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(self.request('/command',{"action":"flightops_send"})[0],202)
         self.assertEqual(self.request('/flight-operations.py')[0],404)
 
-    def test_pilot_career_is_native_and_local_asset(self):
     def test_flightsim_name_and_shared_airplane_silhouette(self):
         html=(ASSETS/'index.html').read_text(encoding='utf-8')
         ui=(ASSETS/'pilot-career.js').read_text(encoding='utf-8')
@@ -274,6 +273,7 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(self.request('/pilot-career.js')[0],200)
         self.assertEqual(self.request('/profiles.py')[0],404)
 
+    def test_pilot_career_is_native_and_local_asset(self):
     def test_pilot_transport_auth_and_showcase_payload(self):
         payload={'level':1,'xp':0,'reputation':50,'rank':None,'licenses':{},'achievements':{}}
         cmd={'action':'pilot_showcase','payload':payload}
