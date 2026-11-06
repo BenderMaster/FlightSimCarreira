@@ -1,3 +1,14 @@
+## v0.8.3 Midnight Ops Alpha.2 — identidade visual premium revisada
+
+- Evento de medalha, perda, reconquista ou promoção mantém o diálogo aberto depois da animação até o piloto fechar com botão, ESC ou clique no fundo.
+- Distintivos de graduação passam a ter desenho vertical esguio, sem distorção CSS; removida a insígnia anterior do cabeçalho, preservando a patente Midnight e a medalha equipável na foto.
+- Todas as 13 medalhas têm símbolos próprios: avião pousado com 1º para primeira aeronave, três aviões diante do hangar para a frota, check com 70%/90% e metal nobre para reputação, além de ícones específicos das demais conquistas.
+- Licenças PPA, PCA, IFR, MLTE e PLA apresentam selos gráficos e progressão de acabamento, de aço a dourado, com títulos, dados e requisitos legíveis.
+- Gráficos de sensibilidade de pouso, contratos mensais e horas por aeronave exibem escalas e unidades, valores visíveis, legenda, média de pousos e detalhamento por categoria.
+- Prévia Admin continua separada do piloto oficial; Minha História e regras econômicas não foram alteradas.
+- Testes Playwright reforçados: diálogo ainda aberto após duração da animação, reconquista, promoção, 13 motivos, 5 licenças, eixos/legendas e distintivo único no cabeçalho.
+- Branch/PR permanecem não mesclados até homologação visual no MSFS 2020.
+
 ## v0.8.3 Midnight Ops Alpha.1 — Pilot Career e laboratório Teste
 
 - A nova aba **Meu Piloto** reúne identidade premium, foto, brasão permanente, medalha especial equipável, progressão de XP, 18 graduações aeronáuticas de níveis 1–100 e 13 conquistas.
