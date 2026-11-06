@@ -51,9 +51,14 @@ class PlanningTests(unittest.TestCase):
         self.assertAlmostEqual(confirmed['bonus_fraction'],.06)
         self.assertNotIn('Clima ao vivo (não verificável)',confirmed['components'])
         self.assertNotIn('Clima ao vivo (declaração)',confirmed['components'])
-        self.assertTrue(report['fuel_ok'])
-        self.assertTrue(report['weight_ok'])
+        self.assertFalse(report['fuel_ok'])
+        self.assertFalse(report['weight_ok'])
         self.assertFalse(report['manual_verified'])
+        auto=inspect_preflight(self.m,p,verified={
+            'clock':True,'assists':True,'fuel':True,'weight':True})
+        self.assertTrue(auto['fuel_ok'])
+        self.assertTrue(auto['weight_ok'])
+        self.assertAlmostEqual(auto['bonus_fraction'],.11)
 
     def test_unverified_live_and_unmeasured_get_no_free_bonus(self):
         p=Preflight(self.m.id,'Cessna 152',fuel_checked=True,payload_checked=True)
