@@ -238,6 +238,24 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(self.request('/flight-operations.py')[0],404)
 
     def test_pilot_career_is_native_and_local_asset(self):
+    def test_flightsim_name_and_shared_airplane_silhouette(self):
+        html=(ASSETS/'index.html').read_text(encoding='utf-8')
+        ui=(ASSETS/'pilot-career.js').read_text(encoding='utf-8')
+        mapjs=(ASSETS/'free-map.js').read_text(encoding='utf-8')
+        self.assertIn('<strong>Flight<span>Sim</span></strong>',html)
+        self.assertIn('<title>FlightSim • Midnight Ops</title>',html)
+        self.assertNotIn('FlightSimCarreira',html)
+        self.assertNotIn('FLIGHTSIMCARREIRA',html)
+        self.assertIn('<symbol id="i-plane" viewBox="0 0 24 24">',html)
+        self.assertIn("document.querySelector('#i-plane path')",mapjs)
+        self.assertIn("href:'#i-plane'",ui)
+        self.assertIn("number('1º',105,17)",ui)
+        self.assertIn("number('100h',102,16)",ui)
+        self.assertIn("number(code==='reputation90'?'90%':'70%',102,18)",ui)
+        self.assertIn("svg.append(make('use',{href:'#i-plane'",ui)
+        self.assertNotIn('FLIGHTSIMCARREIRA',ui)
+
+
         html=(ASSETS/'index.html').read_text(encoding='utf-8')
         js=(ASSETS/'app.js').read_text(encoding='utf-8')
         profile=(ASSETS/'pilot-career.js').read_text(encoding='utf-8')
