@@ -12,7 +12,8 @@ from queue import Queue, Full
 
 ACTIONS={'pilot','market','fleet','planning','finance','employment','history','reports','settings','connect','disconnect',
          'demo','demo_next','legacy','cancel','plan','fuel','refuel','service','avatar','refresh','offer','close','save_log','installed','analyze','locate','local_panel','prepare','fleet_select','fleet_photo','fleet_photo_clear','fleet_service',
-         'aircraft_buy_new','aircraft_buy_used','aircraft_rent','aircraft_sell'}
+         'aircraft_buy_new','aircraft_buy_used','aircraft_rent','aircraft_sell',
+         'flightops_save','flightops_export','flightops_send'}
 ASSETS=Path(__file__).with_name('midnight')
 class DashboardServer:
     def __init__(self):
@@ -54,10 +55,19 @@ class DashboardServer:
                 if self.path!='/command':self.reply(404,b'{}');return
                 try:
                     n=int(self.headers.get('Content-Length','0'))
-                    if not 0<n<=2048 or self.headers.get('Content-Type')!='application/json':raise ValueError()
+                    if not 0<n<=4096 or self.headers.get('Content-Type')!='application/json':raise ValueError()
                     data=json.loads(self.rfile.read(n))
                     if not isinstance(data,dict) or data.get('action') not in ACTIONS:raise ValueError()
-                    if set(data)-{'action','id'}:raise ValueError()
+                    if data['action']=='flightops_save':
+                        if set(data) != {'action','payload'} or not isinstance(data['payload'],dict):
+                            raise ValueError()
+                        p=data['payload']
+                        if set(p) != {'mode','origin','destination','altitude_ft','waypoints','checks'}:
+                            raise ValueError()
+                        if (not isinstance(p['waypoints'],list) or len(p['waypoints'])>8 or
+                                not isinstance(p['checks'],dict)):
+                            raise ValueError()
+                    elif set(data)-{'action','id'}:raise ValueError()
                     if 'id' in data:
                         value=data['id']
                         if data['action']=='refuel':
