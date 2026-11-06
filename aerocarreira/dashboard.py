@@ -263,6 +263,7 @@ class DashboardPresenter:
                 pass
         fuel_warning=bool(fuel and capacity and quantity is not None and quantity/capacity<=.20)
         wear_warning=bool(plane and plane.get('condition') is not None and plane['condition']<=20)
+        now=time()
         if self.pilot_career_cache is None or now-self.pilot_career_cache_at>2:
             profile=(app.profiles.active() if getattr(app,'profiles',None)
                      else {'id':'principal','kind':'official'})
