@@ -205,6 +205,51 @@ with tempfile.TemporaryDirectory() as temp:
             assert 'FSC01' not in page.locator('#fo-waypoints').inner_text()
             page.locator('.nav-item[data-action="dashboard"]').click()
             assert page.locator('.center-column .map-card #free-map').count()==1
+            # Pilot Career: página nativa, abas, distintivos SVG e modal do gerenciador.
+            page.locator('.nav-item[data-action="pilot"]').click()
+            assert page.locator('#pilot-career-page').is_visible()
+            assert not page.locator('#module-page').is_visible()
+            assert page.locator('#pc-main-rank svg').count()==1
+            assert page.locator('#pc-medal-gallery').count()==1
+            page.locator('[data-pc-tab="achievements"]').click()
+            assert page.locator('#pc-medal-gallery .pc-achievement').count()>=10
+            page.locator('[data-pc-tab="licenses"]').click()
+            assert page.locator('#pc-license-grid .pc-license').count()==5
+            page.locator('[data-pc-tab="graphs"]').click()
+            assert page.locator('#pc-graphs .pc-chart-card').count()==3
+            page.locator('[data-pc-tab="timeline"]').click()
+            assert page.locator('#pc-timeline-list').is_visible()
+            page.locator('#pc-manage-profiles').click()
+            assert page.locator('#pc-profiles-dialog').is_visible()
+            assert page.locator('#pc-new-name').input_value()=='Teste'
+            assert page.locator('#pc-new-admin').is_checked()
+            page.locator('#pc-close-profiles').click()
+            assert not page.locator('#pc-profiles-dialog').is_visible()
+            # Estados de Admin são prévia de design, sem mutação financeira.
+            page.evaluate("""() => {
+              const clone=structuredClone(state);
+              clone.pilot_career.is_test=true;
+              clone.pilot_career.showcase={level:90,xp:500000,reputation:90,
+                achievements:{veteran:'earned'},licenses:{PLA:'earned'},rank:'marechal'};
+              FSCPilotCareer.render(clone);
+            }""")
+            page.locator('[data-pc-tab="admin"]').click()
+            assert page.locator('#pc-admin-rank-gallery .pc-gallery-rank').count()==18
+            page.locator('#pc-admin-preview-loss').click()
+            assert page.locator('#pc-unlock').is_visible()
+            assert page.locator('#pc-unlock .pc-fragment-left').count()==1
+            page.locator('#pc-close-unlock').click()
+            page.locator('[data-pc-tab="overview"]').click()
+            for width,height in [(1280,720),(1600,900),(1920,1080)]:
+                page.set_viewport_size({'width':width,'height':height})
+                page.wait_for_timeout(130)
+                assert page.locator('#pilot-career-page').is_visible()
+                assert page.locator('#pc-hero').count()==0  # CSS class, not duplicate node
+                assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+                page.screenshot(path=str(OUTPUT/f'pilot-career-{width}x{height}.png'))
+            page.set_viewport_size({'width':1600,'height':900})
+            page.locator('.nav-item[data-action="dashboard"]').click()
+
             assert page.locator('.center-column').is_visible()
             page.locator('.all-missions').click()
             assert page.locator('#market-page').is_visible()
