@@ -1,4 +1,4 @@
-/* FlightSimCarreira FreeMap — OpenFreeMap + MapLibre, sem chave nem cartão.
+/* FlightSim FreeMap — OpenFreeMap + MapLibre, sem chave nem cartão.
  * Sentinel-2 2016 EOxCloudless: CC BY 4.0; créditos na área do mapa.
  * Rotas e posição vêm do domínio/SimConnect, nunca de uma rota fabricada.
  */
