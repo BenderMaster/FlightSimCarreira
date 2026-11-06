@@ -93,6 +93,19 @@ class FlightOperationsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validated(p,self.catalog)
 
+    def test_longer_waypoint_route_increases_fuel_requirement_for_bonus(self):
+        from aerocarreira.planning import Preflight, inspect_preflight
+        mission=self.contract
+        direct=Preflight(mission.id,"Cessna 152",fuel_checked=True,
+                         planned_fuel_gal=20)
+        baseline=inspect_preflight(mission,direct)
+        route=Preflight(mission.id,"Cessna 152",fuel_checked=True,
+                        planned_fuel_gal=20,
+                        planned_distance_nm=baseline["distance_nm"]+30)
+        longer=inspect_preflight(mission,route)
+        self.assertGreater(longer["fuel_required_gal"],baseline["fuel_required_gal"])
+        self.assertGreater(longer["distance_nm"],baseline["distance_nm"])
+
     def test_contract_stale_after_mission_changes(self):
         p=draft(self.contract)
         saved=save(self.db,p,self.catalog,self.contract)
