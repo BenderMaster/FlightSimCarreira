@@ -237,6 +237,29 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(self.request('/command',{"action":"flightops_send"})[0],202)
         self.assertEqual(self.request('/flight-operations.py')[0],404)
 
+    def test_pilot_career_is_native_and_local_asset(self):
+        html=(ASSETS/'index.html').read_text(encoding='utf-8')
+        js=(ASSETS/'app.js').read_text(encoding='utf-8')
+        profile=(ASSETS/'pilot-career.js').read_text(encoding='utf-8')
+        self.assertIn('id="pilot-career-page"',html)
+        self.assertIn('id="pc-admin-rank-gallery"',html)
+        self.assertIn('id="pc-unlock"',html)
+        self.assertIn("view==='pilot'",js)
+        self.assertIn("window.FSCPilotCareer?.render(s)",js)
+        self.assertIn("pc-fragment-left",profile)
+        self.assertEqual(self.request('/pilot-career.js')[0],200)
+        self.assertEqual(self.request('/profiles.py')[0],404)
+
+    def test_pilot_transport_auth_and_showcase_payload(self):
+        payload={'level':1,'xp':0,'reputation':50,'rank':None,'licenses':{},'achievements':{}}
+        cmd={'action':'pilot_showcase','payload':payload}
+        self.assertEqual(self.request('/command',cmd)[0],202)
+        self.assertEqual(self.request('/command',cmd,auth=False)[0],403)
+        self.assertEqual(self.request('/command',cmd,origin=False)[0],403)
+        self.assertEqual(self.request('/command',{'action':'pilot_showcase','id':'admin'})[0],400)
+        self.assertEqual(self.request('/command',{'action':'pilot_profile_switch','id':'principal'})[0],202)
+        self.assertEqual(self.request('/command',{'action':'flightops_clear'})[0],202)
+
     def test_static_page_contains_no_session_token(self):
         code,body=self.request('/');self.assertEqual(code,200);self.assertNotIn(self.server.token.encode(),body)
         self.assertIn(b'<img src="/brand-icon.png"',body)
