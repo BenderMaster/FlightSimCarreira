@@ -10,7 +10,7 @@ def main():
     parser.add_argument("--output",type=Path,default=Path("neofly_analise"),help="Diretório isolado do relatório")
     parser.add_argument("--find-neofly",action="store_true",help="Procura common.db e std.bin nas pastas usuais (somente leitura)")
     from . import __version__
-    parser.add_argument('--version',action='version',version='FlightSimCarreira '+__version__)
+    parser.add_argument('--version',action='version',version='FlightSim '+__version__)
     parser.add_argument('--webview-host',help=argparse.SUPPRESS)
     parser.add_argument('--verify-native-webview',action='store_true',help=argparse.SUPPRESS)
     args=parser.parse_args()
