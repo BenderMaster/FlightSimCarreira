@@ -213,10 +213,23 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#pc-medal-gallery').count()==1
             page.locator('[data-pc-tab="achievements"]').click()
             assert page.locator('#pc-medal-gallery .pc-achievement').count()>=10
+            # Medalhas devem contar a conquista pela própria arte, não só pela cor.
+            assert page.locator('#pc-medal-gallery svg.pc-medal-first_plane').count()==1
+            assert page.locator('#pc-medal-gallery svg.pc-medal-three_planes').count()==1
+            assert '90%' in page.locator('#pc-medal-gallery svg.pc-medal-reputation90').inner_text()
+            assert '70%' in page.locator('#pc-medal-gallery svg.pc-medal-reputation70').inner_text()
             page.locator('[data-pc-tab="licenses"]').click()
             assert page.locator('#pc-license-grid .pc-license').count()==5
+            for tier in range(1,6):
+                assert page.locator(f'#pc-license-grid .pc-license-tier-{tier} .pc-license-emblem svg').count()==1
+                assert page.locator(f'#pc-license-grid .pc-license-tier-{tier} .pc-license-stamp').count()==1
             page.locator('[data-pc-tab="graphs"]').click()
             assert page.locator('#pc-graphs .pc-chart-card').count()==3
+            assert page.locator('#pc-graphs .pc-chart-unit').count()==3
+            assert page.locator('#pc-graphs .pc-chart-legend').count()==3
+            assert page.locator('#pc-graphs .pc-chart-card').first.locator('svg text').count()>=5
+            assert page.locator('#pc-graphs .pc-chart-summary').count()==3
+            assert page.locator('#pc-graphs .pc-chart-breakdown').count()>=1
             page.locator('[data-pc-tab="timeline"]').click()
             assert page.locator('#pc-timeline-list').is_visible()
             page.locator('#pc-manage-profiles').click()
@@ -238,7 +251,19 @@ with tempfile.TemporaryDirectory() as temp:
             page.locator('#pc-admin-preview-loss').click()
             assert page.locator('#pc-unlock').is_visible()
             assert page.locator('#pc-unlock .pc-fragment-left').count()==1
+            # A animação dura pouco, mas o diálogo nunca fecha sozinho.
+            page.wait_for_timeout(2800)
+            assert page.locator('#pc-unlock').is_visible()
+            page.locator('#pc-unlock-dismiss').click()
+            assert not page.locator('#pc-unlock').is_visible()
+            page.evaluate("() => FSCPilotCareer.showUnlock('recovery','Reputação 90','reputation90')")
+            assert 'CONQUISTA RECUPERADA' in page.locator('#pc-unlock-kicker').inner_text()
             page.locator('#pc-close-unlock').click()
+            page.locator('#pc-admin-preview-promotion').click()
+            assert page.locator('#pc-unlock-art svg.pc-rank-svg').count()==1
+            page.locator('#pc-close-unlock').click()
+            assert page.locator('#pc-rank-fallback').count()==0
+            assert page.locator('#pc-header-rank svg').count()==1
             page.locator('[data-pc-tab="overview"]').click()
             for width,height in [(1280,720),(1600,900),(1920,1080)]:
                 page.set_viewport_size({'width':width,'height':height})
