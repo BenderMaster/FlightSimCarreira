@@ -170,7 +170,10 @@ class DashboardPresenter:
             fuel=app.fuel_manager.get(plane['ref'])
         if plane:
             plane=dict(plane,photo_url=photo_link(plane['ref'],metadata.get(plane['ref'])))
-        verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s)}
+        verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s),
+                   'fuel':s.fuel_gallons is not None and s.fuel_gallons>=0,
+                   'weight':(s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None
+                             and 0<s.total_weight_lbs<=s.max_gross_weight_lbs)}
                   if s and app.mode=='MSFS' and app.connected and time()-s.timestamp<10 else {})
         if (m and getattr(app,'dispatch_state',{}).get('mission_id')==m.id and
                 getattr(app,'dispatch_state',{}).get('payload')=='verified' and s
