@@ -224,6 +224,18 @@ with tempfile.TemporaryDirectory() as temp:
                 assert page.locator(f'#pc-license-grid .pc-license-tier-{tier} .pc-license-emblem svg').count()==1
                 assert page.locator(f'#pc-license-grid .pc-license-tier-{tier} .pc-license-stamp').count()==1
             page.locator('[data-pc-tab="graphs"]').click()
+            # Gráficos são derivados de histórico real; sem voos não há barras.
+            # Alimentar SOMENTE o DOM do teste com dados sintéticos (sem SQLite).
+            page.evaluate("""() => {
+              const demo=structuredClone(state);
+              demo.pilot_career.flights=(demo.pilot_career.flights||0)+100;
+              demo.pilot_career.graphs={
+                landings:[{fpm:-198},{fpm:-265},{fpm:-142},{fpm:-311}],
+                contracts:[['2026-10',2],['2026-11',3]],
+                hours_by_aircraft:[['Cessna 152',3.5],['Baron G58',1.7]]
+              };
+              FSCPilotCareer.render(demo);
+            }""")
             assert page.locator('#pc-graphs .pc-chart-card').count()==3
             assert page.locator('#pc-graphs .pc-chart-unit').count()==3
             assert page.locator('#pc-graphs .pc-chart-legend').count()==3
