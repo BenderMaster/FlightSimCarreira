@@ -77,7 +77,18 @@ function medalSvg(code,state='earned'){
  const line=(d,color=metal,width=2)=>path(d,'none',color,width);
  const text=(s,x,y,size=15,color=light,weight=800)=>svg.append(make('text',{x,y,'font-family':'Arial,sans-serif','font-size':size,'font-weight':weight,'text-anchor':'middle',fill:color,stroke:'none'},String(s)));
  const circle=(cx,cy,r,fill,stroke='none',w=1)=>svg.append(make('circle',{cx,cy,r,fill,stroke,'stroke-width':w}));
- const plane=(x,y,scale=1)=>svg.append(make('path',{d:'M'+(x-18*scale)+' '+(y+5*scale)+'l'+(15*scale)+' '+(-6*scale)+'v'+(-10*scale)+'q'+(3*scale)+' '+(-5*scale)+' '+(6*scale)+' 0v'+(10*scale)+'l'+(15*scale)+' '+(6*scale)+'v'+(6*scale)+'l'+(-15*scale)+' '+(-3*scale)+'v'+(10*scale)+'l'+(6*scale)+' '+(4*scale)+'v'+(4*scale)+'l'+(-10*scale)+' '+(-2*scale)+'l'+(-10*scale)+' '+(2*scale)+'v'+(-4*scale)+'l'+(6*scale)+' '+(-4*scale)+'v'+(-10*scale)+'l'+(-15*scale)+' '+(3*scale)+'Z',fill:light,stroke:dark,'stroke-width':1,'stroke-linejoin':'round'}));
+ // Mesma silhouette do catálogo e do mapa: nenhuma aeronave isométrica.
+ const plane=(x,y,scale=1,angle=0)=>{
+  const g=make('g',{transform:'translate('+x+' '+y+') rotate('+angle+') scale('+scale+') translate(-12 -12)',style:'color:'+light});
+  g.append(make('use',{href:'#i-plane',x:0,y:0,width:24,height:24,fill:light,stroke:'none'}));
+  svg.append(g);
+ };
+ // Texto central com alto contraste, sempre DENTRO do aro e sem se sobrepor ao desenho.
+ const number=(value,y=101,size=18)=>{
+  svg.append(make('text',{x:59,y,'font-family':'Arial,sans-serif','font-size':size,
+   'font-weight':900,'text-anchor':'middle',fill:'#fff8df',stroke:'#09202c',
+   'stroke-width':3.5,'paint-order':'stroke','stroke-linejoin':'round'},String(value)));
+ };
  // Fita e aro compartilhados; o interior é diferente para cada conquista.
  path('M34 3H54L67 42H48Z','#16435e',metal,1.5);
  path('M64 3H84L70 42H51Z','#803948',metal,1.5);
@@ -88,26 +99,28 @@ function medalSvg(code,state='earned'){
  line('M40 103Q59 114 78 103',light,1.15);
  switch(code){
   case 'first_flight':
-   path('M31 97L87 97', 'none',light,2);
-   line('M37 92L76 63',metal,2.5);plane(61,73,.75);text('1º',59,99,16);break;
+   // O primeiro voo tem avião em destaque e 1º no rodapé da medalha.
+   plane(59,74,1.08,-18);
+   line('M41 91H77',light,1.6);number('1º',104,17);break;
   case 'ten_flights':case 'twentyfive_flights':case 'veteran':
    line('M35 92Q26 72 42 57M83 92Q92 72 76 57',metal,3);
    for(const y of [65,75,85]){path('M39 '+y+'l-8 -4 3 10Z',metal);path('M79 '+y+'l8 -4 -3 10Z',metal);}
    text(code==='ten_flights'?'10':code==='twentyfive_flights'?'25':'50',59,88,25);
    text(code==='veteran'?'VET': 'VOOS',59,100,8);break;
   case 'hundred_hours':
-   circle(59,76,22,'#132f43',light,2);
-   for(const a of [0,90,180,270]){const rad=a*Math.PI/180;line('M'+(59+18*Math.cos(rad))+' '+(76+18*Math.sin(rad))+'L'+(59+21*Math.cos(rad))+' '+(76+21*Math.sin(rad)),metal,2);}
-   line('M59 76L59 61M59 76L71 83',light,2.7);text('100h',59,108,12);break;
+   circle(59,72,17,'#132f43',light,1.6);
+   for(const a of [0,90,180,270]){const rad=a*Math.PI/180;line('M'+(59+14*Math.cos(rad))+' '+(72+14*Math.sin(rad))+'L'+(59+16*Math.cos(rad))+' '+(72+16*Math.sin(rad)),metal,2);}
+   line('M59 72L59 62M59 72L68 77',light,2.5);
+   number('100h',102,16);break;
   case 'first_contract':case 'ten_contracts':
    path('M42 58H69L78 67V99H42Z','#e3e8e3',metal,2);
    path('M69 58V67H78',dark,metal,1);
    line('M48 75H69M48 80H66',dark,2);
    text(code==='first_contract'?'1º':'10',60,95,16,dark);break;
   case 'reputation70':case 'reputation90':
-   circle(59,73,19,code==='reputation90'?'#6e4818':'#1a554c',light,2);
-   path('M48 73L56 81L72 65','none',light,4);
-   text(code==='reputation90'?'90%':'70%',59,107,18,light);
+   circle(59,71,16,code==='reputation90'?'#705019':'#17584b',light,2);
+   path('M49 71L56 78L69 64','none',light,4);
+   number(code==='reputation90'?'90%':'70%',102,18);
    if(code==='reputation90'){for(const x of [35,83]){path('M'+x+' 61l3 7 -3 7 -3 -7Z',light);}}
    break;
   case 'first_job':
@@ -116,19 +129,17 @@ function medalSvg(code,state='earned'){
    line('M39 78Q59 91 79 78',light,2.3);
    circle(59,81,5,fillMetal,light,1);break;
   case 'first_plane':
-   // Aeronave em solo, trem de pouso e marca inaugural.
-   path('M35 87Q44 84 51 83L70 83L84 88L78 92H42Z',light,dark,1.5);
-   line('M49 84L52 73L56 74L56 84',metal,2.5);
-   line('M41 94H81',light,2.5);circle(47,93,3,'#071d2c');circle(75,93,3,'#071d2c');
-   text('1º',59,69,17,light);break;
+   // Aeronave vista de cima, sobre pista, com marca inaugural legível.
+   line('M37 91H81',metal,2);
+   line('M43 95H48M54 95H64M70 95H75',light,1.5);
+   plane(59,75,1.22);
+   number('1º',105,17);break;
   case 'three_planes':
-   path('M33 92V69L59 56L85 69V92Z','#153c56',light,2);
-   path('M40 90V74H78V90', 'none',metal,2);
-   for(const x of [47,59,71]){
-    path('M'+x+' 72v14m-5 -6h10m-8 10h6','none',light,2.6);
-    circle(x,88,1.6,metal);
-   }
-   line('M36 95H82',light,2);break;
+   path('M34 92V65L59 54L84 65V92Z','#183951',light,2);
+   path('M40 89V70H78V89', 'none',metal,2);
+   // Três silhuetas iguais em frente ao hangar.
+   for(const x of [45,59,73])plane(x,81,.54);
+   line('M35 96H83',light,2);break;
   case 'first_license':
    path('M42 57H76V94H42Z','#e9e2d4',metal,2);
    line('M48 64H70M48 70H67',dark,2);
@@ -240,19 +251,15 @@ function licenseSealSvg(code,tier){
  svg.append(make('circle',{cx:50,cy:50,r:37,fill:'#123951',stroke:metal,'stroke-width':.9,'stroke-dasharray':'3 4'}));
  svg.append(make('path',{d:'M12 49L37 40L44 45L16 55ZM88 49L63 40L56 45L84 55Z',
   fill:metal,stroke:'#0d3349','stroke-width':1.5}));
- svg.append(make('path',{d:'M17 56L40 49M83 56L60 49',fill:'none',stroke:metal,'stroke-width':3}));
- if(code==='IFR'){
-  svg.append(make('circle',{cx:50,cy:50,r:19,fill:'#092538',stroke:metal,'stroke-width':2}));
-  svg.append(make('path',{d:'M50 30L57 49L50 70L43 49Z',fill:metal,stroke:'#f2f6ea','stroke-width':1}));
- }else if(code==='MLTE'){
-  svg.append(make('circle',{cx:42,cy:51,r:10,fill:'#092538',stroke:metal,'stroke-width':2}));
-  svg.append(make('circle',{cx:59,cy:51,r:10,fill:'#092538',stroke:metal,'stroke-width':2}));
-  svg.append(make('path',{d:'M30 63L50 53L70 63M50 35V70',fill:'none',stroke:metal,'stroke-width':3}));
- }else if(code==='PLA'){
-  svg.append(make('path',{d:'M50 25L56 41L73 41L60 52L65 69L50 59L35 69L40 52L27 41L44 41Z',
-   fill:metal,stroke:'#fff5d6','stroke-width':1.5}));
- }else{
-  svg.append(make('path',{d:'M50 29L57 45L75 49L58 56L54 73L46 56L25 49L43 45Z',fill:metal,stroke:'#0c283a','stroke-width':1.6}));
+ // Selo premium limpo: aeronave oficial vista de cima em vez da estrela torta.
+ svg.append(make('circle',{cx:50,cy:49,r:22,fill:'#0b293a',stroke:metal,'stroke-width':1.5}));
+ svg.append(make('use',{href:'#i-plane',x:29,y:27,width:42,height:44,
+  style:'color:'+metal,fill:metal,stroke:'none'}));
+ if(tier>=2){
+  svg.append(make('path',{d:'M23 65L36 73M77 65L64 73',fill:'none',stroke:metal,'stroke-width':tier>=4?3:2}));
+ }
+ if(tier===4){
+  for(const x of [21,79])svg.append(make('circle',{cx:x,cy:50,r:3.2,fill:metal,stroke:'none'}));
  }
  svg.append(make('text',{x:50,y:89,'text-anchor':'middle','font-family':'Arial,sans-serif','font-size':10,
   'font-weight':800,fill:metal,stroke:'none'},code));
