@@ -1,3 +1,25 @@
+## v0.8.3 Midnight Ops Alpha.2 — identidade visual premium revisada
+
+- Evento de medalha, perda, reconquista ou promoção mantém o diálogo aberto depois da animação até o piloto fechar com botão, ESC ou clique no fundo.
+- Distintivos de graduação passam a ter desenho vertical esguio, sem distorção CSS; removida a insígnia anterior do cabeçalho, preservando a patente Midnight e a medalha equipável na foto.
+- Todas as 13 medalhas têm símbolos próprios: avião pousado com 1º para primeira aeronave, três aviões diante do hangar para a frota, check com 70%/90% e metal nobre para reputação, além de ícones específicos das demais conquistas.
+- Licenças PPA, PCA, IFR, MLTE e PLA apresentam selos gráficos e progressão de acabamento, de aço a dourado, com títulos, dados e requisitos legíveis.
+- Gráficos de sensibilidade de pouso, contratos mensais e horas por aeronave exibem escalas e unidades, valores visíveis, legenda, média de pousos e detalhamento por categoria.
+- Prévia Admin continua separada do piloto oficial; Minha História e regras econômicas não foram alteradas.
+- Testes Playwright reforçados: diálogo ainda aberto após duração da animação, reconquista, promoção, 13 motivos, 5 licenças, eixos/legendas e distintivo único no cabeçalho.
+- Branch/PR permanecem não mesclados até homologação visual no MSFS 2020.
+
+## v0.8.3 Midnight Ops Alpha.1 — Pilot Career e laboratório Teste
+
+- A nova aba **Meu Piloto** reúne identidade premium, foto, brasão permanente, medalha especial equipável, progressão de XP, 18 graduações aeronáuticas de níveis 1–100 e 13 conquistas.
+- Galeria de certificados premium PPA/PCA/IFR/MLTE/PLA, gráficos independentes de pouso, contratos e horas por aeronave, linha do tempo de promoções, eventos e conquistas.
+- Conquistas condicionais (reputação 70/90 e frota de três aeronaves) perdem o estado ativo quando deixarem de cumprir o requisito; o emblema se divide discretamente na animação. Recuperar condição restaura conquista e registra novo evento. Conquistas permanentes nunca são retiradas por queda de estatística.
+- Novo gerenciador de perfis: carreira oficial permanece em seu SQLite original, com backup consistente antes da migração, e novos pilotos ficam em banco independente. Troca somente desconectado/em solo.
+- Perfil `Teste` com Admin/Showcase isolado para visualizar todos os distintivos/licenças/medalhas, simular nível/XP/reputação e testar animações, sem editar o XP e o saldo reais.
+- Planejamento VFR: waypoint por clique direito/Shift+clique/toque longo no mapa com confirmação e botão Limpar Plano sem cancelar contratos nem apagar voos.
+- Bônus de XP/dinheiro: exclusão de pontos por declarações manuais, recompensa apenas por amostras MSFS verificadas e congelamento seguro na decolagem.
+- CI Windows/Linux, testes SQLite, Playwright, empacotamento Windows; publicação em branch separada para homologação antes de atualizar `main`.
+
 ## v0.8.2 Midnight Ops Alpha.1 — Planejador + Despacho unificados
 
 - Página Flight Operations com editor de origem/destino, oito waypoints numéricos, altitude VFR e pernas (distância/rumo) calculadas pelo motor Python.

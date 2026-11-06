@@ -12,6 +12,7 @@ from .dashboard import DashboardPresenter
 from .midnight_server import DashboardServer
 from .fleet_photos import normalize_photo, save_photo, delete_photo, photo_bytes, owned_fleet
 from .aircraft_marketplace import execute_market
+from . import pilot_career
 
 class DashboardController:
     def __init__(self,app):
@@ -79,7 +80,7 @@ class DashboardController:
             with Image.open(path) as im:
                 im=ImageOps.exif_transpose(im).convert('RGB')
                 im=ImageOps.fit(im,(256,256),method=Image.Resampling.LANCZOS)
-                target=state_dir()/'pilot-avatar.png';im.save(target,'PNG')
+                target=self.app.profile_dir/'pilot-avatar.png';im.save(target,'PNG')
             self.app.storage.set_setting('pilot_avatar_v1',str(target))
             self.presenter.avatar_key=None
         except (OSError,ValueError,Image.DecompressionBombError) as exc:messagebox.showerror('Foto',str(exc))
@@ -177,10 +178,12 @@ class DashboardController:
             seq=getattr(app,'aircraft_market_notice_seq',0)+1
             app.aircraft_market_notice_seq=seq
             app.aircraft_market_notice=dict(seq=seq,ok=ok,message=message,action=action)
-        elif action in ('flightops_save','flightops_export','flightops_send'):
+        elif action in ('flightops_save','flightops_export','flightops_send','flightops_clear'):
             try:
                 if action=='flightops_save':
                     message=app._flightops_save(cmd.get('payload'))
+                elif action=='flightops_clear':
+                    message=app._flightops_clear()
                 else:
                     message=app._flightops_export(send=action=='flightops_send')
                 ok=True
@@ -191,6 +194,29 @@ class DashboardController:
             seq=getattr(app,'flightops_notice_seq',0)+1
             app.flightops_notice_seq=seq
             app.flightops_notice=dict(seq=seq,ok=ok,message=message,action=action)
+        elif action in ('pilot_profile_create','pilot_profile_update','pilot_profile_switch',
+                        'pilot_profile_reset','pilot_showcase','pilot_medal_equip','pilot_license_claim'):
+            try:
+                if action=='pilot_profile_create':message=app._profile_create(cmd.get('payload'))
+                elif action=='pilot_profile_update':message=app._profile_update(cmd.get('payload'))
+                elif action=='pilot_profile_switch':message=app._relaunch_profile(target=cmd.get('id'))
+                elif action=='pilot_profile_reset':message=app._relaunch_profile(reset=True)
+                elif action=='pilot_showcase':message=app._pilot_showcase(cmd.get('payload'))
+                elif action=='pilot_license_claim':
+                    code=cmd.get('id')
+                    if not isinstance(code,str):raise ValueError('Código de licença inválido.')
+                    granted=app.storage.earn_qualification(code)
+                    message='Licença '+code+' conquistada.' if granted else 'Licença já registrada.'
+                else:message=app._pilot_equip(cmd.get('id'))
+                ok=True
+            except (ValueError,TypeError,KeyError,OSError) as exc:
+                ok=False;message='Operação recusada: '+str(exc)
+            if not self.closed:
+                app.pilot_career_notice_seq=getattr(app,'pilot_career_notice_seq',0)+1
+                app.pilot_career_notice=dict(seq=app.pilot_career_notice_seq,ok=ok,
+                                             message=message,action=action)
+                self.presenter.pilot_career_cache=None
+                app._log('PILOTO: '+message)
         elif action=='prepare':
             if not app.career.mission:
                 app._log('DESPACHO: aceite um contrato antes de preparar plano e carga.');return

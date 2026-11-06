@@ -8,6 +8,7 @@ from time import time
 from .contracts import AirportCatalog, generate_offers, eligibility, TYPE_BY_CODE, next_level_xp, aircraft_model, PLANE_BY_CODE
 from .employment import generate_employer_routes
 from .pilot import level_progress
+from . import pilot_career
 from .domain import AIRPORTS, Phase, distance_nm
 from .planning import inspect_preflight, Preflight
 from .flight_operations import read_saved as read_flight_operations, draft as flightops_draft, validated as validate_flightops, route_stats as flightops_stats
@@ -60,6 +61,8 @@ class DashboardPresenter:
         self.offers={}
         self.center=None
         self.market_key=None
+        self.pilot_career_cache=None
+        self.pilot_career_cache_at=0.0
         self.avatar_key=None
         self.avatar=None
         self.reputation_stamp=None
@@ -167,7 +170,10 @@ class DashboardPresenter:
             fuel=app.fuel_manager.get(plane['ref'])
         if plane:
             plane=dict(plane,photo_url=photo_link(plane['ref'],metadata.get(plane['ref'])))
-        verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s)}
+        verified=({'clock':real_clock_verified(s),'assists':assistance_verified(s),
+                   'fuel':s.fuel_gallons is not None and s.fuel_gallons>=0,
+                   'weight':(s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None
+                             and 0<s.total_weight_lbs<=s.max_gross_weight_lbs)}
                   if s and app.mode=='MSFS' and app.connected and time()-s.timestamp<10 else {})
         if (m and getattr(app,'dispatch_state',{}).get('mission_id')==m.id and
                 getattr(app,'dispatch_state',{}).get('payload')=='verified' and s
@@ -242,7 +248,7 @@ class DashboardPresenter:
                     'aircraft_title':plane['title'] if plane else None,
                     'contract':dict(id=m.id,origin=m.origin,destination=m.destination,
                                     payload_kg=m.payload_kg,manifest=m.manifest_label) if m else None}
-        if active_catalog and candidate.get('origin') and candidate.get('destination'):
+        if stored and active_catalog and candidate.get('origin') and candidate.get('destination'):
             try:
                 proposed={k:candidate[k] for k in
                           ('mode','origin','destination','altitude_ft','waypoints','checks')}
@@ -257,7 +263,18 @@ class DashboardPresenter:
                 pass
         fuel_warning=bool(fuel and capacity and quantity is not None and quantity/capacity<=.20)
         wear_warning=bool(plane and plane.get('condition') is not None and plane['condition']<=20)
-        return dict(pilot=pilot,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
+        now=time()
+        if self.pilot_career_cache is None or now-self.pilot_career_cache_at>2:
+            profile=(app.profiles.active() if getattr(app,'profiles',None)
+                     else {'id':'principal','kind':'official'})
+            self.pilot_career_cache=pilot_career.snapshot(db,profile)
+            self.pilot_career_cache_at=now
+        pc=dict(self.pilot_career_cache)
+        pc['profiles']=app.profiles.list() if getattr(app,'profiles',None) else [
+            {'id':'principal','name':'Carreira principal','kind':'official'}]
+        pc['active_profile']=app.profiles.active()['id'] if getattr(app,'profiles',None) else 'principal'
+        pc['notice']=getattr(app,'pilot_career_notice',None)
+        return dict(pilot=pilot,pilot_career=pc,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
             status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,

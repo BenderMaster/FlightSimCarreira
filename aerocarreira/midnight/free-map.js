@@ -153,6 +153,25 @@ function start(){
    routeSourceReady=true;
    resizeToContainer();setSatellite();updateMarkers(latest);
   });
+  // Apenas na aba Planejamento: clique direito, Shift+clique ou toque longo.
+  const activePlan=()=>document.querySelector('.workspace')?.dataset.view==='planning';
+  const addPoint=e=>{
+   if(!activePlan()||!e?.lngLat)return;
+   e.originalEvent?.preventDefault?.();
+   window.FSCFlightOps?.proposeWaypoint?.(e.lngLat.lat,e.lngLat.lng);
+  };
+  map.on('contextmenu',e=>addPoint(e));
+  map.on('click',e=>{if(e.originalEvent?.shiftKey)addPoint(e);});
+  let held=null;
+  const cancelHeld=()=>{if(held){clearTimeout(held);held=null;}};
+  map.on('touchstart',e=>{
+   cancelHeld();
+   if(!activePlan()||!e?.lngLat||e.originalEvent?.touches?.length!==1)return;
+   const lat=e.lngLat.lat,lon=e.lngLat.lng;
+   held=setTimeout(()=>{held=null;window.FSCFlightOps?.proposeWaypoint?.(lat,lon);},800);
+  });
+  for(const evt of ['touchend','touchcancel','dragstart','zoomstart','movestart'])
+   map.on(evt,cancelHeld);
   map.on('error',e=>{if(e?.error)console.warn('FreeMap: tile/style',e.error.message||e.error)});
   active=true;
   setupResize();
