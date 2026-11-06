@@ -354,7 +354,25 @@ function init(){
  };
  el('pc-admin-preset').onchange=()=>{
   const lv=Number(el('pc-admin-preset').value);
-  if(lv){el('pc-admin-level').value=lv;el('pc-admin-xp').value=lv*100;el('pc-admin-rep').value=lv>=80?95:lv>=30?75:50;}
+  if(lv){
+   el('pc-admin-level').value=lv;
+   el('pc-admin-xp').value=lv*100;
+   el('pc-admin-rep').value=lv>=80?95:lv>=30?75:50;
+   // Presets para aprovação de TODOS os estados visuais. É somente prévia.
+   const pc=current?.pilot_career;
+   if(pc){
+    const state=lv>=100?'earned':lv>=55?'available':'locked';
+    adminDraft.achievements=Object.fromEntries(pc.medals.map(m=>[m.code,state]));
+    adminDraft.licenses=Object.fromEntries(pc.licenses.map(q=>[q.code,state]));
+    const n=Math.max(0,pc.rank_gallery.findIndex(r=>r.min<=lv&&r.max>=lv));
+    adminDraft.rank=pc.rank_gallery[n]?.code||null;
+    el('pc-admin-rank').value=adminDraft.rank;
+    document.querySelectorAll('#pc-admin-states select').forEach(sel=>{
+     sel.value=state;
+     sel.dispatchEvent(new Event('change'));
+    });
+   }
+  }
  };
  el('pc-admin-preview-gain').onclick=()=>showUnlock('gain','Veterano • 50 Voos','veteran');
  el('pc-admin-preview-loss').onclick=()=>showUnlock('loss','Reputação 90','reputation90');
