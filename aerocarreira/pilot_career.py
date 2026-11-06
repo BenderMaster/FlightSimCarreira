@@ -87,18 +87,26 @@ def counts(db):
     # Cessna 152 adicionais); aluguel nunca entra nessa tabela.
     # Manter também o log de aquisições para que Primeira Aeronave continue
     # conquistada mesmo depois de vender o exemplar pago.
-    bought_legacy = db.conn.execute(
-        "SELECT COUNT(*) FROM owned_aircraft WHERE code != 'c152'").fetchone()[0]
+    owned_legacy = {code for (code,) in db.conn.execute(
+        "SELECT code FROM owned_aircraft")}
+    # Compras do mercado legado geram movimento único purchase:<modelo>;
+    # esse lançamento distingue um C152 PAGO do starter gratuito, mesmo
+    # quando a licença da aeronave gratuita já foi concedida.
+    legacy_purchase_codes = {key.split(':',1)[1] for (key,) in db.conn.execute(
+        """SELECT event_key FROM finance_ledger
+           WHERE kind='compra_aviao' AND event_key LIKE 'purchase:%' AND amount<0""")}
+    paid_legacy_now = (owned_legacy - {'c152'}) | (owned_legacy & legacy_purchase_codes)
+    paid_legacy_ever = (owned_legacy - {'c152'}) | legacy_purchase_codes
     purchased_now = {"unit:" + str(r[0]) for r in db.conn.execute(
         "SELECT id FROM fleet_units")}
     purchased_history = {str(r[0]) for r in db.conn.execute(
         """SELECT description FROM fleet_log
            WHERE kind IN ('new_purchase','used_purchase')
            AND description LIKE 'unit:%'""")}
-    purchased = bought_legacy + len(purchased_now | purchased_history)
+    purchased = len(paid_legacy_ever) + len(purchased_now | purchased_history)
     # Frota Estabelecida é patrimônio ATUAL comprado. O starter gratuito e
     # unidades alugadas não contam; a venda pode fazer a medalha ficar inativa.
-    paid_fleet = bought_legacy + len(purchased_now)
+    paid_fleet = len(paid_legacy_now) + len(purchased_now)
     job_rows = db.conn.execute("""SELECT decided_utc FROM job_applications WHERE status='hired'
                                ORDER BY decided_utc""").fetchall()
     licenses = db.conn.execute("""SELECT code,awarded_utc FROM pilot_qualifications
