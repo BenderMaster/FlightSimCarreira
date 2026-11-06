@@ -147,6 +147,7 @@ class AirlineOperationsTests(unittest.TestCase):
         arrival={'timestamp':self.start+2000,'lat':AIRPORTS[mission.destination].latitude,
                  'lon':AIRPORTS[mission.destination].longitude}
         cash_before=int(self.db.get_setting('balance'))
+        xp_before=self.db.conn.execute('SELECT COUNT(*),COALESCE(SUM(xp),0) FROM pilot_xp_ledger').fetchone()
         company_before=self.db.company_business()['balance']
         ck={'version':1,'career':{},'tracker':{'phase':'solo'}}
         done=self.db.finalize_flight(takeoff,arrival,-170,0,mission.id,mission.reward,ck,
@@ -158,7 +159,7 @@ class AirlineOperationsTests(unittest.TestCase):
         self.assertGreater(self.db.company_business()['balance'],company_before)
         self.assertEqual(self.db.conn.execute("SELECT reward FROM flights ORDER BY id DESC LIMIT 1").fetchone()[0],0)
         self.assertEqual(self.db.conn.execute(
-            "SELECT xp FROM pilot_xp_ledger ORDER BY awarded_utc DESC LIMIT 1").fetchone()[0],0)
+            'SELECT COUNT(*),COALESCE(SUM(xp),0) FROM pilot_xp_ledger').fetchone(),xp_before)
         self.assertFalse(self.db.finalize_flight(takeoff,arrival,-170,0,mission.id,mission.reward,ck,
             aircraft_title='Cessna 172 Skyhawk',destination=mission.destination))
         self.assertEqual(self.db.company_business()['operations'],1)
