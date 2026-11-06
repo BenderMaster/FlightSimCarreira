@@ -370,11 +370,16 @@ if(window.FSCPilotCareer && s.pilot_career){
   text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderMarketView(s);renderModuleView(s);renderFleetView(s);window.FSCAircraftMarket?.render(s);window.FSCFlightOps?.render(s);window.FSCPilotCareer?.render(s);renderSummary(s);
 const m=s.mission;const bonus=s.bonus?.bonus_fraction||0;text('route',m?m.origin+' → '+m.destination:'Selecione uma missão');text('distance',m?'Distância: '+(m.distance===null?'—':number(m.distance)+' NM')+'  |  Prev. voo: '+(m.minutes===null?'—':m.minutes+' min'):'Explore o mercado regional para começar');text('category',m?.category||'');text('reward',m?money(m.reward):'—');text('bonus-value',m?'+'+number(bonus*100,1)+'%':'—');text('mission-status',m?(s.bonus?.frozen?'EM VOO • CONGELADO':'RESERVADO'):'');
 for(const [key,, ,unit] of metricNames){const e=$('metric-'+key);if(key==='phase'){e.textContent=s.phase;e.style.color='#8df63e';continue}e.replaceChildren(document.createTextNode(s.telemetry?number(s.telemetry[key]):'—'),node('small','',' '+unit))}text('telemetry-status',s.mode==='Demo'?'DEMONSTRAÇÃO':s.telemetry?.stale?'ÚLTIMA LEITURA • SEM ATUALIZAÇÃO':s.connection==='connected'?'':'AGUARDANDO MSFS');renderWeather(s);text('log',s.log.slice(-8).join('\n'));$('log').scrollTop=$('log').scrollHeight;text('realism-total',m?'+'+number(bonus*100,1)+'%':'—');
-const labels=['Relógio UTC verificado','Assistência de voo verificada','Pista / iluminação revisada','Rota revisada','Combustível adequado','Peso dentro do limite'];const components=Object.values(s.bonus?.components||{});$('checklist').replaceChildren();labels.forEach((label,i)=>{const sensor=i===0?s.audit?.clock:i===1?s.audit?.assists:undefined;
-const ok=i<2?sensor===true:components[i]?.ok;
-const e=node('div',ok?'ok':'');e.append(icon('check'),node('span','',label));
-e.title=i<2?(sensor==null?'Sensor indisponível • sem bônus':sensor?'Verificado pelo MSFS':'Condição não atendida'):
- (components[i]?'+'+number(components[i].rate*100,1)+'% • ':'')+(i<4?'Conferência manual':'Telemetria/estimativa');$('checklist').append(e)});text('edit-plan',s.bonus?.frozen?'Congelado na decolagem • Ver despacho':'Revisar no despacho →');
+const labels=['Relógio UTC sincronizado','Assistências monitoradas desligadas','Combustível suficiente','Peso abaixo do MTOW'];
+ const components=Object.values(s.bonus?.components||{});$('checklist').replaceChildren();
+ labels.forEach((label,i)=>{
+  const sensor=i===0?s.audit?.clock:i===1?s.audit?.assists:undefined;
+  const ok=i<2?sensor===true:components[i]?.ok;
+  const e=node('div',ok?'ok':'');e.append(icon('check'),node('span','',label));
+  e.title=(components[i]?('+'+number(components[i].rate*100,1)+'% • '):'')+
+          (ok?'MSFS verificado':'Telemetria não confirmada • sem bônus');
+  $('checklist').append(e);
+ });text('edit-plan',s.bonus?.frozen?'Congelado na decolagem • Ver despacho':'Revisar no despacho →');
 const a=s.plane;const photoKind=setFleetImage($('aircraft-photo'),null,a);
  const photo=photoKind!=='none';
  $('photo-credit').hidden=photoKind!=='stock';
