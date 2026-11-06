@@ -447,8 +447,8 @@ with tempfile.TemporaryDirectory() as temp:
               const after=document.querySelector('.fsc-plane-marker svg').style.transform;
               return {before,after};
             }""")
-            assert 'rotate(-30deg)' in orientations['before'],orientations
-            assert 'rotate(90deg)' in orientations['after'],orientations
+            assert 'rotate(15deg)' in orientations['before'],orientations
+            assert 'rotate(135deg)' in orientations['after'],orientations
             # Instância MapLibre e canvas permanecem os mesmos ao abrir detalhes.
             map_page.locator('.nav-item[data-action="regional"]').click()
             map_page.locator('#market-list .market-option').first.click()
