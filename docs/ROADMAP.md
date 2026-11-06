@@ -210,3 +210,13 @@ Consulte [Bloco 3](BLOCO_3_CARREIRAS.md).
 - [x] Selecionar aeronave ativa, abastecer e manutenção com confirmação/pagamento real via motor existente.
 - [ ] Homologar visual e foto personalizada no Windows real.
 - [ ] Bloco futuro: Loja/Aluguel de aeronaves em página independente, sem misturar com Frota.
+
+## v0.8.1 — Mercado de Aeronaves e SimConnect
+- [x] Validar Frota e fotos no Windows real; mesclar v0.8.0 à main (PR #14).
+- [x] Nova página de aeronaves separada do Mercado Regional (contratos) e da Frota (aeronaves próprias).
+- [x] Quatro abas Novas / Usadas / Aluguel / Vender, cotação e confirmação no padrão Midnight.
+- [x] Oferta semanal usada, tarifas por prazo, revalidação no backend e consistência do saldo, com bloqueio de compras remotas e voos.
+- [x] Operações financeiras idempotentes com identificador de confirmação persistido e testado.
+- [x] Registro de falha SimConnect apenas uma vez por período desconectado.
+- [ ] Homologar v0.8.1 no Windows + MSFS real com compra, aluguel, venda e comportamento do log.
+- [ ] Futuro: loja por aeroportos, modelos instalados, seguros individualizados e integração física de modelo no MSFS (dependente de API verificável).

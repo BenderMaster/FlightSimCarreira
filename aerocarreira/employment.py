@@ -126,7 +126,9 @@ def generate_employer_routes(company_code: str, origin, catalog, stats: dict,
     routes=[]
     for i,(destination,distance) in enumerate(choices[:2]):
         from .finance import market_reward
-        reward=market_reward(distance, max(1.0,company.min_level*.15), freelance=True)
+        reward=market_reward(distance, max(1.0,company.min_level*.15), freelance=True,
+                             level=int(stats.get('level', 1)),
+                             reputation=float(stats.get('reputation', 50)))
         m=Mission(f'EMP-{company.code}-{origin.icao}-{period}-{i:02}',origin.icao,destination.icao,
                   f'{company.name} • trecho contratado',reward,
                   category='cargo',freelance=True,employer_plane=company.plane,

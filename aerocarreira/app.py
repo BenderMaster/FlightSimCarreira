@@ -11,6 +11,7 @@ from time import strftime, localtime, time
 from .domain import FlightTracker, Career, MISSIONS, AIRPORTS, distance_nm, Phase, Airport
 from .storage import Storage
 from .sim_adapter import SimConnectWorker
+from .connection_notices import ReconnectWarningFilter
 from .demo import demo_samples
 from .neo_inspect import inspect_neofly, discover_neofly_databases
 from .pilot import QUALIFICATIONS, qualification_eligibility, flight_xp, level_progress, progress_fraction
@@ -104,6 +105,7 @@ class Application:
         self.demo_seq = demo_samples()
         self.demo_index = 0
         self.connected = False
+        self.reconnect_notices=ReconnectWarningFilter()
         self.mode = "Desconectado"
         self.balance_var = StringVar(value=brl(self.career.balance))
         self.status_var = StringVar(value="Sem conexão • Demo disponível")
@@ -506,6 +508,7 @@ class Application:
         self.mode="MSFS"
         self.status_var.set("Conectando ao MSFS...")
         self._log("Iniciando monitoramento com reconexão automática.")
+        self.reconnect_notices.reset()
         self.sim.start()
 
     def _stop(self):
@@ -697,7 +700,8 @@ class Application:
                 table.delete(row)
             offers_by_id.clear()
             now=time()
-            if force or not self.storage.offer_cache_valid(center.icao, now):
+            if (force or self.storage.get_setting('reward_model_version') != '2'
+                    or not self.storage.offer_cache_valid(center.icao, now)):
                 day=int(now//86400)
                 # Uma geração por dia/região; clicando atualizar não cria infinitos contratos.
                 offers=generate_offers(center,catalog,self.storage.pilot_stats(),
@@ -709,6 +713,7 @@ class Application:
                         self.storage.family_experience(),day)
                 self.storage.save_offers(center.icao, offers, now=now,
                                          valid_s=(day+1)*86400-now)
+                self.storage.set_setting('reward_model_version', '2')
             for m in self.storage.active_offers(center.icao,now):
                 if m.company_code and (self.storage.employment_state()['mode']!='empregado'
                     or self.storage.employment_state()['employer_code']!=m.company_code):
@@ -1362,6 +1367,7 @@ class Application:
                 elif kind=="connected":
                     self.connected=True
                     self.status_var.set(item)
+                    self.reconnect_notices.reset()
                     self._log(item)
                 elif kind=="error":
                     self.connected=False
@@ -1369,7 +1375,8 @@ class Application:
                     self._log(item)
                 elif kind=="warning":
                     self.status_var.set("Monitorando / recuperação")
-                    self._log(item)
+                    if self.reconnect_notices.should_log(item):
+                        self._log(item)
                 elif kind in ('plan_atc_sent','plan_loaded'):
                     if self.dispatch_state:
                         self.dispatch_state.update(route='atc_sent',message=

@@ -1,3 +1,27 @@
+# FlightSimCarreira v0.8.1 Midnight Ops Alpha.1 — Mercado de Aeronaves
+
+O Bloco 1 **Frota/Hangar v0.8.0** e as fotografias próprias foram testados pelo piloto no Windows e incorporados à `main` no PR #14 (merge `18f7925`). Esta versão trabalha isolada em `feature/v0.8.1-mercado-aeronaves`, até homologação da nova área.
+
+## Novo Mercado de Aeronaves, separado do mercado de contratos e da Frota
+- Novo item do menu lateral: **Mercado de Aeronaves**. Página Midnight dedicada com abas **Novas, Usadas, Aluguel e Vender**.
+- Catálogo à esquerda, prévia central (foto ilustrativa CC BY-SA 4.0 do C152 ou placeholder, sem associar fotos de modelo errado), resumo financeiro à direita, incluindo preço, caixa atual, variação e saldo final.
+- **Novas:** cinco modelos cadastrados na economia. Não é uma consulta de produtos na internet, nem instala automaticamente o avião no MSFS.
+- **Usadas:** cinco ofertas determinísticas por semana e aeródromo. O motor revalida origem, semana, disponibilidade, condição, horas e preço antes de comprar; uma oferta usada não pode ser adquirida duas vezes.
+- **Aluguel:** planos de 24, 48, 72 ou 168 horas, tarifa calculada pelo mesmo método do `FleetManager.rent()`. A aeronave temporária fica visível em "Aluguéis ativos", mas nunca pertence à Frota adquirida. Prazo cronológico em UTC, sem pausar com o aplicativo fechado.
+- **Venda:** somente exemplares `unit:` comprados novos ou usados; Cessna starter/legados protegidos. Valor de revenda calculado pelo motor e apresentação do local da aeronave. A venda só ocorre no aeródromo onde o exemplar está registrado, remove o exemplar, desvincula a foto e credita o saldo.
+- Diálogo de confirmação antes de qualquer mudança financeira. Quando enviado, a tela aguarda o resultado do motor e informa recusa ou confirmação; não anuncia pagamento após apenas colocar comando na fila. Mesma foto personalizada ao vender o avião, enquanto pertence ao piloto.
+- Transações exigem piloto cadastrado, aeronave no solo, sessão MSFS conectada, coordenada próxima a aeródromo realmente retornado pelo MSFS nesta sessão e nenhum contrato ativo. No modo demonstração, somente os aeroportos fictícios explicitamente permitidos. Catálogo sem MSFS é apenas vitrine, sem checkout e sem ICAO fabricado.
+- IDs únicos de solicitação são registrados dentro da transação SQLite, evitando cobranças duplicadas na mesma tentativa. O valor e disponibilidade são revalidados no backend; cliente não controla quantia em dinheiro.
+
+## Correção de log SimConnect
+O registro de erro `Conexão interrompida: ... Tentando reconectar...` aparece **uma única vez durante cada período de falha**. O worker continua tentando normalmente e o indicador de status continua mudando. Assim que houver conexão confirmada, o filtro é rearmado para permitir uma nova notificação em uma queda futura. Outras mensagens de telemetria e alertas não são ocultadas.
+
+**Instalação para teste:** extraia o ZIP completo em uma pasta nova e mantenha a v0.8.0 preservada. Faça backup do `%APPDATA%\\AeroCarreira-Lab\\carreira.db` com o aplicativo fechado. Nova tabela `fleet_market_requests` é aditiva. Windows 11, MSFS 2020 e CI deverão ser homologados após a distribuição.
+
+Detalhes em [Bloco Mercado de Aeronaves](docs/BLOCO_2_MERCADO_AERONAVES.md).
+
+---
+
 # FlightSimCarreira v0.8.0 Midnight Ops Alpha.1 — Bloco 1: Frota / Hangar
 
 **Base:** v0.7.8.2 Alpha.3 homologada pelo piloto em MSFS 2020 (37.209 aeroportos do catálogo nativo confirmados); commit de integração: `5f8995d`. Nenhuma mudança na classificação de voo, importação de aeroportos, carga ou combustível.

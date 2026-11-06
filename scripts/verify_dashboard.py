@@ -100,7 +100,7 @@ with tempfile.TemporaryDirectory() as temp:
             page.locator('#dialog-close').click()
             assert page.locator('.center-column .map-card #free-map').count()==1
             assert page.locator('#market-page').is_visible()
-            assert page.locator('.nav-item').count()==10
+            assert page.locator('.nav-item').count()==11
             assert page.locator('.nav-item[data-action="freelance"]').count()==0
             assert page.locator('.nav-item[data-action="regional"]').inner_text()=='Mercado'
             page.locator('[data-market-view="freelance"]').click()
@@ -151,8 +151,43 @@ with tempfile.TemporaryDirectory() as temp:
               render(original);return {src,visible,credit};
             }""")
             assert photo['src']=="/c152.jpg?v=simulated-unique" and photo['visible'] and photo['credit'],photo
+            # Mercado de aeronaves é página própria e não se mistura a contratos ou Hangar.
+            page.locator('.nav-item[data-action="aircraft_market"]').click()
+            assert page.locator('#aircraft-market-page').is_visible()
+            assert not page.locator('#fleet-page').is_visible()
+            assert not page.locator('#module-page').is_visible()
+            assert page.locator('.sidebar').is_visible()
+            assert page.locator('#am-list .aircraft-market-item').count()==5
+            assert page.locator('#am-lock').is_visible()  # fixture tem contrato ativo
+            assert page.locator('#am-confirm-open').is_disabled()
+            for tab,value in [('used',5),('rent',5),('sell',1),('new',5)]:
+                page.locator('[data-aircraft-market-tab="'+tab+'"]').click()
+                assert page.locator('[data-aircraft-market-tab="'+tab+'"]').get_attribute('aria-pressed')=='true'
+                assert page.locator('#am-list .aircraft-market-item').count()==value
+            page.locator('[data-aircraft-market-tab="rent"]').click()
+            page.locator('#am-duration').select_option('72')
+            assert page.locator('#am-price').inner_text()
+            # Simula só a cotação liberada e valida o modal sem pagar na carreira QA.
+            quote=page.evaluate("""() => {
+              const original=state;
+              const m=original.aircraft_market;
+              render({...original,aircraft_market:{...m,ready:true,reason:'',balance:10000000}});
+              const enabled=!document.getElementById('am-confirm-open').disabled;
+              const price=document.getElementById('am-price').textContent;
+              const balance=document.getElementById('am-after').textContent;
+              document.getElementById('am-confirm-open').click();
+              const dialogOpen=document.getElementById('aircraft-checkout-dialog').open;
+              const desc=document.getElementById('aircraft-checkout-description').textContent;
+              document.getElementById('am-cancel').click();
+              const dialogClosed=!document.getElementById('aircraft-checkout-dialog').open;
+              render(original);
+              return {enabled,price,balance,dialogOpen,dialogClosed,desc};
+            }""")
+            assert quote['enabled'] and quote['price'].startswith('R') and quote['balance'].startswith('R'),quote
+            assert quote['dialogOpen'] and quote['dialogClosed'] and 'alugar' in quote['desc'],quote
+            page.locator('[data-aircraft-market-tab="sell"]').click()
+            assert page.locator('#am-confirm-open').is_disabled()
             page.locator('.nav-item[data-action="planning"]').click()
-            assert page.locator('#module-page').is_visible()
             assert 'PLANEJAMENTO' in page.locator('#module-title').inner_text()
             assert page.locator('.sidebar').is_visible()
             page.locator('.nav-item[data-action="dashboard"]').click()
@@ -172,10 +207,16 @@ with tempfile.TemporaryDirectory() as temp:
             }""")
             assert heading['before'] and 'rotate(-30)' in heading['before'],heading
             assert heading['after'] and 'rotate(90)' in heading['after'],heading
-            page.evaluate("""() => renderMap({...state,mode:'MSFS',telemetry:{
-                lat:-8.12,lon:-34.92,heading_deg:301,heading_magnetic_deg:322,stale:false}})""")
-            assert '322° MAG' in page.locator('#map-mode').inner_text()
-            assert '301° TRUE' in page.locator('#map-mode').inner_text()
+            # Render e leitura devem ocorrer no MESMO frame JS: o poll do
+            # snapshot roda a cada 500ms e pode substituir o texto entre
+            # duas leituras Playwright (falso negativo intermitente).
+            heading_label=page.evaluate("""() => {
+              renderMap({...state,mode:'MSFS',telemetry:{
+                lat:-8.12,lon:-34.92,heading_deg:301,heading_magnetic_deg:322,stale:false}});
+              return document.getElementById('map-mode').innerText;
+            }""")
+            assert '322° MAG' in heading_label,heading_label
+            assert '301° TRUE' in heading_label,heading_label
 
             page.locator('#zoom-in').click();page.locator('#recenter').click()
             # Native action routed through the command queue, reflected in telemetry.

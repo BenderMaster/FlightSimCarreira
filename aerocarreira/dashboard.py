@@ -15,6 +15,7 @@ from .flight_audit import real_clock_verified, assistance_verified
 from .finance import estimated_minutes, AIRCRAFT_ECONOMY
 from .manifest import mission_manifest
 from .fleet_photos import owned_fleet, photo_stamps
+from .aircraft_marketplace import market_state
 from .msfs_airports import strict_mission, restricted_mission
 from .reputation import pilot_reputation
 from .weather import MetarCache, sim_conditions, within_nm
@@ -111,8 +112,8 @@ class DashboardPresenter:
         self.center=center
         if not center:self.offers={};return
         stats=db.pilot_stats(); emp=db.employment_state();now=time();day=int(now//86400)
-        generator_version='msfs-airports-session-v2' if app.mode=='MSFS' else 'nordeste-v1'
-        key=(center.icao,day,stats['xp'],tuple(sorted(stats['qualifications'])),emp['mode'],
+        generator_version='msfs-airports-session-v2-pay-v2' if app.mode=='MSFS' else 'nordeste-v1-pay-v2'
+        key=(center.icao,day,stats['xp'],stats['reputation'],tuple(sorted(stats['qualifications'])),emp['mode'],
              emp['employer_code'],generator_version,len(cat.locations))
         if key==self.market_key and not force:
             self.offers={k:v for k,v in self.offers.items() if not db.contract_completed(k)}
@@ -234,7 +235,7 @@ class DashboardPresenter:
             mission=mission_data(restricted_mission(m,app.airport_catalog) if app.mode!='Demo' else m,
                                  plane['code'] if plane else None) if m else None,
             market=dict(icao=self.center.icao,name=self.center.name,lat=self.center.latitude,lon=self.center.longitude) if self.center else None,offers=offers,
-            plane=plane,fleet=dict(owned=fleet_owned,
+            plane=plane,aircraft_market=market_state(app,self.center),fleet=dict(owned=fleet_owned,
                 active_ref=active_plane['ref'] if active_plane else None,
                 count=len(fleet_owned)),
             maintenance_alerts=dict(fuel_low=fuel_warning,condition_low=wear_warning),

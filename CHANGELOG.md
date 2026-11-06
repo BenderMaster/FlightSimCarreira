@@ -1,3 +1,30 @@
+## v0.8.1 Midnight Ops Alpha.3 — Showcase fotorealista das aeronaves
+
+- Substituídas as quatro ilustrações SVG por imagens fotorealistas originais aprovadas pelo piloto, referentes ao Cessna 172 Skyhawk, Baron G58, King Air 350i e Citation CJ4.
+- JPGs otimizados 1100 × 825, incluídos no executável para uso offline. Não existe download automático, atribuição a terceiros nem alteração das fotos personalizadas da Frota.
+- A foto padrão do Cessna 152 e seu crédito permanecem inalterados. O catálogo reutiliza a imagem por modelo em Novas, Usadas e Aluguel; Frota/Hangar e Dashboard também exibem o showcase quando não houver fotografia individual cadastrada. Venda e Frota sempre priorizam a foto própria.
+- Verificações de catálogo, leitura JPEG e presença real dos arquivos no pacote Windows. Economia, regras de contratos, SQLite e SimConnect preservados.
+
+## v0.8.1 Midnight Ops Alpha.2 — renda da carreira e imagens do mercado
+
+- Novas propostas regionais, freelancer e de companhia têm pagamento recalculado durante a geração conforme nível e reputação persistidos; o ganho por NM favorece serviços de curta distância. Contratos já aceitos não mudam.
+- Mudança de versão do gerador de ofertas faz a primeira atualização de mercado aplicar o novo cálculo sem sobrescrever saves ou pagamentos já realizados.
+- C172, Baron G58, King Air 350i e Citation CJ4 agora têm ilustrações originais em SVG no catálogo, sem downloads ou créditos externos; C152 mantém a fotografia autorizada com crédito.
+- Etiqueta NEW na aba Novas e nas miniaturas da lista.
+- Ficha central com rolagem própria, imagens limitadas em altura e rodapé sem texto duplicado.
+- Preservadas regras MSFS-only, integridade financeira/SQLite e SimConnect.
+
+## v0.8.1 Midnight Ops Alpha.1 — Mercado de Aeronaves e reconexão discreta
+
+- A v0.8.0 Frota/Hangar, testada pelo piloto, é integrada à `main` e passa a ser a base estável.
+- Tela de Mercado de Aeronaves separada do mercado de contratos e da Frota, com abas novas/usadas/aluguel/venda, preview e caixa da carreira.
+- Cotações produzidas pelo motor econômico, checkout com confirmação explícita, operações no worker Tk proprietário e resultado informado no painel.
+- Validação de aeródromos exclusivamente do MSFS da sessão, proximidade, pouso, ausência de missão ativa, disponibilidade semanal de usada e saldo suficiente.
+- Vendas limitadas a exemplares adquiridos no aeródromo onde se encontram, starter e legados protegidos. Aluguéis não entram na Frota própria.
+- Solicitações financeiras com token único persistido em `fleet_market_requests`, atomicamente com a transação de compra/aluguel/venda.
+- Falha de conexão ao SimConnect registrada uma vez por período de indisponibilidade, mantendo as tentativas automáticas e os demais avisos.
+- Regressões novas de backend, segurança HTTP e interface Playwright do mercado.
+
 ## v0.8.0 Midnight Ops Alpha.1 — Bloco 1 Frota / Hangar
 
 - v0.7.8.2 homologada pelo piloto integrada à main, sem alterar o save.

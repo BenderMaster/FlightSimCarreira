@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib
 import random
 from dataclasses import dataclass
+import re
 from time import time, time_ns
 from .finance import AIRCRAFT_ECONOMY
 
@@ -39,6 +40,13 @@ def used_market(airport: str, week: int, count: int = 5) -> list[UsedOffer]:
     return offers
 
 
+def rental_fee(code: str, hours: int) -> int:
+    """Cotação única usada pelo Mercado e pelo caixa da carreira."""
+    if code not in AIRCRAFT_ECONOMY:raise ValueError('Modelo desconhecido')
+    if type(hours) is not int or not 1<=hours<=168:raise ValueError('Aluguel permitido de 1 a 168 horas')
+    return max(100,round(AIRCRAFT_ECONOMY[code].purchase_price*.0018*hours/24/10)*10)
+
+
 def resale_price(aircraft: dict) -> int:
     model=AIRCRAFT_ECONOMY[aircraft['code']]
     if aircraft['kind']=='starter':
@@ -66,6 +74,7 @@ def init_fleet(conn):
         aircraft_title TEXT NOT NULL, airport TEXT NOT NULL,
         expires_utc REAL NOT NULL, price_paid INTEGER NOT NULL,
         created_utc REAL NOT NULL);
+    CREATE TABLE IF NOT EXISTS fleet_market_requests (request_id TEXT PRIMARY KEY, operation TEXT NOT NULL, created_utc REAL NOT NULL);
     CREATE TABLE IF NOT EXISTS fleet_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT, aircraft_ref TEXT NOT NULL,
         kind TEXT NOT NULL, description TEXT NOT NULL, occurred_utc REAL NOT NULL);
@@ -107,7 +116,17 @@ class FleetManager:
     def selected(self):
         return self.get(self.db.get_setting('active_aircraft_ref') or '')
 
-    def purchase(self, code, airport='SBRF', *, offer: UsedOffer | None=None):
+    def _claim_request(self, request_id, action):
+        if request_id is None:return
+        if (not isinstance(request_id,str) or
+                re.fullmatch(r'[a-f0-9-]{36}',request_id) is None):
+            raise ValueError('Identificador de transação inválido')
+        if self.conn.execute('SELECT 1 FROM fleet_market_requests WHERE request_id=?',(request_id,)).fetchone():
+            raise ValueError('Esta solicitação financeira já foi processada.')
+        self.conn.execute('INSERT INTO fleet_market_requests(request_id,operation,created_utc) VALUES(?,?,?)',
+                          (request_id,action,time()))
+
+    def purchase(self, code, airport='SBRF', *, offer: UsedOffer | None=None, request_id=None):
         if self.db.get_pilot() is None: raise ValueError('Cadastre um piloto antes de comprar aeronaves.')
         if code not in AIRCRAFT_ECONOMY: raise ValueError('Aeronave desconhecida')
         if offer is not None and (offer.code!=code or offer.airport!=airport):
@@ -116,6 +135,7 @@ class FleetManager:
         price=offer.price if offer else plane.purchase_price
         # IDs de oferta podem ser revendidos? Não: cada oferta pode ser aceita uma vez.
         with self.conn:
+            self._claim_request(request_id,'buy_used' if offer else 'buy_new')
             if offer is not None:
                 already=self.conn.execute('SELECT 1 FROM fleet_log WHERE aircraft_ref=? AND kind=?',(offer.offer_id,'used_purchase')).fetchone()
                 if already: raise ValueError('Esta aeronave usada já foi vendida.')
@@ -133,14 +153,13 @@ class FleetManager:
             self.conn.execute("INSERT INTO settings(key,value) VALUES('active_aircraft_ref',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(unit_ref,))
         return self.get(unit_ref)
 
-    def rent(self, code, airport='SBRF', hours=24):
+    def rent(self, code, airport='SBRF', hours=24, *, request_id=None):
         if self.db.get_pilot() is None: raise ValueError('Cadastre um piloto.')
-        if code not in AIRCRAFT_ECONOMY: raise ValueError('Modelo desconhecido')
-        if not 1 <= hours <= 168: raise ValueError('Aluguel permitido de 1 a 168 horas')
+        fee=rental_fee(code,hours)
         plane=AIRCRAFT_ECONOMY[code]
-        fee=max(100,round(plane.purchase_price*.0018*hours/24/10)*10)
         now=time()
         with self.conn:
+            self._claim_request(request_id,'rent')
             self.db._money_movement(f'rent:{time_ns()}','aluguel',-fee,f'Aluguel {plane.title} por {hours}h')
             cursor=self.conn.execute('INSERT INTO rented_aircraft(code,aircraft_title,airport,expires_utc,price_paid,created_utc) VALUES(?,?,?,?,?,?)',
                   (code,plane.title,airport,now+hours*3600,fee,now))
@@ -148,12 +167,13 @@ class FleetManager:
             self.conn.execute("INSERT INTO settings(key,value) VALUES('active_aircraft_ref',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(ref,))
         return self.get(ref)
 
-    def sell(self, ref):
+    def sell(self, ref, *, request_id=None):
         plane=self.get(ref)
         if not plane or not ref.startswith('unit:'):
             raise ValueError('Somente aeronaves novas/usadas próprias podem ser vendidas; inicial e aluguel são excluídos.')
         price=resale_price(plane)
         with self.conn:
+            self._claim_request(request_id,'sell')
             r=self.conn.execute('DELETE FROM fleet_units WHERE id=?',(int(ref.split(':')[1]),))
             if r.rowcount!=1: raise ValueError('Aeronave indisponível')
             # O exemplar deixa de pertencer à carreira; a foto não pode
