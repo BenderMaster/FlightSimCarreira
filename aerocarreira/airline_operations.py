@@ -13,7 +13,7 @@ from random import Random
 from time import time
 import re
 
-from .employment import EMPLOYER_BY_CODE, weekly_period, OWN_INVESTMENT
+from .employment import EMPLOYER_BY_CODE, weekly_period, OWN_INVESTMENT, vacancies
 from .finance import AIRCRAFT_ECONOMY, flight_operating_cost, market_reward
 from .domain import Mission
 
