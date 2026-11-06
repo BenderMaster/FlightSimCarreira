@@ -39,11 +39,13 @@ function navigate(destination){
  const market=view==='regional'||view==='freelance',
        fleet=view==='fleet',
        aircraftMarket=view==='aircraft_market',planning=view==='planning',
-       module=!market&&!fleet&&!aircraftMarket&&!planning&&view!=='dashboard'&&view!=='details';
+       pilotCare=view==='pilot',
+       module=!market&&!fleet&&!aircraftMarket&&!planning&&!pilotCare&&view!=='dashboard'&&view!=='details';
  document.querySelector('.workspace').dataset.view=view;
  $('market-page').hidden=!market;$('fleet-page').hidden=!fleet;
  $('aircraft-market-page').hidden=!aircraftMarket;
  $('flightops-page').hidden=!planning;
+ $('pilot-career-page').hidden=!pilotCare;
  $('module-page').hidden=!module;$('details').hidden=view!=='details';
  document.querySelectorAll('.nav-item').forEach(button=>{
   const current=view==='details'?previousView:view;
@@ -57,6 +59,7 @@ function navigate(destination){
  if(aircraftMarket)window.FSCAircraftMarket?.render(state,true);
  if(module)renderModuleView(state);
  if(planning)window.FSCFlightOps?.show?.();
+ if(pilotCare)window.FSCPilotCareer?.show?.();
 }
 document.querySelector('.workspace').dataset.view=view;
 document.addEventListener('click',e=>{
@@ -354,8 +357,17 @@ function renderWeather(s){
   text('weather-destination-values',d?weatherSummary(d):'Aguardando METAR NOAA • MSFS ainda indisponível');
  }
 }
-function render(s){state=s;if(!s.progress)return;const p=s.pilot;const country=s.country==='BR'?'':s.country?' · '+s.country:'';text('callsign',(p?.callsign||'CADASTRAR PILOTO')+country);if(s.country==='BR'){const flag=node('span','flag-br');flag.title='Brasil • país da base';$('callsign').append(flag)}text('qualification',p?({autonomo:'Piloto autônomo',empregado:'Piloto empregado',proprietario:'Companhia própria'}[s.employment]||s.employment)+' • '+s.summary.qualifications.join(' / '):'Crie sua carreira');text('level',p?'NÍVEL '+s.progress.level:'NÍVEL —');text('xp',p?'XP '+s.progress.xp+' / '+s.progress.target+' ('+Math.round(s.progress.fraction*100)+'%)':'XP —');bar('xpbar',s.progress.fraction);text('balance',money(s.balance));text('connection',{connected:'Conectado',reconnecting:'Reconectando',disconnected:'Desconectado'}[s.connection]);$('led').style.background={connected:'#86fc24',reconnecting:'#ffc400',disconnected:'#e06a75'}[s.connection];$('avatar').hidden=!s.avatar;if(s.avatar&&$('avatar').src!==s.avatar)$('avatar').src=s.avatar;
-text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderMarketView(s);renderModuleView(s);renderFleetView(s);window.FSCAircraftMarket?.render(s);window.FSCFlightOps?.render(s);renderSummary(s);
+function render(s){state=s;if(!s.progress)return;const p=s.pilot;const country=s.country==='BR'?'':s.country?' · '+s.country:'';text('callsign',(p?.callsign||'CADASTRAR PILOTO')+country);if(s.country==='BR'){const flag=node('span','flag-br');flag.title='Brasil • país da base';$('callsign').append(flag)}text('qualification',p?({autonomo:'Piloto autônomo',empregado:'Piloto empregado',proprietario:'Companhia própria'}[s.employment]||s.employment)+' • '+s.summary.qualifications.join(' / '):'Crie sua carreira');text('level',p?'NÍVEL '+(s.pilot_career?.level||s.progress.level):'NÍVEL —');text('xp',p?'XP '+s.progress.xp+' / '+s.progress.target+' ('+Math.round(s.progress.fraction*100)+'%)':'XP —');bar('xpbar',s.pilot_career?.is_test&&s.pilot_career?.showcase? s.pilot_career.progress.fraction:s.progress.fraction);text('balance',money(s.balance));text('connection',{connected:'Conectado',reconnecting:'Reconectando',disconnected:'Desconectado'}[s.connection]);$('led').style.background={connected:'#86fc24',reconnecting:'#ffc400',disconnected:'#e06a75'}[s.connection];$('avatar').hidden=!s.avatar;if(s.avatar&&$('avatar').src!==s.avatar)$('avatar').src=s.avatar;
+if(window.FSCPilotCareer && s.pilot_career){
+   const rankHost=$('pc-header-rank'),badgeHost=$('pc-header-medal');
+   rankHost.replaceChildren(window.FSCPilotCareer.rankSvg(s.pilot_career.rank,'small'));
+   rankHost.title=s.pilot_career.rank.title;
+   $('pc-rank-fallback').hidden=true;
+   badgeHost.replaceChildren();
+   if(s.pilot_career.equipped)badgeHost.append(window.FSCPilotCareer.medalSvg(s.pilot_career.equipped));
+   badgeHost.hidden=!s.pilot_career.equipped;
+  }
+  text('market-base',s.market?s.market.icao+' — '+s.market.name:'Cadastre sua base');renderOffers(s);renderMarketView(s);renderModuleView(s);renderFleetView(s);window.FSCAircraftMarket?.render(s);window.FSCFlightOps?.render(s);window.FSCPilotCareer?.render(s);renderSummary(s);
 const m=s.mission;const bonus=s.bonus?.bonus_fraction||0;text('route',m?m.origin+' → '+m.destination:'Selecione uma missão');text('distance',m?'Distância: '+(m.distance===null?'—':number(m.distance)+' NM')+'  |  Prev. voo: '+(m.minutes===null?'—':m.minutes+' min'):'Explore o mercado regional para começar');text('category',m?.category||'');text('reward',m?money(m.reward):'—');text('bonus-value',m?'+'+number(bonus*100,1)+'%':'—');text('mission-status',m?(s.bonus?.frozen?'EM VOO • CONGELADO':'RESERVADO'):'');
 for(const [key,, ,unit] of metricNames){const e=$('metric-'+key);if(key==='phase'){e.textContent=s.phase;e.style.color='#8df63e';continue}e.replaceChildren(document.createTextNode(s.telemetry?number(s.telemetry[key]):'—'),node('small','',' '+unit))}text('telemetry-status',s.mode==='Demo'?'DEMONSTRAÇÃO':s.telemetry?.stale?'ÚLTIMA LEITURA • SEM ATUALIZAÇÃO':s.connection==='connected'?'':'AGUARDANDO MSFS');renderWeather(s);text('log',s.log.slice(-8).join('\n'));$('log').scrollTop=$('log').scrollHeight;text('realism-total',m?'+'+number(bonus*100,1)+'%':'—');
 const labels=['Relógio UTC verificado','Assistência de voo verificada','Pista / iluminação revisada','Rota revisada','Combustível adequado','Peso dentro do limite'];const components=Object.values(s.bonus?.components||{});$('checklist').replaceChildren();labels.forEach((label,i)=>{const sensor=i===0?s.audit?.clock:i===1?s.audit?.assists:undefined;
