@@ -152,6 +152,29 @@
   </div>
   <footer class="page-foot aircraft-market-footer"><button data-action="fleet" class="button">Abrir minha Frota</button></footer>
  </section>
+ <section id="flightops-page" class="page-shell flightops-page card" hidden aria-labelledby="flightops-title">
+  <header class="page-head flightops-head"><div><small class="eyebrow">MIDNIGHT OPS • FLIGHT OPERATIONS</small><h1 id="flightops-title">PLANEJAMENTO DE VOO</h1><p>Voo livre ou contratado, rota VFR e despacho. Nenhum avião é alterado automaticamente.</p></div><div class="flightops-status"><strong id="fo-status">AGUARDANDO ROTA</strong><small id="fo-airport-source">Aguardando aeroportos do MSFS</small></div></header>
+  <div class="flightops-layout">
+   <section class="flightops-route card" aria-label="Editor de rota">
+    <h2>ROTA VFR</h2><div class="flightops-mode"><button class="button primary" id="fo-free" type="button">Voo livre</button><button class="button" id="fo-contract" type="button">Contrato ativo</button></div>
+    <div class="flightops-two"><label>ORIGEM (ICAO)<input id="fo-origin" maxlength="4" autocomplete="off" placeholder="SBRF"></label><label>DESTINO (ICAO)<input id="fo-destination" maxlength="4" autocomplete="off" placeholder="SBJP"></label></div>
+    <label>ALTITUDE DE CRUZEIRO (FT)<input id="fo-altitude" type="number" min="500" max="45000" step="500" value="2500"></label>
+    <div class="flightops-subheading"><strong>WAYPOINTS INTERMEDIÁRIOS</strong><small>Até 8 • coordenadas</small></div><div id="fo-waypoints" class="flightops-waypoints"></div>
+    <div class="flightops-waypoint-inputs"><input id="fo-fix-label" maxlength="12" placeholder="Nome / FIX" aria-label="Nome do waypoint"><input id="fo-fix-lat" type="number" step="any" min="-90" max="90" placeholder="Latitude" aria-label="Latitude"><input id="fo-fix-lon" type="number" step="any" min="-180" max="180" placeholder="Longitude" aria-label="Longitude"></div>
+    <button id="fo-add-fix" class="button" type="button">+ Adicionar ponto</button><div class="flightops-legs"><strong>PERNAS DA ROTA</strong><div id="fo-legs">Salve uma rota para calcular as pernas.</div></div>
+   </section>
+   <section class="flightops-map-panel card" aria-label="Mapa do plano"><div class="flightops-map-heading"><strong>MAPA INTERATIVO</strong><small>Mapa compartilhado com o Dashboard</small></div><div id="flightops-map-slot" class="flightops-map-slot"></div><small>Rota indicativa. Confira procedimentos e obstáculos dentro do MSFS.</small></section>
+   <section class="flightops-dispatch card" aria-label="Despacho operacional"><h2>DESPACHO OPERACIONAL</h2>
+    <div class="flightops-metrics"><div><small>DISTÂNCIA TOTAL</small><strong id="fo-distance">—</strong></div><div><small>TEMPO ESTIMADO</small><strong id="fo-duration">—</strong></div></div>
+    <div class="flightops-block"><strong>AERONAVE / COMBUSTÍVEL</strong><p id="fo-aircraft">Nenhuma aeronave designada</p><div class="flightops-reading"><span>Disponível</span><b id="fo-fuel-available">—</b></div><div class="flightops-reading"><span>Estimado com reserva</span><b id="fo-fuel-required">—</b></div><small id="fo-fuel-status">Aguardando leitura.</small></div>
+    <div class="flightops-block"><strong>METEOROLOGIA</strong><p id="fo-weather-origin">Origem indisponível</p><p id="fo-weather-destination">Destino indisponível</p><small>Informação operacional; sem bônus de clima real.</small></div>
+    <div class="flightops-block"><strong>PESO E CARGA</strong><p id="fo-payload">Sem manifesto contratado</p><div class="flightops-reading"><span>Peso / MTOW</span><b id="fo-weight">—</b></div><small id="fo-weight-status">Sem telemetria verificada.</small></div>
+    <div class="flightops-block flightops-checks"><strong>CHECKLIST PRÉ-VOO</strong><label><input id="fo-check-runway" type="checkbox"> Pista e iluminação conferidas (manual)</label><label><input id="fo-check-route" type="checkbox"> Rota e altitude revisadas (manual)</label><label><input id="fo-check-fuel" type="checkbox"> Combustível e reserva revisados</label><label><input id="fo-check-payload" type="checkbox"> Carga e peso revisados</label><small id="fo-bonus">Bônus somente para contratos, revalidado na decolagem.</small></div>
+    <div class="flightops-block"><strong>STATUS SIMCONNECT</strong><p id="fo-dispatch-state">Plano não enviado</p><small>Envio ao ATC não comprova carregamento no GPS/mapa VFR.</small></div>
+   </section>
+  </div>
+  <footer class="page-foot flightops-footer"><small id="fo-message" role="status">Escolha os aeroportos e salve o planejamento.</small><div class="flightops-actions"><button id="fo-save" class="button primary" type="button">Salvar planejamento</button><button id="fo-export" class="button" type="button">Exportar .PLN</button><button id="fo-send" class="button" type="button">Enviar ao MSFS</button></div></footer>
+ </section>
  <section id="module-page" class="page-shell module-page card" hidden aria-labelledby="module-title">
   <header class="page-head"><div><small class="eyebrow">FLIGHTSIMCARREIRA • PAINEL INTEGRADO</small><h1 id="module-title">MÓDULO</h1><p id="module-description"></p></div></header>
   <div id="module-context" class="module-context" aria-live="polite"></div>
@@ -203,4 +226,4 @@
   <p class="aircraft-checkout-note">Esta operação altera de verdade o saldo e o patrimônio virtual. Nenhum avião será carregado automaticamente no MSFS.</p>
   <footer><button type="button" class="button" id="am-cancel">Cancelar</button><button type="button" class="button primary" id="am-commit">Confirmar operação</button></footer>
  </dialog>
- <div id="toast" role="status"></div><script src="/free-map.js"></script><script src="/app.js"></script><script src="/aircraft-market.js"></script></body></html>
+ <div id="toast" role="status"></div><script src="/free-map.js"></script><script src="/app.js"></script><script src="/aircraft-market.js"></script><script src="/flight-operations.js"></script></body></html>
