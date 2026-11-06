@@ -20,7 +20,7 @@ from .contracts import (AirportCatalog, TYPES, TYPE_BY_CODE, PLANE_BY_CODE,
 from .employment import (EMPLOYER_BY_CODE, vacancies, weekly_period,
     employment_eligibility, generate_employer_routes, OWN_MIN_LEVEL, OWN_INVESTMENT)
 from .flightplan import export_vfr_plan
-from .flight_operations import save as save_flight_operations, read_saved as read_flight_operations, validated as validated_flight_operations, to_mission as flight_operations_mission, SETTING as FLIGHTOPS_SETTING
+from .flight_operations import save as save_flight_operations, read_saved as read_flight_operations, validated as validated_flight_operations, to_mission as flight_operations_mission, route_stats as flightops_route_stats, SETTING as FLIGHTOPS_SETTING
 from .finance import AIRCRAFT_ECONOMY, brl, estimated_minutes
 from .contracts import aircraft_model
 from .fuel import FuelManager
@@ -1602,9 +1602,11 @@ class Application:
             else:
                 active = self.storage.fleet_manager().selected()
                 title = active["title"] if active else (s.aircraft_title if live else "")
+            route = flightops_route_stats(plan, self.airport_catalog, title)
             preflight = Preflight(
                 mission_id=m.id, aircraft_title=title or "",
-                altitude_ft=plan["altitude_ft"], **plan["checks"],
+                altitude_ft=plan["altitude_ft"],
+                planned_distance_nm=route["distance_nm"], **plan["checks"],
                 planned_fuel_gal=s.fuel_gallons if live else None,
                 planned_weight_lbs=s.total_weight_lbs if live else None,
                 max_weight_lbs=s.max_gross_weight_lbs if live else None)
