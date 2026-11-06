@@ -12,7 +12,7 @@ from .dashboard import DashboardPresenter
 from .midnight_server import DashboardServer
 from .fleet_photos import normalize_photo, save_photo, delete_photo, photo_bytes, owned_fleet
 from .aircraft_marketplace import execute_market
-from . import pilot_career
+from . import pilot_career, financial_center
 
 class DashboardController:
     def __init__(self,app):
@@ -217,6 +217,48 @@ class DashboardController:
                                              message=message,action=action)
                 self.presenter.pilot_career_cache=None
                 app._log('PILOTO: '+message)
+        elif action in ('finance_loan','finance_repay','finance_tax','finance_export'):
+            try:
+                if action=='finance_export':
+                    # CSV completo montado na thread Tk (SQLite não é thread-safe).
+                    if cmd.get('id') is not None:
+                        raise ValueError('Exportação não aceita parâmetros.')
+                    csv_bytes=financial_center.export_csv(app.storage)
+                    self.server.set_finance_csv(csv_bytes)
+                    message='Extrato integral preparado para download.'
+                else:
+                    if app.tracker.phase==Phase.AIRBORNE:
+                        raise ValueError('Operações financeiras disponíveis somente em solo.')
+                    value=cmd.get('id')
+                    if action=='finance_tax':
+                        if value not in ('0','1'):
+                            raise ValueError('Opção de imposto inválida.')
+                        app.storage.set_setting('income_tax_enabled',value)
+                        message='Imposto virtual de 4% '+('ativado' if value=='1' else 'desativado')+'.'
+                    else:
+                        import re
+                        if not isinstance(value,str) or not re.fullmatch(
+                            r'(?:0|[1-9][0-9]{0,5})\|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value):
+                            raise ValueError('Formato financeiro inválido.')
+                        amount_str,request_id=value.split('|',1)
+                        amount=int(amount_str)
+                        if action=='finance_loan':
+                            app.storage.take_loan(amount,request_id=request_id)
+                            message='Empréstimo de '+brl(amount)+' contratado. Dívida: '+brl(app.storage.outstanding_loan())+'.'
+                        else:
+                            app.storage.repay_loan(amount,request_id=request_id)
+                            message='Parcela de '+brl(amount)+' quitada. Dívida restante: '+brl(app.storage.outstanding_loan())+'.'
+                    app.career.balance=int(app.storage.get_setting('balance') or 0)
+                    app.balance_var.set(brl(app.career.balance))
+                ok=True
+            except (ValueError,TypeError,KeyError,OSError) as exc:
+                ok=False
+                message='Operação recusada: '+str(exc)
+            app.finance_notice_seq=getattr(app,'finance_notice_seq',0)+1
+            app.finance_notice=dict(seq=app.finance_notice_seq,ok=ok,
+                                    message=message,action=action)
+            self.presenter.finance_cache=None
+            app._log('FINANÇAS: '+message)
         elif action=='prepare':
             if not app.career.mission:
                 app._log('DESPACHO: aceite um contrato antes de preparar plano e carga.');return

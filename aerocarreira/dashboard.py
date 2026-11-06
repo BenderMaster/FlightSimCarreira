@@ -8,7 +8,7 @@ from time import time
 from .contracts import AirportCatalog, generate_offers, eligibility, TYPE_BY_CODE, next_level_xp, aircraft_model, PLANE_BY_CODE
 from .employment import generate_employer_routes
 from .pilot import level_progress
-from . import pilot_career
+from . import pilot_career, financial_center
 from .domain import AIRPORTS, Phase, distance_nm
 from .planning import inspect_preflight, Preflight
 from .flight_operations import read_saved as read_flight_operations, draft as flightops_draft, validated as validate_flightops, route_stats as flightops_stats
@@ -61,6 +61,9 @@ class DashboardPresenter:
         self.offers={}
         self.center=None
         self.market_key=None
+        self.finance_cache=None
+        self.finance_cache_at=0.0
+        self.finance_stamp=None
         self.pilot_career_cache=None
         self.pilot_career_cache_at=0.0
         self.avatar_key=None
@@ -274,7 +277,20 @@ class DashboardPresenter:
             {'id':'principal','name':'Carreira principal','kind':'official'}]
         pc['active_profile']=app.profiles.active()['id'] if getattr(app,'profiles',None) else 'principal'
         pc['notice']=getattr(app,'pilot_career_notice',None)
-        return dict(pilot=pilot,pilot_career=pc,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
+        # A interface consulta a cada 500ms. A consolidação contábil só
+        # é recalculada quando há movimentação (ou a cada 4 segundos).
+        fin_sig=(db.conn.execute(
+            "SELECT COALESCE(MAX(id),0),COUNT(*) FROM finance_ledger").fetchone(),
+            db.get_setting('balance'), db.outstanding_loan(),
+            db.conn.execute("SELECT COUNT(*),COALESCE(SUM(condition),0) FROM fleet_units").fetchone())
+        if (self.finance_cache is None or fin_sig!=self.finance_stamp or
+                now-self.finance_cache_at>4):
+            self.finance_cache=financial_center.snapshot(db)
+            self.finance_stamp=fin_sig
+            self.finance_cache_at=now
+        finances=dict(self.finance_cache)
+        finances['notice']=getattr(app,'finance_notice',None)
+        return dict(financial_center=finances,pilot=pilot,pilot_career=pc,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
             status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,

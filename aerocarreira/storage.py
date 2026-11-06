@@ -112,6 +112,8 @@ class Storage:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 principal INTEGER NOT NULL, debt INTEGER NOT NULL,
                 created_utc REAL NOT NULL, CHECK(debt >= 0));
+            CREATE TABLE IF NOT EXISTS finance_requests (
+                request_id TEXT PRIMARY KEY, action TEXT NOT NULL, created_utc REAL NOT NULL);
         """)
         # Bloco 5: frota individual sem substituir a tabela de aeronaves antigas.
         if existing:
@@ -449,26 +451,53 @@ class Storage:
             self.conn.execute('UPDATE owned_aircraft SET insured=? WHERE code=?',(1 if enabled else 0,code))
             return balance
 
-    def take_loan(self, principal: int) -> int:
-        if not isinstance(principal,int) or principal < 1000 or principal > 30000:
-            raise ValueError('Financiamento permitido: R$ 1.000 a R$ 30.000.')
-        if self.conn.execute('SELECT 1 FROM loans WHERE debt>0').fetchone():
-            raise ValueError('Quite o financiamento anterior primeiro.')
+    def _finance_request(self, request_id: str | None, action: str) -> None:
+        """Idempotency on money-moving WebView operations, inside the SQLite transaction."""
+        if request_id is None:
+            return  # legacy Tk callers continue to work unchanged
+        import re
+        if not isinstance(request_id,str) or not re.fullmatch(
+                r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
+                request_id):
+            raise ValueError('Identificador financeiro inválido.')
+        exists=self.conn.execute(
+            'SELECT 1 FROM finance_requests WHERE request_id=?',
+            (request_id,)).fetchone()
+        if exists:
+            raise ValueError('Esta operação financeira já foi processada.')
+        self.conn.execute(
+            'INSERT INTO finance_requests(request_id,action,created_utc) VALUES(?,?,?)',
+            (request_id,action,time()))
+
+    def take_loan(self, principal: int, *, request_id: str | None = None) -> int:
+        if type(principal) is not int or not 1000 <= principal <= 150000:
+            raise ValueError('Financiamento permitido: R$ 1.000 a R$ 150.000.')
         with self.conn:
-            cursor=self.conn.execute('INSERT INTO loans(principal,debt,created_utc) VALUES(?,?,?)',
-                                      (principal,round(principal*1.08),time()))
-            return self._money_movement(f'loan:{cursor.lastrowid}','financiamento',principal,'Crédito de financiamento virtual')
+            self._finance_request(request_id,'loan')
+            if self.conn.execute('SELECT 1 FROM loans WHERE debt>0').fetchone():
+                raise ValueError('Quite o financiamento anterior primeiro.')
+            cursor=self.conn.execute(
+                'INSERT INTO loans(principal,debt,created_utc) VALUES(?,?,?)',
+                (principal,round(principal*1.08),time()))
+            return self._money_movement(
+                f'loan:{cursor.lastrowid}', 'financiamento',principal,
+                'Crédito de financiamento virtual')
 
     def outstanding_loan(self) -> int:
-        return int(self.conn.execute('SELECT COALESCE(SUM(debt),0) FROM loans').fetchone()[0])
+        return int(self.conn.execute(
+            'SELECT COALESCE(SUM(debt),0) FROM loans').fetchone()[0])
 
-    def repay_loan(self, amount: int) -> int:
-        row=self.conn.execute('SELECT id,debt FROM loans WHERE debt>0 ORDER BY id LIMIT 1').fetchone()
-        if row is None: raise ValueError('Sem empréstimo em aberto.')
-        if not isinstance(amount,int) or amount<=0 or amount>row[1]:
-            raise ValueError(f'Parcela deve ser de R$ 1 até {brl(row[1])}.')
+    def repay_loan(self, amount: int, *, request_id: str | None = None) -> int:
         with self.conn:
-            balance=self._money_movement(f'loan-repay:{row[0]}:{time_ns()}', 'parcela',-amount,'Pagamento financiamento')
+            self._finance_request(request_id,'repay')
+            row=self.conn.execute(
+                'SELECT id,debt FROM loans WHERE debt>0 ORDER BY id LIMIT 1').fetchone()
+            if row is None:
+                raise ValueError('Sem empréstimo em aberto.')
+            if type(amount) is not int or amount <= 0 or amount > row[1]:
+                raise ValueError(f'Parcela deve ser de R$ 1 até {brl(row[1])}.')
+            key=f'loan-repay:{row[0]}:{request_id or time_ns()}'
+            balance=self._money_movement(key,'parcela',-amount,'Pagamento financiamento')
             self.conn.execute('UPDATE loans SET debt=debt-? WHERE id=?',(amount,row[0]))
             return balance
 

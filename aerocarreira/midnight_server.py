@@ -15,7 +15,8 @@ ACTIONS={'pilot','market','fleet','planning','finance','employment','history','r
          'aircraft_buy_new','aircraft_buy_used','aircraft_rent','aircraft_sell',
          'flightops_save','flightops_export','flightops_send','flightops_clear',
          'pilot_profile_create','pilot_profile_update','pilot_profile_switch',
-         'pilot_profile_reset','pilot_showcase','pilot_medal_equip','pilot_license_claim'}
+         'pilot_profile_reset','pilot_showcase','pilot_medal_equip','pilot_license_claim',
+         'finance_loan','finance_repay','finance_tax','finance_export'}
 ASSETS=Path(__file__).with_name('midnight')
 class DashboardServer:
     def __init__(self):
@@ -23,6 +24,7 @@ class DashboardServer:
         self.commands=Queue(maxsize=32)
         self.state=b'{}'
         self.photos={}
+        self.finance_csv=None
         self.photo_lock=threading.RLock()
         owner=self
         class Handler(BaseHTTPRequestHandler):
@@ -40,13 +42,19 @@ class DashboardServer:
                 if not self.valid_host():self.reply(403,b'{}');return
                 if self.path=='/state':
                     self.reply(200,owner.state) if self.authorized() else self.reply(403,b'{}');return
+                if self.path=='/finance-export':
+                    if not self.authorized():self.reply(403,b'{}');return
+                    with owner.photo_lock:
+                        data=owner.finance_csv
+                    self.reply(200,data,'text/csv; charset=utf-8') if data is not None else self.reply(404,b'{}')
+                    return
                 match=re.fullmatch(r'/fleet-photo/([0-9a-f]{64})\.jpg(?:\?v=[0-9]{1,24})?',self.path)
                 if match:
                     with owner.photo_lock:
                         jpeg=owner.photos.get(match.group(1))
                     self.reply(200,jpeg,'image/jpeg') if jpeg else self.reply(404,b'{}')
                     return
-                paths={'/brand-icon.png':('brand-icon.png','image/png'),'/scenery.jpg':('scenery.jpg','image/jpeg'),'/c152.jpg':('c152.jpg','image/jpeg'),'/market-c172.jpg':('market-c172.jpg','image/jpeg'),'/market-g58.jpg':('market-g58.jpg','image/jpeg'),'/market-kingair.jpg':('market-kingair.jpg','image/jpeg'),'/market-cj4.jpg':('market-cj4.jpg','image/jpeg'),'/':('index.html','text/html; charset=utf-8'),'/style.css':('style.css','text/css'),'/app.js':('app.js','text/javascript'),'/aircraft-market.js':('aircraft-market.js','text/javascript'),'/flight-operations.js':('flight-operations.js','text/javascript'),'/pilot-career.js':('pilot-career.js','text/javascript'),'/free-map.js':('free-map.js','text/javascript'),'/vendor/maplibre-gl.js':('vendor/maplibre-gl.js','text/javascript'),'/vendor/maplibre-gl.css':('vendor/maplibre-gl.css','text/css'),'/scenery.svg':('scenery.svg','image/svg+xml'),'/fonts/BarlowSemiCondensed-Regular.ttf':('fonts/BarlowSemiCondensed-Regular.ttf','font/ttf'),'/fonts/BarlowSemiCondensed-SemiBold.ttf':('fonts/BarlowSemiCondensed-SemiBold.ttf','font/ttf')}
+                paths={'/brand-icon.png':('brand-icon.png','image/png'),'/scenery.jpg':('scenery.jpg','image/jpeg'),'/c152.jpg':('c152.jpg','image/jpeg'),'/market-c172.jpg':('market-c172.jpg','image/jpeg'),'/market-g58.jpg':('market-g58.jpg','image/jpeg'),'/market-kingair.jpg':('market-kingair.jpg','image/jpeg'),'/market-cj4.jpg':('market-cj4.jpg','image/jpeg'),'/':('index.html','text/html; charset=utf-8'),'/style.css':('style.css','text/css'),'/app.js':('app.js','text/javascript'),'/aircraft-market.js':('aircraft-market.js','text/javascript'),'/flight-operations.js':('flight-operations.js','text/javascript'),'/pilot-career.js':('pilot-career.js','text/javascript'),'/finance-center.js':('finance-center.js','text/javascript'),'/free-map.js':('free-map.js','text/javascript'),'/vendor/maplibre-gl.js':('vendor/maplibre-gl.js','text/javascript'),'/vendor/maplibre-gl.css':('vendor/maplibre-gl.css','text/css'),'/scenery.svg':('scenery.svg','image/svg+xml'),'/fonts/BarlowSemiCondensed-Regular.ttf':('fonts/BarlowSemiCondensed-Regular.ttf','font/ttf'),'/fonts/BarlowSemiCondensed-SemiBold.ttf':('fonts/BarlowSemiCondensed-SemiBold.ttf','font/ttf')}
                 if self.path not in paths:self.reply(404,b'{}');return
                 name,mime=paths[self.path];asset=ASSETS/name
                 if not asset.is_file():self.reply(404,b'{}');return
@@ -110,6 +118,10 @@ class DashboardServer:
     def remove_photo(self,ref):
         with self.photo_lock:
             self.photos.pop(self._photo_key(ref),None)
+
+    def set_finance_csv(self,content):
+        with self.photo_lock:
+            self.finance_csv=content
 
     def start(self):self.thread.start()
     def publish(self,state):self.state=json.dumps(state,ensure_ascii=False,allow_nan=False).encode()
