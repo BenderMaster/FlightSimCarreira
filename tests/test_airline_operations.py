@@ -158,8 +158,11 @@ class AirlineOperationsTests(unittest.TestCase):
         self.assertEqual(self.db.company_business()['operations'],1)
         self.assertGreater(self.db.company_business()['balance'],company_before)
         self.assertEqual(self.db.conn.execute("SELECT reward FROM flights ORDER BY id DESC LIMIT 1").fetchone()[0],0)
-        self.assertEqual(self.db.conn.execute(
-            'SELECT COUNT(*),COALESCE(SUM(xp),0) FROM pilot_xp_ledger').fetchone(),xp_before)
+        xp_after=self.db.conn.execute(
+            'SELECT COUNT(*),COALESCE(SUM(xp),0) FROM pilot_xp_ledger').fetchone()
+        # Flight history keeps an explicit zero-XP record for auditability.
+        self.assertEqual(xp_after[0],xp_before[0]+1)
+        self.assertEqual(xp_after[1],xp_before[1])
         self.assertFalse(self.db.finalize_flight(takeoff,arrival,-170,0,mission.id,mission.reward,ck,
             aircraft_title='Cessna 172 Skyhawk',destination=mission.destination))
         self.assertEqual(self.db.company_business()['operations'],1)
