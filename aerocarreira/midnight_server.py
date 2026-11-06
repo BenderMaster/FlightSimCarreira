@@ -1,5 +1,6 @@
 """Private loopback transport. Token authentication, same-origin writes, bounded queue."""
 import json
+import base64
 import hashlib
 import hmac
 import re
@@ -58,6 +59,14 @@ class DashboardServer:
                 paths={'/brand-icon.png':('brand-icon.png','image/png'),'/scenery.jpg':('scenery.jpg','image/jpeg'),'/c152.jpg':('c152.jpg','image/jpeg'),'/market-c172.jpg':('market-c172.jpg','image/jpeg'),'/market-g58.jpg':('market-g58.jpg','image/jpeg'),'/market-kingair.jpg':('market-kingair.jpg','image/jpeg'),'/market-cj4.jpg':('market-cj4.jpg','image/jpeg'),'/':('index.html','text/html; charset=utf-8'),'/style.css':('style.css','text/css'),'/app.js':('app.js','text/javascript'),'/aircraft-market.js':('aircraft-market.js','text/javascript'),'/flight-operations.js':('flight-operations.js','text/javascript'),'/pilot-career.js':('pilot-career.js','text/javascript'),'/finance-center.js':('finance-center.js','text/javascript'),'/airline-operations.js':('airline-operations.js','text/javascript'),'/achievement-unlock.mp3':('achievement-unlock.mp3','audio/mpeg'),'/free-map.js':('free-map.js','text/javascript'),'/vendor/maplibre-gl.js':('vendor/maplibre-gl.js','text/javascript'),'/vendor/maplibre-gl.css':('vendor/maplibre-gl.css','text/css'),'/scenery.svg':('scenery.svg','image/svg+xml'),'/fonts/BarlowSemiCondensed-Regular.ttf':('fonts/BarlowSemiCondensed-Regular.ttf','font/ttf'),'/fonts/BarlowSemiCondensed-SemiBold.ttf':('fonts/BarlowSemiCondensed-SemiBold.ttf','font/ttf')}
                 if self.path not in paths:self.reply(404,b'{}');return
                 name,mime=paths[self.path];asset=ASSETS/name
+                if self.path=='/achievement-unlock.mp3' and not asset.is_file():
+                    encoded=ASSETS/'achievement-unlock.mp3.b64'
+                    if not encoded.is_file():self.reply(404,b'{}');return
+                    try:
+                        data=base64.b64decode(encoded.read_text(encoding='ascii'),validate=True)
+                    except (ValueError,base64.binascii.Error):
+                        self.reply(404,b'{}');return
+                    self.reply(200,data,mime);return
                 if not asset.is_file():self.reply(404,b'{}');return
                 self.reply(200,asset.read_bytes(),mime)
             def do_POST(self):
