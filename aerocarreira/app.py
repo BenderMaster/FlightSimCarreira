@@ -1631,6 +1631,18 @@ class Application:
         self._log(f"FLIGHT OPS: planejamento {plan['mode']} salvo: {plan['origin']} → {plan['destination']}.")
         return "Planejamento e checklist salvos. Revalidação automática na decolagem."
 
+    def _flightops_clear(self):
+        if self.tracker.phase == Phase.AIRBORNE:
+            raise ValueError("Não limpe o plano durante o voo.")
+        self.storage.set_setting(FLIGHTOPS_SETTING,"")
+        if self.career.mission:
+            self.storage.set_setting("preflight_v1","")
+            if self.dispatch_state.get("mission_id")==self.career.mission.id:
+                self.dispatch_state["route"]="pending"
+        self._checkpoint(force=True)
+        self._log("FLIGHT OPS: rascunho apagado; contrato, caixa e voos preservados.")
+        return "Plano limpo. Contrato e registros preservados."
+
     def _flightops_export(self, *, send=False):
         plan = self._flightops_read_valid()
         mission = flight_operations_mission(plan, self.airport_catalog, self.career.mission)
