@@ -57,5 +57,5 @@ jobs:
         run: .\\dist\\FlightSimCarreira\\FlightSimCarreira.exe --verify-native-webview
       - uses: actions/upload-artifact@v4
         with:
-          name: FlightSimCarreira-0.8.3-midnight-alpha1-Windows
+          name: FlightSimCarreira-0.8.3-midnight-alpha2-Windows
           path: dist/FlightSimCarreira/
