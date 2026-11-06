@@ -32,9 +32,9 @@
 </defs></svg>
 <header class="header pywebview-drag-region">
  <div class="brand"><span class="logo"><img src="/brand-icon.png" alt="FlightSimCarreira" width="64" height="64"></span><div><strong>FLIGHTSIM<span>CARREIRA</span></strong><small>SISTEMA DE CARREIRA PARA MSFS</small></div></div>
- <button class="avatar" data-action="avatar" title="Carregar ou trocar foto do piloto"><svg><use href="#i-user"/></svg><img id="avatar" alt="Foto escolhida pelo piloto" hidden></button>
+ <button class="avatar" data-action="avatar" title="Carregar ou trocar foto do piloto"><svg><use href="#i-user"/></svg><img id="avatar" alt="Foto escolhida pelo piloto" hidden><span id="pc-header-medal" class="pc-header-medal" hidden></span></button>
  <button class="identity plain" data-action="pilot"><strong id="callsign">CADASTRAR PILOTO</strong><span id="qualification">Crie sua carreira</span></button>
- <div class="level"><svg class="rank"><use href="#i-badge"/></svg><div><div class="spread"><strong id="level">NÍVEL —</strong><small id="xp">XP —</small></div><div class="progress"><i id="xpbar"></i></div></div></div>
+ <div class="level"><svg class="rank" id="pc-rank-fallback"><use href="#i-badge"/></svg><span id="pc-header-rank" class="pc-header-rank" aria-label="Patente atual"></span><div><div class="spread"><strong id="level">NÍVEL —</strong><small id="xp">XP —</small></div><div class="progress"><i id="xpbar"></i></div></div></div>
  <button class="cash card" data-action="finance"><svg><use href="#i-coins"/></svg><span><small>CAIXA DA CARREIRA</small><strong id="balance">—</strong></span></button>
  <button class="connection card" data-action="settings"><span class="led" id="led"></span><div><b>SIMCONNECT</b><small id="connection">Desconectado</small></div></button>
  <button class="settings icon-button" data-action="settings" title="Configurações"><svg><use href="#i-gear"/></svg></button>
