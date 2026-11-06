@@ -161,7 +161,13 @@ function licenses(pc){
   const footer=n('div','pc-license-foot');
   footer.append(n('span','',q.status==='earned'?'EMITIDA':q.status==='available'?'REQUISITOS ATENDIDOS':'EM PROGRESSO'));
   footer.append(n('strong','',q.date?new Date(q.date*1000).toLocaleDateString('pt-BR'):q.requirements));
-  card.append(footer);root.append(card);
+  card.append(footer);
+  if(q.status==='available'&&!pc.is_test){
+   const button=n('button','button pc-license-claim','Conquistar certificado');
+   button.onclick=()=>act('pilot_license_claim',undefined,q.code);
+   card.append(button);
+  }
+  root.append(card);
  });
 }
 function graphSvg(title,data,kind){
