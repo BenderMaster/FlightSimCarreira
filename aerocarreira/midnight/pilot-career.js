@@ -13,49 +13,132 @@ const n=(tag,cls,text)=>{const x=document.createElement(tag);if(cls)x.className=
 const make=(tag,attrs={},text)=>{const s=document.createElementNS(xns,tag);for(const [k,v] of Object.entries(attrs))s.setAttribute(k,String(v));if(text!=null)s.textContent=text;return s};
 const add=(p,...c)=>{c.forEach(x=>p.append(x));return p};
 function rankSvg(rank,dim='normal'){
- const key=rank?.code||'soldado2', names=['soldado2','soldado1','cabo','sargento3','sargento2','sargento1','suboficial','aspirante',
+ const names=['soldado2','soldado1','cabo','sargento3','sargento2','sargento1','suboficial','aspirante',
   'tenente2','tenente1','capitao','major','tenente_coronel','coronel','brigadeiro','major_brigadeiro','tenente_brigadeiro','marechal'];
- const idx=Math.max(0,names.indexOf(key)),officer=idx>=7;
- const svg=make('svg',{viewBox:'0 0 140 116',role:'img','aria-label':rank?.title||'Distintivo',class:'pc-rank-svg '+dim});
+ const key=rank?.code||'soldado2',idx=Math.max(0,names.indexOf(key)),officer=idx>=7;
+ // Prancha vertical estreita, sem esticar o SVG: preserva as estrelas e os galões.
+ const svg=make('svg',{viewBox:'0 0 110 128',role:'img','aria-label':rank?.title||'Distintivo',class:'pc-rank-svg '+dim});
  const g=make('g',{});
- add(g,make('path',{d:officer?'M13 33L32 14H128V92L108 105H13Z':'M14 12H126V90L70 110L14 90Z',
-  fill:'#08213B',stroke:'#c1d4dc','stroke-width':3.5}),
-  make('path',{d:officer?'M21 37L36 22H118V86L105 96H21Z':'M24 23H116V85L70 100L24 85Z',
-  fill:'#103d65',stroke:'#416a88','stroke-width':1.5}),
-  make('path',{d:'M30 30H110',stroke:'#ffffff','stroke-opacity':'.24','stroke-width':2}));
+ const rim=officer?'M23 33L40 13H86V108L69 116H23Z':'M24 13H86V90L55 113L24 90Z';
+ const inner=officer?'M30 37L44 22H78V103L66 108H30Z':'M31 22H79V85L55 102L31 85Z';
+ add(g,make('path',{d:rim,fill:'#071b32',stroke:idx>=14?'#dcb973':'#b3cedc','stroke-width':2.7,'stroke-linejoin':'round'}),
+  make('path',{d:inner,fill:'#103956',stroke:'#45748c','stroke-width':1.5}),
+  make('path',{d:'M34 27H75',stroke:'#d9f5ff','stroke-opacity':'.23','stroke-width':1.4}));
  if(!officer){
-  const bars=Math.min(6,1+idx);
+  const bars=Math.min(6,idx+1);
   for(let i=0;i<bars;i++){
-   const yy=35+i*9;
-   g.append(make('path',{d:'M28 '+yy+'L70 '+(yy+16)+'L112 '+yy,fill:'none',
-    stroke:idx>4?'#D5B976':'#DAE8EF','stroke-width':5,'stroke-linejoin':'round'}));
+   const y=34+i*10;
+   g.append(make('path',{d:'M35 '+y+'L55 '+(y+12)+'L75 '+y,fill:'none',
+    stroke:idx>=5?'#d9bc82':'#deedf3','stroke-width':4,'stroke-linecap':'round','stroke-linejoin':'round'}));
   }
- } else {
-  if(idx>=12){g.append(make('path',{d:'M28 23L43 95M50 23L65 95',stroke:'#d6b876','stroke-width':4}));}
+  if(idx===6)g.append(make('circle',{cx:55,cy:29,r:4.5,fill:'#e7d7a7',stroke:'none'}));
+ }else{
   const stars=idx===7?1:idx===8?1:idx===9?2:idx===10?3:idx===11?1:idx===12?2:idx===13?3:idx===14?1:idx===15?2:idx===16?3:4;
+  if(idx>=11&&idx<=13)g.append(make('path',{d:'M36 45V94M41 45V94',stroke:'#d6bb80','stroke-width':2}));
+  if(idx>=14)g.append(make('path',{d:'M33 38H75M33 43H75',stroke:'#d1ae64','stroke-width':2}));
   for(let i=0;i<stars;i++){
-   const col=i%3,row=Math.floor(i/3);
-   const cx=41+col*29,cy=idx>=14?52+row*23:57+row*23;
+   const cx=stars===1?55:(stars===2?43+i*24:stars===3?39+i*16:42+(i%2)*25);
+   const cy=stars===4?59+Math.floor(i/2)*25:stars===3?69:65;
    const points=Array.from({length:10},(_,j)=>{
-    const a=-Math.PI/2+j*Math.PI/5,r=j%2?5.5:12;
-    return (cx+Math.cos(a)*r)+','+(cy+Math.sin(a)*r);
+    const a=-Math.PI/2+j*Math.PI/5,r=j%2?3.5:8;
+    return (cx+Math.cos(a)*r).toFixed(1)+','+(cy+Math.sin(a)*r).toFixed(1);
    }).join(' ');
-   g.append(make('polygon',{points,fill:'#F7E8B4',stroke:'#a37e37','stroke-width':1}));
+   g.append(make('polygon',{points,fill:'#f5df9e',stroke:'#957546','stroke-width':.9}));
   }
  }
  svg.append(g);return svg;
 }
+let medalSerial=0;
 function medalSvg(code,state='earned'){
- const svg=make('svg',{viewBox:'0 0 118 126',role:'img','aria-label':'Medalha '+code,class:'pc-medal-svg'});
- const variant=['#f7cb6c','#6de2ee','#e9ad9f','#bbd0ec'][Math.abs(Array.from(code||'').reduce((s,c)=>s+c.charCodeAt(0),0))%4];
- add(svg,make('path',{d:'M35 3H55L69 45H48Z',fill:'#124c75',stroke:'#6bbdd6','stroke-width':2}),
- make('path',{d:'M63 3H83L67 45H49Z',fill:'#742e42',stroke:'#dc8e88','stroke-width':2}),
- make('circle',{cx:59,cy:78,r:41,fill:'#0e2b41',stroke:variant,'stroke-width':5}),
- make('circle',{cx:59,cy:78,r:32,fill:'#123c5a',stroke:'#f5e4ad','stroke-width':1.7}),
- make('path',{d:'M59 49L67 69L89 71L72 85L78 105L59 92L40 105L46 85L29 71L51 69Z',
- fill:variant,stroke:'#fff3c9','stroke-width':1.2}),
- make('circle',{cx:59,cy:78,r:6,fill:'#153a53'}));
- if(state!=='earned')svg.setAttribute('opacity',state==='available'?'.72':'.38');
+ const titles={
+ first_flight:'Primeiro Voo',ten_flights:'10 Voos',twentyfive_flights:'25 Voos',
+ veteran:'Veterano',hundred_hours:'100 Horas',first_contract:'Primeiro Contrato',
+ ten_contracts:'10 Contratos',reputation70:'Reputação 70',reputation90:'Reputação 90',
+ first_job:'Primeiro Emprego',first_plane:'Primeira Aeronave',
+ three_planes:'Frota Estabelecida',first_license:'Habilitação Avançada'
+ };
+ const themes={
+ first_flight:['#67d9ee','#d5edf5','#164d67'],ten_flights:['#a3cfed','#dceef4','#174461'],
+ twentyfive_flights:['#cbb7f0','#f3e6fc','#433f7a'],veteran:['#edc476','#fff0b3','#765223'],
+ hundred_hours:['#92d9e6','#edf8f4','#235568'],
+ first_contract:['#95bcdf','#e3edf8','#264969'],ten_contracts:['#dfb574','#fff1d0','#6a482c'],
+ reputation70:['#8be2c8','#e1fff0','#165f55'],reputation90:['#f9d66b','#fff9cd','#8b5515'],
+ first_job:['#a5bedb','#ecf4ff','#234b7c'],first_plane:['#e7bf7e','#fff2c8','#6e512e'],
+ three_planes:['#c5d4f6','#f2f7ff','#2b4c76'],first_license:['#d9c8e7','#fff2f4','#65486e']
+ };
+ const [metal,light,dark]=themes[code]||['#f1c87a','#fff7d5','#6e522e'];
+ const id='pc-medal-gradient-'+(++medalSerial);
+ const svg=make('svg',{viewBox:'0 0 118 126',role:'img','aria-label':'Medalha: '+(titles[code]||code),class:'pc-medal-svg pc-medal-'+code});
+ const defs=make('defs'),gradient=make('linearGradient',{id,x1:'0',x2:'1',y1:'0',y2:'1'});
+ gradient.append(make('stop',{offset:'0%', 'stop-color':light}),make('stop',{offset:'52%','stop-color':metal}),make('stop',{offset:'100%','stop-color':dark}));
+ defs.append(gradient);svg.append(defs);
+ const fillMetal='url(#'+id+')';
+ const path=(d,fill='none',stroke='none',width=2)=>svg.append(make('path',{d,fill,stroke,'stroke-width':width,'stroke-linecap':'round','stroke-linejoin':'round'}));
+ const line=(d,color=metal,width=2)=>path(d,'none',color,width);
+ const text=(s,x,y,size=15,color=light,weight=800)=>svg.append(make('text',{x,y,'font-family':'Arial,sans-serif','font-size':size,'font-weight':weight,'text-anchor':'middle',fill:color,stroke:'none'},String(s)));
+ const circle=(cx,cy,r,fill,stroke='none',w=1)=>svg.append(make('circle',{cx,cy,r,fill,stroke,'stroke-width':w}));
+ const plane=(x,y,scale=1)=>svg.append(make('path',{d:'M'+(x-18*scale)+' '+(y+5*scale)+'l'+(15*scale)+' '+(-6*scale)+'v'+(-10*scale)+'q'+(3*scale)+' '+(-5*scale)+' '+(6*scale)+' 0v'+(10*scale)+'l'+(15*scale)+' '+(6*scale)+'v'+(6*scale)+'l'+(-15*scale)+' '+(-3*scale)+'v'+(10*scale)+'l'+(6*scale)+' '+(4*scale)+'v'+(4*scale)+'l'+(-10*scale)+' '+(-2*scale)+'l'+(-10*scale)+' '+(2*scale)+'v'+(-4*scale)+'l'+(6*scale)+' '+(-4*scale)+'v'+(-10*scale)+'l'+(-15*scale)+' '+(3*scale)+'Z',fill:light,stroke:dark,'stroke-width':1,'stroke-linejoin':'round'}));
+ // Fita e aro compartilhados; o interior é diferente para cada conquista.
+ path('M34 3H54L67 42H48Z','#16435e',metal,1.5);
+ path('M64 3H84L70 42H51Z','#803948',metal,1.5);
+ circle(59,80,40,'#092537',metal,4.4);
+ circle(59,80,33,fillMetal,light,1.3);
+ circle(59,80,29,dark,metal,1.2);
+ line('M40 56Q59 44 78 56',light,1.15);
+ line('M40 103Q59 114 78 103',light,1.15);
+ switch(code){
+  case 'first_flight':
+   path('M31 97L87 97', 'none',light,2);
+   line('M37 92L76 63',metal,2.5);plane(61,73,.75);text('1º',59,99,16);break;
+  case 'ten_flights':case 'twentyfive_flights':case 'veteran':
+   line('M35 92Q26 72 42 57M83 92Q92 72 76 57',metal,3);
+   for(const y of [65,75,85]){path('M39 '+y+'l-8 -4 3 10Z',metal);path('M79 '+y+'l8 -4 -3 10Z',metal);}
+   text(code==='ten_flights'?'10':code==='twentyfive_flights'?'25':'50',59,88,25);
+   text(code==='veteran'?'VET': 'VOOS',59,100,8);break;
+  case 'hundred_hours':
+   circle(59,76,22,'#132f43',light,2);
+   for(const a of [0,90,180,270]){const rad=a*Math.PI/180;line('M'+(59+18*Math.cos(rad))+' '+(76+18*Math.sin(rad))+'L'+(59+21*Math.cos(rad))+' '+(76+21*Math.sin(rad)),metal,2);}
+   line('M59 76L59 61M59 76L71 83',light,2.7);text('100h',59,108,12);break;
+  case 'first_contract':case 'ten_contracts':
+   path('M42 58H69L78 67V99H42Z','#e3e8e3',metal,2);
+   path('M69 58V67H78',dark,metal,1);
+   line('M48 75H69M48 80H66',dark,2);
+   text(code==='first_contract'?'1º':'10',60,95,16,dark);break;
+  case 'reputation70':case 'reputation90':
+   circle(59,73,19,code==='reputation90'?'#6e4818':'#1a554c',light,2);
+   path('M48 73L56 81L72 65','none',light,4);
+   text(code==='reputation90'?'90%':'70%',59,107,18,light);
+   if(code==='reputation90'){for(const x of [35,83]){path('M'+x+' 61l3 7 -3 7 -3 -7Z',light);}}
+   break;
+  case 'first_job':
+   path('M39 69H79V96H39Z','#193d56',light,2);
+   path('M50 69V63Q59 56 68 63V69','none',metal,3);
+   line('M39 78Q59 91 79 78',light,2.3);
+   circle(59,81,5,fillMetal,light,1);break;
+  case 'first_plane':
+   // Aeronave em solo, trem de pouso e marca inaugural.
+   path('M35 87Q44 84 51 83L70 83L84 88L78 92H42Z',light,dark,1.5);
+   line('M49 84L52 73L56 74L56 84',metal,2.5);
+   line('M41 94H81',light,2.5);circle(47,93,3,'#071d2c');circle(75,93,3,'#071d2c');
+   text('1º',59,69,17,light);break;
+  case 'three_planes':
+   path('M33 92V69L59 56L85 69V92Z','#153c56',light,2);
+   path('M40 90V74H78V90', 'none',metal,2);
+   for(const x of [47,59,71]){
+    path('M'+x+' 72v14m-5 -6h10m-8 10h6','none',light,2.6);
+    circle(x,88,1.6,metal);
+   }
+   line('M36 95H82',light,2);break;
+  case 'first_license':
+   path('M42 57H76V94H42Z','#e9e2d4',metal,2);
+   line('M48 64H70M48 70H67',dark,2);
+   circle(60,82,9,fillMetal,dark,1);
+   path('M55 83L59 87L66 78','none',dark,2.5);
+   path('M55 91L52 103L60 99L68 103L65 91',metal);break;
+  default:plane(59,81,.8);
+ }
+ // A medalha bloqueada fica fosca, mas preserva o motivo para revisão de design.
+ if(state!=='earned')svg.classList.add(state==='available'?'pc-medal-available':'pc-medal-locked');
  return svg;
 }
 function stateLabel(status){return {earned:'CONQUISTADA',available:'DISPONÍVEL',locked:'BLOQUEADA'}[status]||status;}
