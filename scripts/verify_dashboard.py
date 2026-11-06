@@ -261,13 +261,19 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#pc-new-admin').is_checked()
             page.locator('#pc-close-profiles').click()
             assert not page.locator('#pc-profiles-dialog').is_visible()
-            # Estados de Admin são prévia de design, sem mutação financeira.
+            # Estados Admin são somente DOM sintético, nunca SQLite.
+            # O polling pode redesenhar o piloto oficial enquanto o teste
+            # aguarda uma animação; manter a fixture APENAS na página Playwright.
             page.evaluate("""() => {
-              const clone=structuredClone(state);
-              clone.pilot_career.is_test=true;
-              clone.pilot_career.showcase={level:90,xp:500000,reputation:90,
-                achievements:{veteran:'earned'},licenses:{PLA:'earned'},rank:'marechal'};
-              FSCPilotCareer.render(clone);
+              const renderOriginal=FSCPilotCareer.render;
+              FSCPilotCareer.render=(fresh)=>{
+                const clone=structuredClone(fresh);
+                clone.pilot_career.is_test=true;
+                clone.pilot_career.showcase={level:90,xp:500000,reputation:90,
+                  achievements:{veteran:'earned'},licenses:{PLA:'earned'},rank:'marechal'};
+                renderOriginal(clone);
+              };
+              FSCPilotCareer.render(state);
             }""")
             page.locator('[data-pc-tab="admin"]').click()
             assert page.locator('#pc-admin-rank-gallery .pc-gallery-rank').count()==18
