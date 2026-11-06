@@ -1,5 +1,5 @@
 <!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FlightSimCarreira — painel experimental</title>
+<title>FlightSim — painel experimental</title>
 <style>
 :root{color-scheme:dark;--bg:#08111c;--panel:#101e2d;--cyan:#54c8d5;--gold:#d4ae6e;--fg:#e4edf5;--muted:#94a8bb}
 *{box-sizing:border-box}body{font:14px 'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--fg);margin:0;padding:14px}
@@ -14,7 +14,7 @@ small{color:var(--muted)}h2{font-size:13px;color:var(--gold);margin:0 0 10px;let
 <section class="panel"><h2>CARREIRA EM VOO</h2><div class="grid"><div class="stat"><label>CAIXA</label><strong id="balance">—</strong></div><div class="stat"><label>FASE</label><strong id="phase">—</strong></div><div class="stat"><label>AERONAVE</label><strong id="plane" style="font-size:14px">—</strong></div><div class="stat"><label>COMBUSTÍVEL</label><strong id="fuel">—</strong></div></div></section>
 <section class="panel"><h2>CONTRATO ATIVO</h2><div id="mission">Nenhum contrato reservado.</div></section>
 <section class="panel"><h2>MAPA DE TRAJETO — ESQUEMA GEOGRÁFICO</h2><svg id="map" viewBox="0 0 700 300" role="img" aria-label="Trajeto e posição do avião"><g id="chart"></g></svg><small>Este NÃO é o mapa VFR oficial: não contém cartas, obstáculos, relevo, pistas, jogadores online nem dados certificados. É somente um traçado de rota com posição.</small></section>
-<footer>Painel experimental somente leitura. Deixe o FlightSimCarreira aberto no Windows. Mapa/toolbar precisam de validação no MSFS Steam.</footer>
+<footer>Painel experimental somente leitura. Deixe o FlightSim aberto no Windows. Mapa/toolbar precisam de validação no MSFS Steam.</footer>
 <script>
 'use strict';
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
