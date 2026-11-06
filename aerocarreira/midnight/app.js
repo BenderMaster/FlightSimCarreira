@@ -453,7 +453,7 @@ for(const p of points){const [x,y]=xy(p);if(x<20||x>880||y<20||y>315)continue;if
   planeTrack=current;
   if(Number.isFinite(s.telemetry?.heading_deg))planeBearing=s.telemetry.heading_deg;
   const planeSize=25;
-  const g=svgNode('g',{transform:`translate(${x},${y}) rotate(${planeBearing-45}) scale(${planeSize/260}) translate(-157,-160)`,'data-heading':Number.isFinite(s.telemetry?.heading_deg)?String(s.telemetry.heading_deg):'indisponível'});
+  const g=svgNode('g',{transform:`translate(${x},${y}) rotate(${planeBearing}) scale(${planeSize/24}) translate(-12,-12)`,'data-heading':Number.isFinite(s.telemetry?.heading_deg)?String(s.telemetry.heading_deg):'indisponível'});
   g.append(svgNode('path',{d:window.FSCFreeMap?.aircraftPath||'M0 0',fill:'#35d6ff',stroke:'#d9fcff','stroke-width':1}));
   svg.append(g);
 }else{svg.append(svgNode('circle',{cx:x,cy:y,r:14,fill:'#00d7ec',opacity:.13,stroke:'none'}));svg.append(svgNode('circle',{cx:x,cy:y,r:8,fill:'#06cfe4',stroke:'#ebfcff','stroke-width':3}));const labelY=y>55?y-36:y+21;svg.append(svgNode('rect',{x:x-31,y:labelY,width:62,height:24,rx:5,fill:'#031016',stroke:'#8fa6a9'}));svg.append(svgNode('text',{x,y:labelY+17,'text-anchor':'middle',fill:'#f4f9fc',stroke:'none','font-size':15,'font-weight':700},p.label))}}
