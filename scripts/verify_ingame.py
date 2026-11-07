@@ -4,7 +4,7 @@ import json
 import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 from aerocarreira.ingame_bridge import PanelState, LocalPanelServer
 OUTPUT = ROOT / 'validation' / 'ingame'
 OUTPUT.mkdir(parents=True, exist_ok=True)
@@ -28,7 +28,7 @@ try:
         errors=[]
         page.on('pageerror', lambda e: errors.append(str(e)))
         page.goto(url)
-        page.wait_for_function("document.getElementById('aircraft').textContent==='Cessna 152'")
+        expect(page.locator('#aircraft')).to_have_text('Cessna 152', timeout=8000)
         assert page.locator('#balance').inner_text() == 'R$ 12.345', page.locator('#balance').inner_text()
         assert 'SIMCONNECT ATIVO' in page.locator('#status').inner_text()
         assert 'SBRF' in page.locator('#origin').inner_text()
@@ -40,10 +40,10 @@ try:
         page.screenshot(path=str(OUTPUT/'ingame-completo.png'),full_page=True)
         state.update(status='reconnecting', aircraft=None, telemetry=None)
         page.locator('#refresh').click()
-        page.wait_for_function("document.getElementById('status').textContent==='RECONECTANDO'")
+        expect(page.locator('#status')).to_have_text('RECONECTANDO', timeout=8000)
         state.update(status='connected', aircraft='Cessna 172',balance=45678)
         page.locator('#refresh').click()
-        page.wait_for_function("document.getElementById('aircraft').textContent==='Cessna 172'")
+        expect(page.locator('#aircraft')).to_have_text('Cessna 172', timeout=8000)
         assert page.locator('#balance').inner_text()=='R$ 45.678'
         for width,height in [(320,520),(420,740),(800,700),(1120,800)]:
             page.set_viewport_size({'width':width,'height':height})
