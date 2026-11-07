@@ -110,5 +110,6 @@ def progress(db, available=()):
 
 def valid_for_company(company: str, code: str, ratings: set[str]) -> bool:
     if company=="nordeste":
-        return code in BY_CODE or code in ("c152","c172","g58","kingair","cj4")
+        return (code in ("c152","c172","g58","kingair","cj4")
+                or (code in BY_CODE and code in ratings))
     return code in FLEETS.get(company,()) and code in ratings
