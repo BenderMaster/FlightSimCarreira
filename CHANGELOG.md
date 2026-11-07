@@ -1,3 +1,13 @@
+## v0.9.0 InGame Alpha.3 — executável sem CMD, fonte PT-BR e arraste nativo
+
+- **Windows GUI:** PyInstaller `--windowed` para iniciar o FlightSim sem a janela CMD; validação do subsistema PE GUI no CI e smoke tests preservados.
+- **Unicode:** fontes Barlow Regular/SemiBold já existentes no projeto são servidas com MIME `font/ttf` e `font-src 'self'` no CSP da ponte InGame, com `@font-face` e UTF-8 explícito. Acentos são preservados; validação dos glifos deve ser feita no Coherent real.
+- **Toolbar:** sincronização com eventos `panelActive` e `panelReady`; tenta restaurar `draggable` do `ingame-ui` somente em painel ativo, sem interceptar mouse no iframe e sem substituir a barra de título nativa.
+- **Distribuição:** executável Windows e source SDK Alpha.3 separados, reteste físico necessário para confirmar arraste e glifos no MSFS.
+- `main` permanece na v0.8.7 homologada até aprovação.
+
+---
+
 ## v0.9.0 InGame Alpha.2 — Midnight Tablet e painel ajustado
 
 - Corrige o wrapper do SDK após o primeiro teste físico: remove `content-fit`, melhora preenchimento e dimensões iniciais, mantém o movimento sob responsabilidade do MSFS.

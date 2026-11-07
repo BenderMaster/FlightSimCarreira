@@ -9,7 +9,7 @@ import urllib.request
 from urllib.error import HTTPError
 import xml.etree.ElementTree as ET
 
-from aerocarreira.ingame_bridge import PanelState, LocalPanelServer, PROTOCOL_VERSION
+from aerocarreira.ingame_bridge import PanelState, LocalPanelServer, PROTOCOL_VERSION, FONT_FILES, FONT_ROOT
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -102,6 +102,22 @@ class InGameFoundationTests(unittest.TestCase):
             self.bridge.read_key,
         )
 
+    def test_bundled_pt_br_font_and_csp(self):
+        for route, filename in FONT_FILES.items():
+            with self.subTest(route=route):
+                self.assertTrue((FONT_ROOT / filename).is_file())
+                with self.request(route) as response:
+                    raw = response.read()
+                    self.assertEqual(response.headers['Content-Type'], 'font/ttf')
+                    self.assertGreater(len(raw), 1000)
+                    self.assertIn("font-src 'self'", response.headers['Content-Security-Policy'])
+        with self.request('/') as response:
+            html = response.read().decode('utf-8')
+        self.assertIn("font-family:'FlightSimBarlow'", html)
+        self.assertIn('Visão geral', html)
+        self.assertIn('Navegação', html)
+        self.assertIn('Aviação', html) if 'Aviação' in html else self.assertIn('Aeronave', html)
+
     def test_legacy_endpoint_and_no_directory_traversal(self):
         with self.request('/api/status') as resp:
             state = json.load(resp)
@@ -135,6 +151,9 @@ class InGameFoundationTests(unittest.TestCase):
         wrapper=(root/'PackageSources/html_ui/InGamePanels/FlightCare/FlightCare.html').read_text(encoding='utf-8')
         self.assertNotIn('content-fit=', wrapper)
         self.assertIn('id="flightSimFrame"', wrapper)
+        wrapper_js = (root/'PackageSources/html_ui/InGamePanels/FlightCare/FlightCare.js').read_text(encoding='utf-8')
+        self.assertIn("addEventListener('panelActive'", wrapper_js)
+        self.assertIn("classList.add('draggable')", wrapper_js)
         self.assertTrue((root/'PackageSources'/panel.attrib['url']).exists())
         for folder in ('icons/toolbar','Textures/Menu/toolbar'):
             path = root / 'PackageSources/html_ui' / folder / (

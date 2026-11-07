@@ -1,4 +1,4 @@
-# FlightSim v0.9.0 InGame Alpha.2 — build e homologação no MSFS 2020
+# FlightSim v0.9.0 InGame Alpha.3 — build e homologação no MSFS 2020
 
 **Estado:** projeto-fonte de Community para compilar no SDK MSFS 2020; **não é pacote SPB pronto**. O SDK e o MSFS real não estão disponíveis nos runners do GitHub Actions. A branch de testes é separada da main v0.8.7.
 
@@ -6,23 +6,33 @@
 
 Na execução da branch `feature/v0.9.0-ingame-foundation`, baixe **dois artifacts**:
 
-1. `FlightSim-0.9.0-ingame-alpha2-Windows`: extraia o aplicativo completo em uma **pasta nova** e abra `FlightSim.exe`.
-2. `FlightSim-InGame-0.9.0-alpha2-SDK-Source`: contém o projeto-fonte SDK (`package.xml`, `PackageDefinitions`, `PackageSources`) e **precisa ser compilado** no MSFS.
+1. `FlightSim-0.9.0-ingame-alpha3-Windows`: extraia o aplicativo completo em uma **pasta nova** e abra `FlightSim.exe`.
+2. `FlightSim-InGame-0.9.0-alpha3-SDK-Source`: contém o projeto-fonte SDK (`package.xml`, `PackageDefinitions`, `PackageSources`) e **precisa ser compilado** no MSFS.
 
 Não coloque o ZIP do SDK, o diretório `PackageSources` ou os arquivos `.py` diretamente na Community. O artefato de source não substitui o pacote final do MSFS.
 
-## Atualização da Alpha.1 para a Alpha.2 (Midnight Tablet)
+## Atualização da Alpha.2 para a Alpha.3 (ajustes de compatibilidade)
 
-O primeiro teste físico da Alpha.1 já confirmou que **ícone, iframe e SimConnect funcionam**. A Alpha.2 corrige o desenho de tablet e tenta estabilizar a moldura/resize do MSFS.
+O primeiro teste físico da Alpha.1 já confirmou que **ícone, iframe e SimConnect funcionam**. A Alpha.3 corrige o desenho de tablet e tenta estabilizar a moldura/resize do MSFS.
 
-1. **Feche o FlightSim Windows anterior** para liberar a porta `8769`; descompacte a Alpha.2 Windows em uma pasta nova e execute esse novo `FlightSim.exe`.
-2. **Extraia o projeto SDK Alpha.2 em uma pasta nova**; não reutilize a mesma pasta `Packages` compilada da Alpha.1 sem limpá-la.
+1. **Feche o FlightSim Windows anterior** para liberar a porta `8769`; descompacte a Alpha.3 Windows em uma pasta nova e execute esse novo `FlightSim.exe`.
+2. **Extraia o projeto SDK Alpha.3 em uma pasta nova**; não reutilize a mesma pasta `Packages` compilada da Alpha.1 sem limpá-la.
 3. No Project Editor, abra o novo `package.xml`; mantenha Creator/Company/Content-Type configurados e execute **Build All**.
-4. **Feche o simulador** e substitua na Community somente o pacote FlightSim antigo pelo pacote compilado da Alpha.2. Não deixe duas versões do mesmo package instaladas simultaneamente.
+4. **Feche o simulador** e substitua na Community somente o pacote FlightSim antigo pelo pacote compilado da Alpha.3. Não deixe duas versões do mesmo package instaladas simultaneamente.
 5. Reabra o MSFS, carregue o voo e use a engrenagem da toolbar > **Reset Panels** se a janela ainda abrir pequena/presa na posição antiga.
 6. **Arraste pela barra de título do painel do MSFS** (fora da área do tablet/iframe) e redimensione pelas bordas. Teste Painel, Mapa, Aeronave e Carreira.
 
 O tamanho/posição externo é controlado pelo **MSFS**, enquanto o HTML adapta somente o conteúdo. A correção física da movimentação não pode ser declarada aprovada antes desse reteste.
+
+## Correções da Alpha.3
+
+- **Sem console:** o Windows executável agora é gerado com `PyInstaller --windowed`, subsistema GUI do Windows. Abra o `FlightSim.exe` diretamente; nenhum CMD precisa permanecer aberto.
+- **Acentuação em português:** fontes Barlow Regular/SemiBold com caracteres PT-BR servidas no loopback e carregadas explicitamente pelo painel Coherent (sem substituir palavras acentuadas por texto sem acento). A verificação real de glifos depende da nova build no MSFS.
+- **Movimentação:** o wrapper registra eventos nativos `panelActive/panelReady` e adiciona `draggable` ao `ingame-ui` somente quando ativo, tentando restaurar o arraste pela barra cinza nativa. Evite arrastar pelo conteúdo do tablet: o iframe nunca move o container do simulador.
+- **Instalação:** feche FlightSim Alpha.2 e MSFS; instale o executável Alpha.3 em pasta nova, compile o source SDK Alpha.3 com Build All e substitua **apenas** o package compilado anterior na Community. Não deixe cópias duplicadas.
+- **Reteste:** confirme o aplicativo sem CMD, palavras como `Operações`, `Navegação`, `Aeronave`, `Próxima`, e teste arrastar pela barra `FLIGHTSIM`. Se ainda não mover, capture no Coherent Debugger as classes do elemento `ingame-ui#FlightSimCarreira`.
+
+**A moldura física preta com botões e bordas de um tablet/electronic flight bag** será uma evolução visual posterior, quando a movimentação nativa e toda a operação estiverem homologadas. Não incluir agora.
 
 ## Compilar no PC Windows com MSFS 2020 Steam
 
@@ -30,7 +40,7 @@ O tamanho/posição externo é controlado pelo **MSFS**, enquanto o HTML adapta 
 2. Extraia o ZIP Windows inteiro em uma pasta nova, sem substituir arquivos da v0.8.7. Execute `FlightSim.exe` e conecte ao MSFS. A interface Windows permanece normal.
 3. Com o FlightSim aberto, teste `http://127.0.0.1:8769/` no navegador do PC. Deve exibir **FlightSim InGame 0.9.0**, telemetria e saldo. Verifique `http://127.0.0.1:8769/api/v1/health`: o campo `read_only` deve ser `true`. Se o serviço não abrir, confira o log do FlightSim, firewall local e se outra aplicação está usando a porta 8769.
 4. Ative **Developer Mode** nas opções gerais do MSFS 2020. Na barra superior de desenvolvimento, menu **Help > SDK Installer** se o SDK não estiver instalado; siga a versão compatível com seu MSFS.
-5. Extraia o artifact **FlightSim-InGame-0.9.0-alpha2-SDK-Source** em `C:\FlightSim-InGame-v090` (qualquer pasta sem permissão restrita). Confira que `package.xml` aparece **na raiz** da pasta extraída, ao lado de `PackageDefinitions` e `PackageSources`.
+5. Extraia o artifact **FlightSim-InGame-0.9.0-alpha3-SDK-Source** em `C:\FlightSim-InGame-v090` (qualquer pasta sem permissão restrita). Confira que `package.xml` aparece **na raiz** da pasta extraída, ao lado de `PackageDefinitions` e `PackageSources`.
 6. No MSFS, abra **Project Editor**. Selecione **Open Project** e aponte para `C:\FlightSim-InGame-v090\package.xml`. Selecione o pacote `flightsimcarreira-panel`. Verifique que aparecem os grupos de assets **SPB** e **Copy**.
 7. **Corrija os metadados de compilação.** À esquerda, `Default Creator Name = FlightSim` e `Default Company Name = flightsim` (obrigatoriamente minúsculo, apenas letras e números). No Inspector do pacote, `Content-Type = MISC`. Os dois asset groups continuam `SPB` e `Copy`. O tipo `UNKNOWN` impede o Build All. Para o build local, o Inspector pode pedir uma miniatura JPG do Content Manager (a interface mostrará o tamanho exigido). Não é necessário adicionar conteúdo de Marketplace.
 8. Use **Build All** (ou **Build Package**) e abra **Debug > Console** para conferir erros. O resultado esperado é uma pasta de package compilado sob `Packages`, contendo pelo menos `manifest.json`, `layout.json`, `InGamePanels\*.spb` e `html_ui\InGamePanels\FlightCare\...`. Se o compilador acusar erros, **não copie o build incompleto para a Community**; envie o log do Console para corrigirmos.
@@ -39,7 +49,7 @@ O tamanho/posição externo é controlado pelo **MSFS**, enquanto o HTML adapta 
 11. Abra novamente o MSFS, carregue um voo e abra a toolbar superior. Procure o botão FlightSim — se não aparecer, confira a personalização/itens ocultos da toolbar e o Content Manager. O FlightSim Windows deve permanecer aberto durante o teste.
 12. Clique FlightSim. Deve surgir o **Midnight Tablet** (layout horizontal EFB) com menu lateral **Painel / Mapa / Aeronave / Carreira**. Confira missão, rota, altitude, velocidades e as quatro abas. O menu vira uma barra inferior quando a janela está estreita. Teste fechar/abrir e mover pelo **título nativo FLIGHTSIM** do MSFS (não arrastando o conteúdo do iframe).
 
-## Teste de aceitação da Alpha.2
+## Teste de aceitação da Alpha.3
 
 - [ ] Ícone FlightSim aparece na toolbar sem conflitos com outros addons
 - [ ] Painel abre e fecha, sem impedir interação com o avião

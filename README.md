@@ -10,6 +10,9 @@ iframe com o Coherent. **A `main` permanece a v0.8.7 homologada.**
 - API v2: `http://127.0.0.1:8769/api/v1/health` com o FlightSim Windows em execução
 - Os artifacts da branch ficam em GitHub Actions; source SDK e Windows são downloads diferentes.
 
+
+Atualização **Alpha.3**: build Windows sem CMD, fonte explícita Barlow PT-BR na ponte InGame e correção candidata para arrastar a barra nativa do MSFS.
+
 ---
 
 ## v0.8.3 Midnight Ops Alpha.3 — FlightSim: nome, insígnias e patrimônio pago

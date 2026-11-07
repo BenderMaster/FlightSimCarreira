@@ -50,21 +50,23 @@ jobs:
       - name: Generate approved Windows icon
         run: python scripts/prepare_app_icon.py
       - name: Build standalone Windows folder
-        run: python -m PyInstaller --icon assets/flight_sim_carreira.ico --noconfirm --clean --noupx --onedir --name FlightSim --collect-all webview --collect-all pythonnet --collect-all clr_loader --collect-all cffi --hidden-import clr --collect-all SimConnect --add-data "aerocarreira/midnight;aerocarreira/midnight" --add-data "in_game;in_game" launch_midnight.py
+        run: python -m PyInstaller --windowed --icon assets/flight_sim_carreira.ico --noconfirm --clean --noupx --onedir --name FlightSim --collect-all webview --collect-all pythonnet --collect-all clr_loader --collect-all cffi --hidden-import clr --collect-all SimConnect --add-data "aerocarreira/midnight;aerocarreira/midnight" --add-data "in_game;in_game" launch_midnight.py
       - name: Validate packaged airport catalog and UI assets
         run: python -c "from pathlib import Path; p=Path('dist/FlightSim/_internal'); assert Path('assets/flight_sim_carreira.ico').is_file(), 'Approved icon missing'; assert (p/'aerocarreira/midnight/index.html').is_file(); assert (p/'aerocarreira/midnight/free-map.js').is_file(); assert (p/'aerocarreira/midnight/aircraft-market.js').is_file(); assert (p/'aerocarreira/midnight/flight-operations.js').is_file(); assert (p/'aerocarreira/midnight/pilot-career.js').is_file(); assert (p/'aerocarreira/midnight/finance-center.js').is_file(); assert (p/'aerocarreira/midnight/airline-operations.js').is_file(); assert (p/'aerocarreira/midnight/flight-history.js').is_file(); assert (p/'aerocarreira/midnight/flight-history.css').is_file(); assert (p/'aerocarreira/midnight/settings-center.js').is_file(); assert (p/'aerocarreira/midnight/settings-center.css').is_file(); assert all((p/'aerocarreira/midnight'/('market-'+name+'.jpg')).is_file() for name in ('c172','g58','kingair','cj4')); assert (p/'aerocarreira/midnight/vendor/maplibre-gl.js').is_file(); assert (p/'aerocarreira/midnight/vendor/maplibre-gl.css').is_file(); assert (p/'SimConnect/SimConnect.dll').is_file(); assert (p/'in_game/flightcare_panel.html').is_file(); assert (p/'in_game/toolbar/package.xml').is_file()"
+      - name: Assert Windows GUI subsystem (no CMD console)
+        run: python -c "from pathlib import Path; b=Path('dist/FlightSim/FlightSim.exe').read_bytes(); p=int.from_bytes(b[60:64], 'little'); subsystem=int.from_bytes(b[p+24+68:p+24+70], 'little'); assert subsystem == 2, f'Expected GUI subsystem 2 (no CMD), got {subsystem}'"
       - name: Executable version smoke test
         run: .\dist\FlightSim\FlightSim.exe --version
       - name: Native pythonnet / WinForms smoke test (real packaged exe)
         run: .\\dist\\FlightSim\\FlightSim.exe --verify-native-webview
       - uses: actions/upload-artifact@v4
         with:
-          name: FlightSim-0.9.0-ingame-alpha2-Windows
+          name: FlightSim-0.9.0-ingame-alpha3-Windows
           path: dist/FlightSim/
 
       - name: Upload InGame SDK source (uncompiled)
         uses: actions/upload-artifact@v4
         with:
-          name: FlightSim-InGame-0.9.0-alpha2-SDK-Source
+          name: FlightSim-InGame-0.9.0-alpha3-SDK-Source
           path: in_game/toolbar/
           if-no-files-found: error

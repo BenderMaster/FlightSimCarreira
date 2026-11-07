@@ -1,13 +1,16 @@
 <!doctype html>
 <html lang="pt-BR"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="flight-panel-key" content="__FLIGHTSIM_PANEL_KEY__">
 <title>FlightSim InGame • Midnight Tablet</title>
 <style>
+/* Explicitly load PT-BR glyphs in Coherent GT: OS fonts are not always available. */
+@font-face{font-family:'FlightSimBarlow';src:url('/fonts/BarlowSemiCondensed-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'FlightSimBarlow';src:url('/fonts/BarlowSemiCondensed-SemiBold.ttf') format('truetype');font-weight:600 900;font-style:normal;font-display:swap}
 :root{color-scheme:dark;--bg:#07121f;--side:#091827;--panel:#101f31;--card:#13263a;--card2:#172f43;--line:#294258;--ink:#eaf4fb;--muted:#91a8bb;--cyan:#58d5e5;--gold:#ddb879;--green:#6fd1a5}
 *{box-sizing:border-box}
 html,body{margin:0;width:100%;height:100%;overflow:hidden}
-body{display:flex;flex-direction:column;min-width:280px;background:var(--bg);color:var(--ink);font:13px/1.45 'Segoe UI',Arial,sans-serif}
+body{display:flex;flex-direction:column;min-width:280px;background:var(--bg);color:var(--ink);font:13px/1.45 'FlightSimBarlow',Arial,sans-serif}
 button{color:inherit;font:inherit;cursor:pointer}
 header.top{height:62px;flex-shrink:0;display:flex;align-items:center;gap:12px;background:#091827;border-bottom:1px solid var(--line);padding:0 18px}
 .mark{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
@@ -64,7 +67,7 @@ nav.side button.selected{background:#164054;border-color:#2a6071;color:var(--cya
 .full{grid-column:span 12}
 .half{grid-column:span 6}
 #map{display:block;width:100%;height:280px;background:radial-gradient(ellipse at 50% 50%,#17354a,#071b2b);border-radius:9px;border:1px solid #25485d}
-#map text{fill:#dceef9;font:12px Arial}
+#map text{fill:#dceef9;font:12px 'FlightSimBarlow',Arial,sans-serif}
 #map .guide{stroke:#244156;stroke-width:1}
 #map .track{stroke:var(--cyan);fill:none;stroke-width:3;stroke-dasharray:7 5}
 #map .origin{fill:var(--gold)}

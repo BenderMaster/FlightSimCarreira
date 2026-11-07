@@ -16,6 +16,13 @@ import secrets
 
 DEFAULT_PORT = 8769
 PROTOCOL_VERSION = 2
+# Fonts are bundled with the existing Midnight Ops Windows distribution.
+# Coherent GT does not necessarily see host-system fonts (e.g. Segoe UI).
+FONT_ROOT = Path(__file__).resolve().parent / 'midnight' / 'fonts'
+FONT_FILES = {
+    '/fonts/BarlowSemiCondensed-Regular.ttf': 'BarlowSemiCondensed-Regular.ttf',
+    '/fonts/BarlowSemiCondensed-SemiBold.ttf': 'BarlowSemiCondensed-SemiBold.ttf',
+}
 
 
 class PanelState:
@@ -82,7 +89,7 @@ class LocalPanelServer:
                 self.send_header('Content-Security-Policy',
                                  "default-src 'none'; script-src 'self' 'unsafe-inline'; "
                                  "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-                                 "connect-src 'self'; base-uri 'none'; form-action 'none'")
+                                 "connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'")
                 self.send_header('Content-Length', str(len(body)))
                 self.end_headers()
                 if self.command != 'HEAD':
@@ -104,6 +111,13 @@ class LocalPanelServer:
                     owner.rejected += 1
                     return self.reply(403)
                 path = self.path
+                if path in FONT_FILES:
+                    # Exact-match resource allowlist; no filesystem paths from URLs.
+                    f = FONT_ROOT / FONT_FILES[path]
+                    if not f.is_file():
+                        owner.rejected += 1
+                        return self.reply(404)
+                    return self.reply(200, f.read_bytes(), 'font/ttf')
                 if path in ('/', '/index.html'):
                     return self.reply(200, html, 'text/html; charset=utf-8')
                 if path == '/api/v1/health':
