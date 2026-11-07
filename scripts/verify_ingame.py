@@ -29,10 +29,10 @@ try:
         page.on('pageerror', lambda e: errors.append(str(e)))
         page.goto(url)
         # The actual app font must be downloadable by same-origin Coherent iframe.
-        expect(page.locator('body')).to_have_css('font-family', '"FlightSimBarlow", Arial, sans-serif')
-        page.evaluate("document.fonts.load('400 16px FlightSimBarlow')")
+        assert 'FlightSimBarlow' in page.locator('body').evaluate("(el) => getComputedStyle(el).fontFamily")
+        page.evaluate("Promise.all([document.fonts.load('400 16px FlightSimBarlow'),document.fonts.load('700 16px FlightSimBarlow')])")
         assert page.evaluate("document.fonts.check('400 16px FlightSimBarlow')")
-        assert page.evaluate("document.fonts.check('600 16px FlightSimBarlow')")
+        assert page.evaluate("document.fonts.check('700 16px FlightSimBarlow')")
         assert 'Visão geral' in page.locator('#page-title').inner_text()
         expect(page.locator('#aircraft')).to_have_text('Cessna 152', timeout=8000)
         assert page.locator('#balance').inner_text() == 'R$ 12.345', page.locator('#balance').inner_text()

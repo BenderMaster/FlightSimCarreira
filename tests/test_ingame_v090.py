@@ -111,12 +111,13 @@ class InGameFoundationTests(unittest.TestCase):
                     self.assertEqual(response.headers['Content-Type'], 'font/ttf')
                     self.assertGreater(len(raw), 1000)
                     self.assertIn("font-src 'self'", response.headers['Content-Security-Policy'])
-        with self.request('/') as response:
-            html = response.read().decode('utf-8')
+        # This fixture intentionally overrides the page with a tiny HTML
+        # token template. Assert bundled production HTML separately.
+        html = (ROOT / 'in_game' / 'flightcare_panel.html').read_text(encoding='utf-8')
         self.assertIn("font-family:'FlightSimBarlow'", html)
         self.assertIn('Visão geral', html)
         self.assertIn('Navegação', html)
-        self.assertIn('Aviação', html) if 'Aviação' in html else self.assertIn('Aeronave', html)
+        self.assertIn('Aeronave', html)
 
     def test_legacy_endpoint_and_no_directory_traversal(self):
         with self.request('/api/status') as resp:
