@@ -127,6 +127,14 @@ class InGameFoundationTests(unittest.TestCase):
         self.assertEqual(panel.attrib['id'], 'PANEL_FLIGHTSIMCARREIRA')
         self.assertEqual(panel.attrib['icon'], 'ICON_TOOLBAR_FLIGHTSIMCARREIRA')
         self.assertEqual(panel.attrib['buttonVisible'], 'true')
+        self.assertEqual(panel.attrib['resizeDirections'].lower(), 'both')
+        self.assertGreaterEqual(float(panel.attrib['minWidth']), 40)
+        self.assertGreaterEqual(float(panel.attrib['minHeight']), 40)
+        self.assertGreater(float(panel.attrib['defaultWidth']), float(panel.attrib['minWidth']))
+        self.assertGreater(float(panel.attrib['defaultHeight']), float(panel.attrib['minHeight']))
+        wrapper=(root/'PackageSources/html_ui/InGamePanels/FlightCare/FlightCare.html').read_text(encoding='utf-8')
+        self.assertNotIn('content-fit=', wrapper)
+        self.assertIn('id="flightSimFrame"', wrapper)
         self.assertTrue((root/'PackageSources'/panel.attrib['url']).exists())
         for folder in ('icons/toolbar','Textures/Menu/toolbar'):
             path = root / 'PackageSources/html_ui' / folder / (
@@ -137,6 +145,11 @@ class InGameFoundationTests(unittest.TestCase):
         html = (ROOT / 'in_game/flightcare_panel.html').read_text(encoding='utf-8')
         self.assertIn('__FLIGHTSIM_PANEL_KEY__', html)
         self.assertIn('/api/v1/status', html)
+        for page_name in ('dashboard','route','aircraft','career'):
+            self.assertIn('data-page="' + page_name + '"', html)
+            self.assertIn('data-view="' + page_name + '"', html)
+        self.assertIn('grid-template-columns:154px', html)
+        self.assertIn('nav.side', html)
         self.assertNotIn('/command', html)
         self.assertNotIn('MapLibre', html)
 

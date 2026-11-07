@@ -24,7 +24,7 @@ Não coloque o ZIP do SDK, o diretório `PackageSources` ou os arquivos `.py` di
 9. Para localizar a Community certa da instalação Steam: no Developer Mode, abra **Tools > Virtual File System**, expanda **Packages Folders** e clique **Open Community Folder**. É mais confiável que presumir um caminho de AppData.
 10. Feche o MSFS. Copie **somente a pasta final compilada do package** (por exemplo `flightsimcarreira-panel`, com `manifest.json` e `layout.json` na raiz) para dentro da Community. Não coloque a pasta `Packages` inteira, `Build`, `_Temp` ou o projeto-fonte.
 11. Abra novamente o MSFS, carregue um voo e abra a toolbar superior. Procure o botão FlightSim — se não aparecer, confira a personalização/itens ocultos da toolbar e o Content Manager. O FlightSim Windows deve permanecer aberto durante o teste.
-12. Clique FlightSim. Deve surgir o painel Midnight compacto com os dados reais. Alterne **Completo/Compacto**, confira missão e mapa, compare velocidades/altitude com o cockpit e teste fechar/abrir o painel.
+12. Clique FlightSim. Deve surgir o **Midnight Tablet** (layout horizontal EFB) com menu lateral **Painel / Mapa / Aeronave / Carreira**. Confira missão, rota, altitude, velocidades e as quatro abas. O menu vira uma barra inferior quando a janela está estreita. Teste fechar/abrir e mover pelo **título nativo FLIGHTSIM** do MSFS (não arrastando o conteúdo do iframe).
 
 ## Teste de aceitação da Alpha.1
 
@@ -39,6 +39,8 @@ Não coloque o ZIP do SDK, o diretório `PackageSources` ou os arquivos `.py` di
 - [ ] FPS é comparado com o mesmo voo/cenário com painel fechado e aberto
 
 ## Diagnóstico se algo falhar
+
+**Janela pequena / presa no canto / redimensionamento estranho:** abra a barra superior do MSFS, entre na engrenagem **Custom Toolbar** e clique **Reset Panels** (isso também restaura outros painéis). Feche/reabra o painel. O MSFS controla posição e tamanho da janela, não o JavaScript do tablet. O projeto v0.9.0 agora inicia com largura/altura padrão maiores, remove `content-fit` do wrapper e respeita o redimensionamento da área interna. Ao atualizar o SPB é necessário executar Build All e reinstalar o package compilado; alterações somente no HTML da ponte não modificam a moldura. Se ainda não for possível mover pelo título nativo, envie vídeo/console Coherent para diagnosticar o comportamento de janela do SDK.
 
 **Ícone não aparece:** capture a saída do SDK em Debug > Console, confirme que o SPB foi compilado e que `manifest.json`, `layout.json`, SVG da toolbar e os arquivos `FlightCare` aparecem no package instalado. Confirme a pasta Community pelo Virtual File System. Verifique se o painel está desabilitado na personalização da toolbar.
 

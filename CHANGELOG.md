@@ -1,5 +1,10 @@
 ## v0.9.0 InGame Alpha.1 — Foundation, toolbar e telemetria read-only
 
+- **Ajuste após primeiro teste físico:** usuário confirmou painel visível na toolbar, conexão real com SimConnect e dados carregados. Movimento/redimensionamento do wrapper exigiu patch (ainda pendente de reteste no MSFS).
+- **Tablet Midnight:** layout EFB horizontal com navegação lateral Painel, Mapa, Aeronave e Carreira (inferior em janela estreita); interface unificada e responsiva. Sem habilitar comandos de carreira nesta Alpha.
+- **Wrapper SDK:** removido `content-fit`, iframe com dimensões internas flexíveis, mínimo SPB aumentado e tamanho inicial mais adequado. Movimentação e bordas seguem sob controle do MSFS 2020, recomendando Reset Panels quando a geometria fica travada.
+
+
 - **FlightSim InGame:** painel Midnight compacto/completo com contrato, saldo, aeronave, instrumentos, combustível, rumo e mapa SVG leve baseado em coordenadas verificadas.
 - **Ponte:** evolução da `LocalPanelServer` em `127.0.0.1:8769`, sem POST ou ações financeiras. Protocolo 2, estado real publicado do motor Tk/SimConnect, endpoint v1 autenticado por chave de leitura efêmera injetada em página local e health/diagnostics.
 - **SDK:** package-fonte para MSFS 2020 com SPB + Copy, wrapper da toolbar, icon SVG próprio em ambas localizações compatíveis e iframe para a aplicação local; compilação real depende de SDK e MSFS físico.

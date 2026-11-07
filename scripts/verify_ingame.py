@@ -32,12 +32,21 @@ try:
         assert page.locator('#balance').inner_text() == 'R$ 12.345', page.locator('#balance').inner_text()
         assert 'SIMCONNECT ATIVO' in page.locator('#status').inner_text()
         assert 'SBRF' in page.locator('#origin').inner_text()
+        assert page.locator('[data-page="dashboard"]').is_visible()
+        assert not page.locator('[data-page="route"]').is_visible()
+        page.screenshot(path=str(OUTPUT/'ingame-tablet-dashboard.png'),full_page=True)
+        page.locator('[data-view="route"]').click()
+        assert page.locator('[data-page="route"]').is_visible()
         assert page.locator('#map-content .track').count() == 1
         assert page.locator('#map-content .airplane').count() == 1
-        page.locator('#mode').click()
+        page.screenshot(path=str(OUTPUT/'ingame-tablet-mapa.png'),full_page=True)
+        page.locator('[data-view="aircraft"]').click()
         assert page.locator('#details').is_visible()
         assert page.locator('#hdg').inner_text() == '15.0°'
-        page.screenshot(path=str(OUTPUT/'ingame-completo.png'),full_page=True)
+        page.locator('[data-view="career"]').click()
+        assert page.locator('[data-page="career"]').is_visible()
+        page.locator('[data-view="dashboard"]').click()
+        assert page.locator('[data-page="dashboard"]').is_visible()
         state.update(status='reconnecting', aircraft=None, telemetry=None)
         page.locator('#refresh').click()
         expect(page.locator('#status')).to_have_text('RECONECTANDO', timeout=8000)
@@ -45,12 +54,12 @@ try:
         page.locator('#refresh').click()
         expect(page.locator('#aircraft')).to_have_text('Cessna 172', timeout=8000)
         assert page.locator('#balance').inner_text()=='R$ 45.678'
-        for width,height in [(320,520),(420,740),(800,700),(1120,800)]:
+        for width,height in [(320,320),(420,740),(560,380),(800,700),(1120,800)]:
             page.set_viewport_size({'width':width,'height':height})
             page.wait_for_timeout(50)
             overflow=page.evaluate('document.documentElement.scrollWidth - window.innerWidth')
             assert overflow<=2,(width,overflow)
-        page.screenshot(path=str(OUTPUT/'ingame-compacto.png'),full_page=True)
+        page.screenshot(path=str(OUTPUT/'ingame-tablet-responsivo.png'),full_page=True)
         assert not errors,errors
         browser.close()
 finally:
