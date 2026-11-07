@@ -98,7 +98,7 @@ def snapshot(db):
             'direct_nm':_distance_nm(lat1,lon1,lat2,lon2),
             'departure_icao':None,'arrival_icao':None,
             'touchdown_fpm':touchdown,'stalls':stalls,
-            'mission_id':mission,'kind':category(mission),
+            'mission_id':mission,'flight_key':key,'kind':category(mission),
             'aircraft':aircraft or None,'reward_recorded':reward,
             'xp':xp.get(key) if key else None,
             'personal_net':personal[key] if key in personal_exists else None,
@@ -106,7 +106,14 @@ def snapshot(db):
             'personal_costs':{k:v for k,v in personal_category[key].items() if v<0},
             'note':notes.get(id_,'')
         })
+    personal_events=[dict(kind=k,amount=int(a),at_utc=t,event_key=key)
+        for k,a,t,key in db.conn.execute(
+            'SELECT kind,amount,occurred_utc,event_key FROM finance_ledger')]
+    business_events=[dict(kind=k,amount=int(a),at_utc=t,event_key=key)
+        for k,a,t,key in db.conn.execute(
+            'SELECT kind,amount,created_utc,event_key FROM airline_company_ledger')]
     return {'flights':records,'count':len(records),
+            'finance_events':personal_events,'business_events':business_events,
             'notes_revision':db.conn.execute(
                 'SELECT COUNT(*),COALESCE(MAX(updated_utc),0) FROM flight_notes').fetchone()}
 
