@@ -67,6 +67,28 @@ try:
             assert overflow<=2,(width,overflow)
         page.screenshot(path=str(OUTPUT/'ingame-tablet-responsivo.png'),full_page=True)
         assert not errors,errors
+        # Simulate the dynamic Coherent wrapper nodes that the simulator inserts.
+        # An earlier Alpha silently collapsed the iframe to a 120px strip even
+        # though the server/browser tests had all passed.
+        wrapper = (ROOT / 'in_game/toolbar/PackageSources/html_ui/'
+                   'InGamePanels/FlightCare/FlightCare.html').read_text(encoding='utf-8')
+        css = wrapper.split('<style>', 1)[1].split('</style>', 1)[0]
+        probe = browser.new_page(viewport={'width':920,'height':640})
+        probe.set_content(
+            '<!doctype html><html><head><style>'+css+'</style></head><body '
+            'style="margin:0"><div style="width:100vw;height:100vh">'
+            '<ingame-ui id="FlightSimCarreira">'
+            '<div class="ingameUiContent"><div class="ingameUiWrapper">'
+            '<div id="flightSimContent"><iframe id="flightSimFrame" '
+            'src="about:blank"></iframe></div></div></div>'
+            '</ingame-ui></div></body></html>')
+        for width,height in [(920,640),(580,440),(360,420)]:
+            probe.set_viewport_size({'width':width,'height':height})
+            size = probe.locator('#flightSimFrame').bounding_box()
+            assert size is not None and size['height'] >= height * .85, (width,height,size)
+            assert size['width'] >= width * .85, (width,height,size)
+        probe.screenshot(path=str(OUTPUT/'ingame-sdk-wrapper-height.png'),full_page=True)
+        probe.close()
         browser.close()
 finally:
     bridge.stop()
