@@ -197,6 +197,13 @@ class DashboardController:
             seq=getattr(app,'aircraft_market_notice_seq',0)+1
             app.aircraft_market_notice_seq=seq
             app.aircraft_market_notice=dict(seq=seq,ok=ok,message=message,action=action)
+        elif action=='flightops_preview':
+            # Prévia volátil: o editor nunca grava SQLite antes de Salvar.
+            try:
+                route=app._flightops_preview(cmd.get('payload'))
+                app.flightops_preview={'id':cmd['id'],'route':route,'error':None}
+            except (ValueError,TypeError,KeyError) as exc:
+                app.flightops_preview={'id':cmd['id'],'route':None,'error':str(exc)}
         elif action in ('flightops_save','flightops_export','flightops_send','flightops_clear'):
             try:
                 if action=='flightops_save':
