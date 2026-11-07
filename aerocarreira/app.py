@@ -1369,7 +1369,8 @@ class Application:
                     if getattr(self,'dashboard',None):
                         self.dashboard.presenter.market_key=None
                         self.dashboard.presenter.pilot_career_cache=None
-                    self._mark_aircraft_available(s.aircraft_title)
+                    if self.mode=='MSFS' and self.connected:
+                        self._mark_aircraft_available(s.aircraft_title)
                 if inserted and self.storage.get_pilot() is not None:
                     base_xp=flight_xp(payment['reward'] if payment else 0)
                     bonus_xp=round(base_xp*realism_fraction) if payment else 0
