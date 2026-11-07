@@ -57,5 +57,5 @@ jobs:
         run: .\\dist\\FlightSim\\FlightSim.exe --verify-native-webview
       - uses: actions/upload-artifact@v4
         with:
-          name: FlightSim-0.8.5-midnight-alpha1-Windows
+          name: FlightSim-0.8.5-midnight-alpha2-Windows
           path: dist/FlightSim/
