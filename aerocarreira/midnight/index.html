@@ -12,7 +12,7 @@
 <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 22V2h12v20M16 9h5v13M8 6h4M8 10h4M8 14h4M8 18h4M1 22h22"/></symbol>
 <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 5Q6 1 2 4v16q5-2 10 1 5-3 10-1V4q-4-3-10 1v16M5 8h4M15 8h4M5 12h4M15 12h4"/></symbol>
 <symbol id="i-chart" viewBox="0 0 24 24"><path d="M2 22h20M5 19V9h3v10M11 19V5h3v14M17 19V2h3v17"/></symbol>
-<symbol id="i-gear" viewBox="0 0 24 24"><path d="m10 2-1 3-3-1-2 3 2 3-3 1v4l3 1-1 3 3 2 3-2 2 3 3-1v-3l3-1 2-3-2-2 2-3-2-3-3 1-1-3Z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33A1.65 1.65 0 0 0 14 20.91V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.5 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3.09 14H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.5-1.08 1.65 1.65 0 0 0-.33-1.82L4.2 7.04a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33A1.65 1.65 0 0 0 10 3.09V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.5 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82A1.65 1.65 0 0 0 20.91 10H21a2 2 0 0 1 0 4h-.09A1.65 1.65 0 0 0 19.4 15Z"/></symbol>
 <symbol id="i-box" viewBox="0 0 24 24"><path d="m2 7 10-5 10 5v12l-10 4-10-4ZM2 7l10 5 10-5M12 12v11M7 4l10 5"/></symbol>
 <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 10l2-7h14l2 7v11H3V10zM2 10h20M8 10v5M16 10v5M9 21v-6h6v6"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 5v7l4 3"/></symbol>
 <symbol id="i-layers" viewBox="0 0 24 24"><path d="m2 7 10-5 10 5-10 5ZM2 12l10 5 10-5M2 17l10 5 10-5"/></symbol>
@@ -159,9 +159,10 @@
     <h2>ROTA VFR</h2><div class="flightops-mode"><button class="button primary" id="fo-free" type="button">Voo livre</button><button class="button" id="fo-contract" type="button">Contrato ativo</button></div>
     <div class="flightops-two"><label>ORIGEM (ICAO)<input id="fo-origin" maxlength="4" autocomplete="off" placeholder="SBRF"></label><label>DESTINO (ICAO)<input id="fo-destination" maxlength="4" autocomplete="off" placeholder="SBJP"></label></div>
     <label>ALTITUDE DE CRUZEIRO (FT)<input id="fo-altitude" type="number" min="500" max="45000" step="500" value="2500"></label>
+    <div class="flightops-plan-row"><button id="fo-plan" class="button primary" type="button">Planejar rota</button><small>Prévia em tempo real • ainda não salva</small></div>
     <div class="flightops-subheading"><strong>WAYPOINTS INTERMEDIÁRIOS</strong><small>Até 8 • coordenadas</small></div><div id="fo-waypoints" class="flightops-waypoints"></div>
     <div class="flightops-waypoint-inputs"><input id="fo-fix-label" maxlength="12" placeholder="Nome / FIX" aria-label="Nome do waypoint"><input id="fo-fix-lat" type="number" step="any" min="-90" max="90" placeholder="Latitude" aria-label="Latitude"><input id="fo-fix-lon" type="number" step="any" min="-180" max="180" placeholder="Longitude" aria-label="Longitude"></div>
-    <button id="fo-add-fix" class="button" type="button">+ Adicionar ponto</button><div class="flightops-legs"><strong>PERNAS DA ROTA</strong><div id="fo-legs">Salve uma rota para calcular as pernas.</div></div>
+    <button id="fo-add-fix" class="button" type="button">+ Adicionar ponto</button><small class="flightops-waypoint-hint">No mapa: clique direito para adicionar • arraste o waypoint para mudar • X para excluir.</small><div class="flightops-legs"><strong>PERNAS DA ROTA</strong><div id="fo-legs">Salve uma rota para calcular as pernas.</div></div>
    </section>
    <section class="flightops-map-panel card" aria-label="Mapa do plano"><div class="flightops-map-heading"><strong>MAPA INTERATIVO</strong><small>Mapa compartilhado com o Dashboard</small></div><div id="flightops-map-slot" class="flightops-map-slot"></div><small>Rota indicativa. Confira procedimentos e obstáculos dentro do MSFS.</small></section>
    <section class="flightops-dispatch card" aria-label="Despacho operacional"><h2>DESPACHO OPERACIONAL</h2>
