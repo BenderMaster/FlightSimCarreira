@@ -52,6 +52,13 @@ def detect_model(title: str | None) -> str | None:
     if not isinstance(title, str) or not title or len(title) > 256:
         return None
     text=title.casefold()
+    # A title naming multiple aircraft families is not reliable evidence of
+    # a single installed model, even if just one generation is recognized.
+    families=set(re.findall(
+        r"\b(?:a3(?:19|20|21|30)|b?(?:737|767|777|787)|e195|atr[\s_-]*72|c?(?:208b|408))",
+        text,re.I))
+    if len(families)>1:
+        return None
     found={p.code for p in TYPES if re.search(p.pattern,text,re.I)}
     # E195 E2 contains E195; prefer explicit generation only.
     if "e195e2" in found:
