@@ -1,6 +1,6 @@
 # FlightSim v0.8.6 — Logbook + Análises e Relatórios
 
-**Status:** escopo proposto, aguardando refinamentos do piloto. Branch isolada `feature/v0.8.6-analytics-logbook`. A v0.8.5 Alpha.2 foi homologada e mesclada em `main` no commit `bb5dded9c4e7443347304de10985e80bccb01c69`.
+**Status:** Logbook e Análises/Relatórios implementados na Alpha.1 e aguardando homologação. A parte de frota de companhias e habilitações de modelo permanece no escopo, mas **não está implementada nesta primeira Alpha**. Branch isolada `feature/v0.8.6-analytics-logbook`. A v0.8.5 Alpha.2 foi homologada e mesclada em `main` no commit `bb5dded9c4e7443347304de10985e80bccb01c69`.
 
 ## 1. Regras de companhias aéreas (catálogo fixado pelo piloto)
 
