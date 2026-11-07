@@ -1,3 +1,18 @@
+## v0.8.7 Midnight Ops Alpha.1 — Configurações, companhias e conquistas com foco
+
+- **Configurações:** última tela Midnight Ops nativa com seis seções (Simulador, Carreira, Interface, Dados e backups, Diagnóstico e Sobre), mantendo navegação lateral. Preferências persistentes e autenticação do backend, sem operações de SQLite no JavaScript.
+- **Conexão:** tentativa inicial e reconexão automática configuráveis; estado, telemetria, aeronave ativa e catálogo MSFS exibidos com disponibilidade real. Ferramentas avançadas e Demo separadas.
+- **Carreira:** controle de combustível e penalidade 30% R$/XP, imposto virtual 4%, preferência futura de falhas (ainda não injeta falhas), bloqueios em voo.
+- **Interface:** escala 80–150%, redução de animações, satélite inicial e notificações de desbloqueios configuráveis.
+- **Backups:** cópia consistente por SQLite backup API dos bancos de todos os perfis (inclusive fotos) em ZIP; restauração valida arquivo e cria *novos* perfis. Nenhum save é substituído automaticamente; avatar restaurado tem caminho atualizado.
+- **Companhias:** Azul, GOL e LATAM possuem catálogos específicos conforme escopo, A320neo incluído nas três; AeroNordeste preserva cinco clássicos e aceita avançados habilitados. Salários-base 30 mil/23 mil/17 mil/9 mil por sete dias reais, mantendo as metas semanais e a independência dos voos particulares.
+- **Habilitação de modelo:** voos MSFS reais no modelo reconhecido, com dois treinos de pelo menos 10 minutos e pousos válidos; banco separado de habilitações por tipo e validação no backend. Cessna 152 não permite contrato GOL. Freelancer antigo preservado.
+- **Conquistas:** evento persistido imediatamente; modal só abre quando FlightSim estiver visível e com foco, com fila e confirmação após fechar, sobrevive a reinícios.
+- Testes novos de regras, ambiguidade de títulos, certificação, fila de eventos, backups/segurança; Playwright de navegação Configurações e foco. Build Windows e CI obrigatórios, homologação física no MSFS pendente.
+- Documento de aceitação: docs/V087_SETTINGS_AIRLINES_FOCUS.md. PR de homologação #22 separada da main.
+
+---
+
 ## v0.8.6 Midnight Ops Alpha.1 — Logbook + Análises e Relatórios
 
 - Duas telas nativas Midnight Ops, acessíveis pelo menu lateral, sem abrir a interface Tk clássica.
