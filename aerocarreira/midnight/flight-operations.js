@@ -90,8 +90,10 @@ function renderFixes(){
  if(!fixes.length){const e=document.createElement('small');e.textContent='Rota direta • sem waypoints';box.append(e);return;}
  fixes.forEach((w,i)=>{
   const row=document.createElement('div'),name=document.createElement('span'),remove=document.createElement('button');
+  row.className='fo-waypoint-row';row.dataset.index=String(i);
   name.textContent=(i+1)+'. '+w.label+' • '+number(w.lat,4)+'°, '+number(w.lon,4)+'°';
-  remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Remover '+w.label);
+  remove.type='button';remove.className='fo-waypoint-remove';remove.textContent='×';
+  remove.title='Excluir waypoint '+w.label;remove.setAttribute('aria-label','Excluir waypoint '+w.label);
   remove.onclick=()=>{fixes.splice(i,1);renderFixes();markDirty();};
   row.append(name,remove);box.append(row);
  });
@@ -103,19 +105,22 @@ function collect(){
   altitude_ft:altitude,waypoints:fixes.map(w=>({...w})),
   checks:Object.fromEntries(Object.entries(checkKeys).map(([key,id])=>[key,el(id).checked]))};
 }
-async function send(action,payload){
+async function send(action,payload,id=null){
  const body=payload?{action,payload}:{action};
+ if(id!==null)body.id=id;
  try{
   const r=await fetch('/command',{method:'POST',headers:{
     'X-Flight-Token':token,'Content-Type':'application/json'
    },body:JSON.stringify(body)});
   if(!r.ok)throw Error('HTTP '+r.status);
-  text('fo-message','Solicitação recebida pelo motor. Aguardando confirmação.');
- }catch(err){text('fo-message','Falha ao comunicar com o motor: '+err.message);}
+  if(action!=='flightops_preview')text('fo-message','Solicitação recebida pelo motor. Aguardando confirmação.');
+ }catch(err){
+  text('fo-message',(action==='flightops_preview'?'Falha ao calcular prévia: ':'Falha ao comunicar com o motor: ')+err.message);
+ }
 }
 function renderLegs(r){
  const parent=el('fo-legs');parent.replaceChildren();
- if(!r){parent.textContent='Revisão necessária • salve para calcular.';return;}
+ if(!r){parent.textContent='Informe os aeroportos e clique em Planejar rota.';return;}
  (r.legs||[]).forEach(leg=>{
   const line=document.createElement('div');line.className='flightops-leg';
   const desc=document.createElement('span');desc.textContent=leg.from+' → '+leg.to;
@@ -138,7 +143,7 @@ function render(s){
  if(data.notice?.seq!=null && data.notice.seq!==noticeSeq){
   noticeSeq=data.notice.seq;text('fo-message',data.notice.message);
   if(data.notice.ok && ['flightops_save','flightops_clear'].includes(data.notice.action)){
-   dirty=false;draftKey='';lastSuccessful=JSON.stringify(collect());
+   dirty=false;draftKey='';lastPreviewRoute=null;
   }
  }
  el('fo-contract').disabled=!data.contract;
@@ -147,8 +152,11 @@ function render(s){
  el('fo-export').disabled=!data.ready||dirty||!data.route;
  el('fo-send').disabled=!data.ready||dirty||!data.route||s?.connection!=='connected'||s?.telemetry?.stale||!(s?.phase!=='EM VOO'&&s?.phase!=='AIRBORNE');
  text('fo-airport-source',data.ready?'ICAOs confirmados pelo MSFS':'Aguardando catálogo MSFS');
- const r=dirty?null:data.route;
+ const r=visibleRoute(data);
  if(!dirty)text('fo-status',r?'ROTA VFR SALVA':'AGUARDANDO ROTA');
+ else text('fo-status',r?'PRÉVIA • NÃO SALVA':'AGUARDANDO CÁLCULO');
+ if(dirty&&data.preview?.id===previewRequest&&data.preview.error)
+  text('fo-message','Prévia não disponível: '+data.preview.error);
  text('fo-distance',r?number(r.distance_nm,1)+' NM':'—');
  text('fo-duration',r?number(r.minutes)+' min':'—');
  text('fo-aircraft',data.aircraft_title||'Aeronave não selecionada');
@@ -172,17 +180,22 @@ function render(s){
    invalid_airport:'Aeroporto de contrato não verificado'};
  text('fo-dispatch-state',mode==='contract'&&data.contract?
    statuses[data.dispatch?.route]||'Não preparado': 'Voo livre: exportação/ATC opcional');
- if(!dirty)renderLegs(r);
+ renderLegs(r);
 }
 function show(){if(currentState)render(currentState);}
 function mapState(s){
- const route=(!dirty && s?.flight_operations?.route)||null;
+ const route=visibleRoute(s?.flight_operations);
  if(!route?.route||route.route.length<2)return {...s,mission:null};
  const points=route.route;
  return {...s,mission:{id:'flightops:'+route.route_key,origin:route.origin,
   destination:route.destination,start:points[0],end:points[points.length-1],
   route_points:points,waypoints:route.waypoints}};
 }
+el('fo-plan').onclick=()=>{
+ dirty=true;lastPreviewRoute=visibleRoute(currentState?.flight_operations)||lastPreviewRoute;
+ text('fo-message','Calculando rota com os waypoints atuais...');
+ schedulePreview(0);refreshMap();
+};
 el('fo-free').onclick=()=>{mode='free';showMode();markDirty();};
 el('fo-contract').onclick=()=>{
  const m=currentState?.flight_operations?.contract;
