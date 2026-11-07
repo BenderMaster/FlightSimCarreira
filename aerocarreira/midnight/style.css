@@ -887,3 +887,23 @@
  .airline-metrics{grid-template-columns:1fr 1fr}.airline-aircraft{flex-wrap:wrap}
  .airline-footer{flex-direction:column;align-items:stretch}.fin-chart-container>svg{height:260px!important}}
 @media(prefers-reduced-motion:reduce){.airline-bar i{transition:none}}
+
+/* Edição interativa do Flight Operations — marcadores e ações discretas. */
+.flightops-plan-row{display:flex;align-items:center;gap:.65em;flex-wrap:wrap}
+.flightops-plan-row .button{min-width:9em;border-color:#19cddf}
+.flightops-plan-row small,.flightops-waypoint-hint{font-size:.73em;color:#8bb9cb;line-height:1.3}
+.flightops-waypoint-row{transition:border-color .14s,background .14s}
+.flightops-waypoint-row:hover,.flightops-waypoint-row:focus-within{border-color:#24bcca;background:#093246}
+.flightops-waypoints .fo-waypoint-remove{color:#ff6472;background:#321722;border:1px solid #7d3443;
+ border-radius:5px;font-size:1.3em;font-weight:700;line-height:1;min-width:1.5em;min-height:1.5em;
+ opacity:.15;transition:opacity .14s,background .14s}
+.flightops-waypoint-row:hover .fo-waypoint-remove,
+.flightops-waypoint-row:focus-within .fo-waypoint-remove{opacity:1}
+.flightops-waypoints .fo-waypoint-remove:hover{background:#862536;color:#fff}
+@media(hover:none){.flightops-waypoints .fo-waypoint-remove{opacity:1}}
+.fsc-airport-marker.fsc-waypoint-marker{background:#084054;border-color:#1de6f1;
+ color:#e6fbff;cursor:grab;user-select:none;touch-action:none;padding:.3em .5em;
+ box-shadow:0 0 0 3px #00dded30}
+.fsc-airport-marker.fsc-waypoint-marker:active{cursor:grabbing;border-color:#ffd285}
+#route-map [data-waypoint-index]{cursor:grab;touch-action:none}
+#route-map [data-waypoint-index]:active{cursor:grabbing}
