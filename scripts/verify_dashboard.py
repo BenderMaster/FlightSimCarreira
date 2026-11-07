@@ -78,6 +78,56 @@ with tempfile.TemporaryDirectory() as temp:
             page.locator('#refuel-cancel').click()
             assert not page.locator('#refuel-dialog').is_visible()
 
+            # v0.8.7: Settings Center usa uma página nativa (sem janelas Tk).
+            page.locator('.nav-item[data-action="settings"]').click()
+            assert page.locator('#settings-center-page').is_visible()
+            assert not page.locator('#module-page').is_visible()
+            assert page.locator('#sc-tabs [data-sc-tab]').count()==6
+            assert 'SIMCONNECT' in page.locator('#sc-content').inner_text()
+            for tab,label in [
+                ('career','CARREIRA E REALISMO'),('ui','INTERFACE MIDNIGHT'),
+                ('data','DADOS E BACKUPS'),('diagnostics','DIAGNÓSTICO E FERRAMENTAS'),
+                ('about','SOBRE O FLIGHTSIM'),('sim','SIMULADOR E CONEXÃO')]:
+                page.locator('[data-sc-tab="'+tab+'"]').click()
+                assert page.locator('#sc-status').inner_text()==label
+                assert page.locator('#sc-content .sc-panel').count()>0
+            # Não há controle de falhas reais: o texto deve ser explícito.
+            page.locator('[data-sc-tab="career"]').click()
+            assert 'ainda NÃO injeta falhas' in page.locator('#sc-content').inner_text()
+            page.locator('.nav-item[data-action="dashboard"]').click()
+
+            # Conquistas: o prêmio já pode existir no banco, mas a animação só
+            # pode abrir quando o FlightSim voltar a ser a janela ativa.
+            focus_check=page.evaluate("""() => {
+              const originalFocus=document.hasFocus;
+              const originalFetch=window.fetch;
+              let focused=false;
+              Object.defineProperty(document,'hasFocus',{
+                configurable:true,value:()=>focused});
+              const mock=structuredClone(state);
+              mock.pilot_career.pending_unlocks=[{
+                id:2147000000,kind:'gain',code:'first_flight',
+                title:'Primeiro Voo',when:1800000001
+              }];
+              FSCPilotCareer.render(mock);
+              const hidden=!document.getElementById('pc-unlock').open;
+              focused=true;
+              window.fetch=(url,options)=>{
+                if(url==='/command'&&String(options?.body||'').includes('pilot_event_ack'))
+                  return Promise.resolve({ok:true});
+                return originalFetch(url,options);
+              };
+              window.dispatchEvent(new Event('focus'));
+              const opened=document.getElementById('pc-unlock').open;
+              document.getElementById('pc-unlock').close();
+              window.fetch=originalFetch;
+              Object.defineProperty(document,'hasFocus',{
+                configurable:true,value:originalFocus});
+              FSCPilotCareer.render(state);
+              return {hidden,opened};
+            }""")
+            assert focus_check=={'hidden':True,'opened':True},focus_check
+
             # Logbook e relatórios: dados reais do SQLite testados em Python; aqui
             # exercitamos filtros, paginação, ficha, busca e gráficos no navegador.
             page.locator('.nav-item[data-action="history"]').click()
