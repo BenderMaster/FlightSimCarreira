@@ -321,7 +321,9 @@ with tempfile.TemporaryDirectory() as temp:
             page.locator('[data-pc-tab="graphs"]').click()
             # Gráficos são derivados de histórico real; sem voos não há barras.
             # Alimentar SOMENTE o DOM do teste com dados sintéticos (sem SQLite).
-            page.evaluate("""() => {
+            chart_checks=page.evaluate("""() => {
+              // A fixture sintética deve ser renderizada e validada na mesma
+              // tarefa do browser: o polling real pode redesenhar o piloto.
               const demo=structuredClone(state);
               demo.pilot_career.flights=(demo.pilot_career.flights||0)+100;
               demo.pilot_career.graphs={
@@ -330,13 +332,22 @@ with tempfile.TemporaryDirectory() as temp:
                 hours_by_aircraft:[['Cessna 152',3.5],['Baron G58',1.7]]
               };
               FSCPilotCareer.render(demo);
+              const count=selector=>document.querySelectorAll(selector).length;
+              return {
+                cards:count('#pc-graphs .pc-chart-card'),
+                units:count('#pc-graphs .pc-chart-unit'),
+                legends:count('#pc-graphs .pc-chart-legend'),
+                axis_labels:count('#pc-graphs .pc-chart-card:first-child svg text'),
+                summaries:count('#pc-graphs .pc-chart-summary'),
+                breakdowns:count('#pc-graphs .pc-chart-breakdown')
+              };
             }""")
-            assert page.locator('#pc-graphs .pc-chart-card').count()==3
-            assert page.locator('#pc-graphs .pc-chart-unit').count()==3
-            assert page.locator('#pc-graphs .pc-chart-legend').count()==3
-            assert page.locator('#pc-graphs .pc-chart-card').first.locator('svg text').count()>=5
-            assert page.locator('#pc-graphs .pc-chart-summary').count()==3
-            assert page.locator('#pc-graphs .pc-chart-breakdown').count()>=1
+            assert chart_checks['cards']==3,chart_checks
+            assert chart_checks['units']==3,chart_checks
+            assert chart_checks['legends']==3,chart_checks
+            assert chart_checks['axis_labels']>=5,chart_checks
+            assert chart_checks['summaries']==3,chart_checks
+            assert chart_checks['breakdowns']>=1,chart_checks
             page.locator('[data-pc-tab="timeline"]').click()
             assert page.locator('#pc-timeline-list').is_visible()
             page.locator('#pc-manage-profiles').click()
