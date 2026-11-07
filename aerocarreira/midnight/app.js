@@ -461,6 +461,15 @@ for(const p of points){const [x,y]=xy(p);if(x<20||x>880||y<20||y>315)continue;if
   g.append(svgNode('path',{d:window.FSCFreeMap?.aircraftPath||'M0 0',fill:'#35d6ff',stroke:'#d9fcff','stroke-width':1}));
   svg.append(g);
 }else{svg.append(svgNode('circle',{cx:x,cy:y,r:14,fill:'#00d7ec',opacity:.13,stroke:'none'}));svg.append(svgNode('circle',{cx:x,cy:y,r:8,fill:'#06cfe4',stroke:'#ebfcff','stroke-width':3}));const labelY=y>55?y-36:y+21;svg.append(svgNode('rect',{x:x-31,y:labelY,width:62,height:24,rx:5,fill:'#031016',stroke:'#8fa6a9'}));svg.append(svgNode('text',{x,y:labelY+17,'text-anchor':'middle',fill:'#f4f9fc',stroke:'none','font-size':15,'font-weight':700},p.label))}}
+// Alças do editor no mapa alternativo: só os fixes podem ser arrastados.
+if(document.querySelector('.workspace')?.dataset.view==='planning'){
+ for(const [i,p] of points.filter(p=>p.type==='fix').entries()){
+  const [x,y]=xy(p),hit=svgNode('g',{'data-waypoint-index':i,'aria-label':'Arrastar waypoint '+p.label});
+  hit.append(svgNode('circle',{cx:x,cy:y,r:15,fill:'#00c7df','fill-opacity':.02,
+   stroke:'#fbd18b','stroke-width':1.8}));
+  svg.append(hit);
+ }
+}
 const nm=60*90/scale;svg.append(svgNode('path',{d:'M760 294v6h90v-6',stroke:'#b9dce8','stroke-width':2}));svg.append(svgNode('text',{x:805,y:288,'text-anchor':'middle',fill:'#c9e3ed',stroke:'none','font-size':12},number(nm,1)+' NM'));text('map-mode',s.mode==='Demo'?'DEMONSTRAÇÃO':headingDisplay(s.telemetry))}
 $('zoom-in').onclick=()=>{if(window.FSCFreeMap?.zoomBy(1))return;zoom=Math.min(16,zoom*1.3);renderMap(state)};
 $('zoom-out').onclick=()=>{if(window.FSCFreeMap?.zoomBy(-1))return;zoom=Math.max(.2,zoom/1.3);renderMap(state)};
@@ -469,15 +478,48 @@ const mapSvg=$('route-map');
 mapSvg.addEventListener('wheel',e=>{if(window.FSCFreeMap?.isActive())return;
   e.preventDefault();zoom=Math.min(16,Math.max(.2,zoom*(e.deltaY<0?1.18:1/1.18)));renderMap(state);
 },{passive:false});
-let drag=null;
-mapSvg.addEventListener('pointerdown',e=>{if(e.button!==0||window.FSCFreeMap?.isActive())return;
-  drag={x:e.clientX,y:e.clientY};mapSvg.setPointerCapture(e.pointerId)});
-mapSvg.addEventListener('pointermove',e=>{if(!drag||window.FSCFreeMap?.isActive())return;
+let drag=null,waypointDrag=null;
+mapSvg.addEventListener('pointerdown',e=>{
+ if(e.button!==0||window.FSCFreeMap?.isActive())return;
+ const handle=document.querySelector('.workspace')?.dataset.view==='planning'?
+   e.target.closest?.('[data-waypoint-index]'):null;
+ if(handle){
+  waypointDrag={index:Number(handle.getAttribute('data-waypoint-index')),
+   pointerId:e.pointerId};
+  mapSvg.setPointerCapture(e.pointerId);return;
+ }
+ drag={x:e.clientX,y:e.clientY};mapSvg.setPointerCapture(e.pointerId);
+});
+mapSvg.addEventListener('pointermove',e=>{
+ if(waypointDrag){
+  const position=window.FSCFlightOps?.fallbackCoords?.(e);
+  if(position){
+   const current=mapSvg.querySelector('[data-waypoint-index="'+waypointDrag.index+'"] circle');
+   const proj=window.FSCFlightOps?.fallbackProjection?.();
+   if(current&&proj){
+    current.setAttribute('cx',String(450+(position.lon-proj.lon0)*proj.cos*proj.scale+proj.panX));
+    current.setAttribute('cy',String(170-(position.lat-proj.lat0)*proj.scale+proj.panY));
+   }
+  }
+  return;
+ }
+ if(!drag||window.FSCFreeMap?.isActive())return;
   const ratioX=900/Math.max(1,mapSvg.clientWidth),ratioY=340/Math.max(1,mapSvg.clientHeight);
   mapPanX+=(e.clientX-drag.x)*ratioX;mapPanY+=(e.clientY-drag.y)*ratioY;
   drag={x:e.clientX,y:e.clientY};renderMap(state)});
-const endDrag=()=>{drag=null};
+const endDrag=e=>{
+ if(waypointDrag){
+  const p=window.FSCFlightOps?.fallbackCoords?.(e);
+  if(p&&e.type==='pointerup')
+   window.FSCFlightOps?.moveWaypoint?.(waypointDrag.index,p.lat,p.lon);
+  waypointDrag=null;
+ }
+ drag=null;
+};
 mapSvg.addEventListener('pointerup',endDrag);mapSvg.addEventListener('pointercancel',endDrag);
+window.addEventListener('flightops-preview-changed',()=>{
+ if(view==='planning')renderMap(state);
+});
 $('satellite-toggle').onclick=()=>{const on=window.FSCFreeMap?.toggleSatellite();$('satellite-toggle').setAttribute('aria-pressed',String(!!on));if(!window.FSCFreeMap?.isActive())toast('Mapa local disponível. Satélite requer conexão online.')};
 async function poll(){try{const response=await fetch('/state',{headers:{'X-Flight-Token':token},cache:'no-store'});if(!response.ok)throw Error();render(await response.json());pollFailures=0}catch{pollFailures++;if(pollFailures===3){text('connection','App indisponível');$('led').style.background='#e06a75';text('telemetry-status','SEM ATUALIZAÇÃO');toast('Conexão com o aplicativo interrompida.')}}finally{setTimeout(poll,500)}}poll();
 
