@@ -1176,6 +1176,8 @@ class Application:
             self._log(f'COMBUSTÍVEL: {sum(s.fuel_tanks.values()):.1f} gal registrados no addon ({ref}).')
 
     def _process_sample(self,s):
+        if self.mode=='MSFS' and self.connected:
+            self._mark_aircraft_available(s.aircraft_title)
         self.last_sample=s
         self._sync_fuel(s)
         self._verify_payload(s)
