@@ -62,12 +62,21 @@ EMPLOYER_FLEET = (
     EmployerPlane("kingair", "Beechcraft King Air 350i", ("king air", "kingair"), 8, ("PCA", "IFR", "MLTE"), 4.0, 3, "turboprop", 1),
     EmployerPlane("cj4", "Cessna Citation CJ4", ("citation cj4", "cj4"), 11, ("PCA", "IFR", "MLTE"), 7.0, 3, "jet", 1),
 )
+from .type_ratings import TYPES as AIRLINE_TYPES, detect_model
+# Modelos das companhias mantidos separados das cinco aeronaves clássicas.
+EMPLOYER_FLEET = EMPLOYER_FLEET + tuple(
+    EmployerPlane(p.code, p.title, (p.code,), 5,
+                  ("PCA","IFR") if p.family=="jet" else ("PCA",),
+                  0.0, 0, p.family) for p in AIRLINE_TYPES)
 PLANE_BY_CODE = {p.code: p for p in EMPLOYER_FLEET}
 
 
 def aircraft_model(title: str | None) -> str | None:
     if not title:
         return None
+    airline_code=detect_model(title)
+    if airline_code:
+        return airline_code
     title = title.casefold()
     for plane in EMPLOYER_FLEET:
         if any(token in title for token in plane.keywords):
@@ -82,7 +91,7 @@ def aircraft_family(title: str | None) -> str | None:
 
 def matches_aircraft(title: str | None, plane_code: str | None) -> bool:
     plane = PLANE_BY_CODE.get(plane_code or "")
-    return bool(plane and title and any(token in title.casefold() for token in plane.keywords))
+    return bool(plane and aircraft_model(title)==plane.code)
 
 
 def pilot_level(xp: int) -> int:
