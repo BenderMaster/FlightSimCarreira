@@ -34,6 +34,8 @@ def read_global(root: Path) -> dict:
         data=json.loads(config_path(root).read_text(encoding='utf-8'))
     except (OSError,ValueError,TypeError):
         return dict(DEFAULTS)
+    if not isinstance(data,dict):
+        return dict(DEFAULTS)
     return {key:(value if type(value) is type(default) and
                  (key!='interface_scale' or value in (80,90,100,110,125,150))
                  else default)
@@ -115,7 +117,8 @@ def import_profiles(app, source: Path):
     restored=[]
     with zipfile.ZipFile(source,'r') as z:
         names=set(z.namelist())
-        if len(names)>150 or 'manifest.json' not in names:
+        if (len(names)>150 or 'manifest.json' not in names or
+                z.getinfo('manifest.json').file_size>100_000):
             raise ValueError('Pacote de backup não reconhecido.')
         if any(n.startswith('/') or '\\' in n or '..' in Path(n).parts
                for n in names):
@@ -146,22 +149,36 @@ def import_profiles(app, source: Path):
                 try:
                     if db.execute('PRAGMA integrity_check').fetchone()[0]!='ok':
                         raise ValueError('Banco inconsistente.')
-                    pilot=db.execute('SELECT name,callsign,home_icao FROM pilot_profile WHERE id=1').fetchone()
+                    try:
+                        pilot=db.execute('SELECT name,callsign,home_icao FROM pilot_profile WHERE id=1').fetchone()
+                    except sqlite3.DatabaseError as exc:
+                        raise ValueError('Backup sem estrutura de perfil FlightSim válida.') from exc
                 finally:db.close()
                 if not pilot:raise ValueError('Piloto ausente no backup.')
                 entries.append((p,output,pilot))
             if not entries:raise ValueError('Nenhuma carreira restaurável encontrada.')
             for p,db_path,pilot in entries:
                 # Unique new identity, not an update to existing save.
-                label=('Restaurado '+str(pilot[0]))[:50]
-                created=app.profiles.create(label,pilot[1],pilot[2],
-                    test_admin=p.get('kind')=='test' and label.casefold()=='teste')
+                is_test=p.get('kind')=='test'
+                label='Teste' if is_test else ('Restaurado '+str(pilot[0]))[:50]
+                created=app.profiles.create(label,pilot[1],pilot[2],test_admin=is_test)
                 folder=app.profiles.path(created['id'])
                 destination=folder/'carreira.db'
                 os.replace(db_path,destination)
                 photo_name=f"profiles/{p['id']}/pilot-avatar.png"
-                if photo_name in names and z.getinfo(photo_name).file_size<=4*1024*1024:
-                    (folder/'pilot-avatar.png').write_bytes(z.read(photo_name))
+                avatar=folder/'pilot-avatar.png'
+                avatar_ok=photo_name in names and z.getinfo(photo_name).file_size<=4*1024*1024
+                if avatar_ok:
+                    avatar.write_bytes(z.read(photo_name))
+                # An old absolute portrait path cannot remain attached to the
+                # newly imported profile (or point back to a different pilot).
+                imported=sqlite3.connect(destination)
+                try:
+                    with imported:
+                        imported.execute("INSERT INTO settings(key,value) VALUES('pilot_avatar_v1',?) "
+                            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                            (str(avatar) if avatar_ok else '',))
+                finally:imported.close()
                 restored.append(created['name'])
     return restored
 
