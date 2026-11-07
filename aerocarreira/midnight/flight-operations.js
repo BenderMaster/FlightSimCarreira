@@ -2,16 +2,71 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let mode='free',fixes=[],draftKey='',dirty=false,noticeSeq=null,currentState=null,lastSuccessful=null,projection=null;
+let mode='free',fixes=[],draftKey='',dirty=false,noticeSeq=null,currentState=null,projection=null;
+let previewSerial=0,previewRequest='',previewTimer=null,lastPreviewRoute=null;
+const radians=Math.PI/180;
+function distanceNm(a,b){
+ const x=a[0]*radians,y=b[0]*radians,d=(b[0]-a[0])*radians,l=(b[1]-a[1])*radians;
+ const z=Math.sin(d/2)**2+Math.cos(x)*Math.cos(y)*Math.sin(l/2)**2;
+ return 3440.065*2*Math.asin(Math.min(1,Math.sqrt(Math.max(0,z))));
+}
+function bearing(a,b){
+ const x=a[0]*radians,y=b[0]*radians,d=(b[1]-a[1])*radians;
+ return (Math.atan2(Math.sin(d)*Math.cos(y),Math.cos(x)*Math.sin(y)-Math.sin(x)*Math.cos(y)*Math.cos(d))/radians+360)%360;
+}
+function localRoute(base){
+ // Visualização imediata; ICAOs e coordenadas das extremidades são validados pelo motor.
+ if(!base||base.origin!==el('fo-origin').value.trim().toUpperCase()||
+    base.destination!==el('fo-destination').value.trim().toUpperCase()||
+    !Array.isArray(base.route)||base.route.length<2)return null;
+ const coords=[base.route[0],...fixes.map(w=>[w.lat,w.lon]),base.route[base.route.length-1]];
+ if(!coords.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)))return null;
+ const names=[base.origin,...fixes.map(w=>w.label),base.destination],cruise=Number(base.cruise_kts)||90;
+ let total=0;
+ const legs=coords.slice(0,-1).map((p,i)=>{
+  const nm=distanceNm(p,coords[i+1]);total+=nm;
+  return {from:names[i],to:names[i+1],nm:Math.round(nm*10)/10,
+    bearing_deg:Math.round(bearing(p,coords[i+1]))%360,minutes:Math.round(60*nm/cruise*10)/10};
+ });
+ return {...base,route:coords,waypoints:fixes.map(w=>({...w})),legs,
+  distance_nm:Math.round(total*10)/10,minutes:Math.max(8,Math.round(60*total/cruise+5)),
+  route_key:JSON.stringify([base.origin,base.destination,fixes])};
+}
+function visibleRoute(data){
+ if(!dirty)return data?.route||null;
+ const preview=data?.preview;
+ if(preview?.id===previewRequest){
+  if(preview.error)return null;
+  if(preview.route){lastPreviewRoute=preview.route;return preview.route;}
+ }
+ return localRoute(lastPreviewRoute)||localRoute(data?.route);
+}
+function refreshMap(){
+ if(currentState)render(currentState);
+ window.dispatchEvent(new Event('flightops-preview-changed'));
+}
+function schedulePreview(delay=120){
+ previewRequest=String(++previewSerial);
+ if(previewTimer)clearTimeout(previewTimer);
+ previewTimer=setTimeout(()=>{
+  previewTimer=null;
+  if(!currentState?.flight_operations?.ready)return;
+  const p=collect();
+  if(!/^[A-Z0-9]{4}$/.test(p.origin)||!/^[A-Z0-9]{4}$/.test(p.destination)||
+     !Number.isInteger(p.altitude_ft)||p.altitude_ft<500||p.altitude_ft>45000)return;
+  send('flightops_preview',p,previewRequest);
+ },delay);
+}
+
 const ids=['origin','destination','altitude'];
 const checkKeys={runway_checked:'fo-check-runway',route_checked:'fo-check-route',
                  fuel_checked:'fo-check-fuel',payload_checked:'fo-check-payload'};
 const text=(id,value)=>{el(id).textContent=value==null?'—':String(value)};
 const number=(n,d=0)=>n==null?'—':Number(n).toLocaleString('pt-BR',{maximumFractionDigits:d});
 function markDirty(){
- dirty=true;text('fo-status','ALTERAÇÕES NÃO SALVAS');
- text('fo-message','Salve o plano para recalcular e atualizar o mapa.');
- renderLegs(null);
+ dirty=true;text('fo-status','PRÉVIA • NÃO SALVA');
+ text('fo-message','Rota em prévia; salve somente quando estiver pronta.');
+ schedulePreview();refreshMap();
 }
 function showMode(){
  el('fo-free').classList.toggle('primary',mode==='free');
@@ -26,7 +81,9 @@ function useDraft(p){
  el('fo-altitude').value=p.altitude_ft??2500;
  fixes=(p.waypoints||[]).map(w=>({...w}));
  for(const [key,id] of Object.entries(checkKeys))el(id).checked=!!p.checks?.[key];
- showMode();renderFixes();dirty=false;lastSuccessful=JSON.stringify(collect());
+ showMode();renderFixes();dirty=false;
+ if(previewTimer)clearTimeout(previewTimer);
+ previewTimer=null;previewRequest='';lastPreviewRoute=null;
 }
 function renderFixes(){
  const box=el('fo-waypoints');box.replaceChildren();
