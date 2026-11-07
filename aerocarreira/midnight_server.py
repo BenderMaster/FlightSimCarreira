@@ -14,7 +14,7 @@ from queue import Queue, Full
 ACTIONS={'pilot','market','fleet','planning','finance','employment','history','reports','settings','connect','disconnect',
          'demo','demo_next','legacy','cancel','plan','fuel','refuel','service','avatar','refresh','offer','close','save_log','installed','analyze','locate','local_panel','prepare','fleet_select','fleet_photo','fleet_photo_clear','fleet_service',
          'aircraft_buy_new','aircraft_buy_used','aircraft_rent','aircraft_sell',
-         'flightops_save','flightops_export','flightops_send','flightops_clear',
+         'flightops_preview','flightops_save','flightops_export','flightops_send','flightops_clear',
          'pilot_profile_create','pilot_profile_update','pilot_profile_switch',
          'pilot_profile_reset','pilot_showcase','pilot_medal_equip','pilot_license_claim',
          'finance_loan','finance_repay','finance_tax','finance_export',
@@ -83,9 +83,14 @@ class DashboardServer:
                             raise ValueError()
                         if len(json.dumps(data['payload'],ensure_ascii=False))>3000:
                             raise ValueError()
-                    elif data['action']=='flightops_save':
-                        if set(data) != {'action','payload'} or not isinstance(data['payload'],dict):
+                    elif data['action'] in ('flightops_save','flightops_preview'):
+                        required={'action','payload','id'} if data['action']=='flightops_preview' else {'action','payload'}
+                        if set(data) != required or not isinstance(data['payload'],dict):
                             raise ValueError()
+                        if data['action']=='flightops_preview':
+                            request_id=data['id']
+                            if not isinstance(request_id,str) or not 1<=len(request_id)<=60 or not request_id.isdecimal():
+                                raise ValueError()
                         p=data['payload']
                         if set(p) != {'mode','origin','destination','altitude_ft','waypoints','checks'}:
                             raise ValueError()
