@@ -9,7 +9,7 @@ from .finance import AIRCRAFT_ECONOMY, brl, flight_operating_cost
 from .reputation import pilot_reputation
 from .fleet import init_fleet, FleetManager
 from .fleet_photos import init_photos
-from . import airline_operations as airline
+from . import airline_operations as airline, type_ratings
 from .employment import (Vacancy, EMPLOYER_BY_CODE, vacancies, weekly_period,
     employment_eligibility, selection_result, OWN_MIN_LEVEL, OWN_MIN_HOURS,
     OWN_INVESTMENT, valid_company_name)
@@ -136,6 +136,7 @@ class Storage:
         from . import flight_history
         flight_history.init(self.conn)
         airline.init(self.conn)
+        type_ratings.init(self.conn)
         airline.migrate_legacy_company(self)
         init_fleet(self.conn)
         init_photos(self.conn)
@@ -227,7 +228,8 @@ class Storage:
                         realism_fraction: float = 0.0, destination: str | None = None,
                         fuel_penalty_fraction: float = 0.0, fuel_prepaid: bool = False,
                         flight_xp_extra: int = 0,
-                        flight_xp_weight_bonus: int = 0) -> bool:
+                        flight_xp_weight_bonus: int = 0,
+                        verified_msfs: bool = False) -> bool:
         """Pouso+crédito+estado em UMA transação; repetição não duplica dinheiro.
 
         A identidade é determinada pela decolagem original e sobrevive a reinícios.
@@ -272,6 +274,10 @@ class Storage:
                  mission_id, gross_reward, flight_key, aircraft_title))
             inserted = cursor.rowcount == 1
             if inserted:
+                type_ratings.record_training(self.conn,flight_key,aircraft_title,
+                    float(start['timestamp']),float(end['timestamp']),
+                    touchdown_fpm_est,stalls,msfs_verified=verified_msfs)
+
                 old_balance = int(self.get_setting("balance") or 0)
                 # Uma aeronave própria selecionada é individualizada; fallback legado
                 # mantém os voos antigos sem migrar/duplicar inventário.
@@ -650,7 +656,7 @@ class Storage:
         if self.conn.execute('SELECT 1 FROM job_applications WHERE applied_utc>=? AND applied_utc<?',
             (period*7*86400,(period+1)*7*86400)).fetchone():
             raise ValueError('Limite: uma candidatura por semana.')
-        ok,reason=employment_eligibility(vacancy,self.pilot_stats(),self.owned_qualifications())
+        ok,reason=employment_eligibility(vacancy,self.pilot_stats(),self.owned_qualifications(),type_ratings.owned(self))
         if not ok:
             raise ValueError(reason)
         profile=self.get_pilot()
