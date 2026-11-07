@@ -74,7 +74,7 @@ class FlightHistoryTests(unittest.TestCase):
             self.db.conn.execute("""INSERT INTO airline_company(id,name,callsign,home_icao,
                 founded_utc,balance,reputation) VALUES(1,'QA Air','QAA','SBRF',1790000000,10000,50)""")
             self.db.conn.execute("""INSERT INTO airline_company_ledger
-                (event_key,kind,amount,balance_after,description,occurred_utc)
+                (event_key,kind,amount,balance_after,description,created_utc)
                 VALUES(?,?,?,?,?,?)""",(company_key+':income','operacao',2500,12500,'QA',1790010000))
         snap=flight_history.snapshot(self.db)
         company,personal=snap['flights']
