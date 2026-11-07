@@ -235,6 +235,44 @@ class TransportTests(unittest.TestCase):
         self.assertIn("flightops_export",planner)
         self.assertIn("flightops_send",planner)
 
+    def test_planner_live_preview_ui_and_airline_labels(self):
+        html=(ASSETS/'index.html').read_text(encoding='utf-8')
+        js=(ASSETS/'flight-operations.js').read_text(encoding='utf-8')
+        mapjs=(ASSETS/'free-map.js').read_text(encoding='utf-8')
+        from aerocarreira.employment import EMPLOYERS
+        self.assertIn('id="fo-plan"',html)
+        self.assertIn('moveWaypoint(index,lat,lon)',js)
+        self.assertIn("send('flightops_preview',p,previewRequest)",js)
+        self.assertIn('draggable=editingRoute',mapjs)
+        self.assertIn("marker.on('dragend'",mapjs)
+        self.assertNotIn('simulação',','.join(x.name for x in EMPLOYERS))
+        self.assertNotIn('fictícia',','.join(x.name for x in EMPLOYERS))
+        self.assertIn('<symbol id="i-gear"',html)
+        self.assertNotIn('m10 2-1 3-3-1-2 3',html)
+
+    def test_planner_preview_does_not_write_ledger(self):
+        from aerocarreira.app import Application
+        from aerocarreira.contracts import AirportCatalog
+        from aerocarreira.domain import AIRPORTS
+        app=object.__new__(Application)
+        app.airport_catalog=AirportCatalog(locations=AIRPORTS)
+        app.mode='Demo';app.connected=False;app.last_sample=None
+        app.career=Career();app.storage=self.db
+        self.pilot()
+        draft={'mode':'free','origin':'SBRF','destination':'SIPE','altitude_ft':2500,
+               'waypoints':[],'checks':{'runway_checked':False,'route_checked':False,
+                                      'fuel_checked':False,'payload_checked':False}}
+        previous=self.db.get_setting('flight_operations_v1')
+        before=self.db.conn.total_changes
+        direct=app._flightops_preview(draft)
+        self.assertEqual(len(direct['route']),2)
+        draft['waypoints'].append({'label':'FIX01','lat':-8.0,'lon':-35.0})
+        edited=app._flightops_preview(draft)
+        self.assertEqual(len(edited['route']),3)
+        self.assertGreater(edited['distance_nm'],direct['distance_nm'])
+        self.assertEqual(self.db.get_setting('flight_operations_v1'),previous)
+        self.assertEqual(self.db.conn.total_changes,before)
+
     def test_flightops_transport_requires_token_and_does_not_allow_extra_fields(self):
         self.assertEqual(self.request('/flight-operations.js')[0],200)
         payload={"mode":"free","origin":"SIPE","destination":"SIFC",
@@ -244,6 +282,14 @@ class TransportTests(unittest.TestCase):
         request={"action":"flightops_save","payload":payload}
         self.assertEqual(self.request('/command',request)[0],202)
         self.assertEqual(self.server.commands.get_nowait(),request)
+        preview={'action':'flightops_preview','payload':payload,'id':'7'}
+        self.assertEqual(self.request('/command',preview)[0],202)
+        self.assertEqual(self.server.commands.get_nowait(),preview)
+        self.assertEqual(self.request('/command',preview,auth=False)[0],403)
+        self.assertEqual(self.request('/command',{**preview,'id':'oops!'} )[0],400)
+        self.assertEqual(self.request('/command',{**preview,'extra':'no'})[0],400)
+        self.assertEqual(self.request('/command',{'action':'flightops_preview','id':'8','payload':{}})[0],400)
+
         self.assertEqual(self.request('/command',request,auth=False)[0],403)
         self.assertEqual(self.request('/command',request,origin=False)[0],403)
         self.assertEqual(self.request('/command',{**request,"amount":500})[0],400)
