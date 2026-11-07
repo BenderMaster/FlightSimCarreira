@@ -1420,23 +1420,62 @@ class Application:
             self._checkpoint()
 
     def _publish_bridge(self):
-        m=self.career.mission
-        s=self.last_sample if self.connected else None
-        mission=None
+        """Project a minimal real-time state to the read-only InGame panel.
+
+        Keep all domain logic and SQLite on the Tk thread. Never expose the
+        full desktop dashboard snapshot or any mutating command to this bridge.
+        """
+        m = self.career.mission
+        now = time()
+        sample = self.last_sample if self.connected else None
+        s = sample if (sample and now - sample.timestamp < 10) else None
+        mission = None
+        remaining = None
         if m:
-            verified=restricted_mission(m,self.airport_catalog if self.msfs_airports_ready else None)
-            mission={'origin':m.origin,'destination':m.destination,'title':m.title,
-                     'reward':m.reward,'origin_lat':verified.origin_lat,
-                     'origin_lon':verified.origin_lon,
-                     'destination_lat':verified.destination_lat,
-                     'destination_lon':verified.destination_lon,
-                     'nav_source':verified.nav_source}
-        self.bridge_state.update(status='connected' if s else 'offline',
-            phase=self.tracker.phase.value,balance=self.career.balance,
-            aircraft=s.aircraft_title if s else None,
-            position={'lat':s.latitude,'lon':s.longitude} if s else None,
-            fuel_gallons=s.fuel_gallons if s else None,
-            mission=mission,updated=time())
+            verified = restricted_mission(
+                m, self.airport_catalog if self.msfs_airports_ready else None
+            )
+            mission = {
+                'origin': m.origin, 'destination': m.destination,
+                'title': m.title, 'reward': m.reward,
+                'origin_lat': verified.origin_lat,
+                'origin_lon': verified.origin_lon,
+                'destination_lat': verified.destination_lat,
+                'destination_lon': verified.destination_lon,
+                'nav_source': verified.nav_source,
+            }
+            if s and verified.destination_lat is not None and verified.destination_lon is not None:
+                remaining = round(distance_nm(
+                    s.latitude, s.longitude,
+                    verified.destination_lat, verified.destination_lon
+                ), 1)
+
+        # SimConnect sends optional readings that may be absent. Never substitute
+        # predicted flight data for missing actual telemetry.
+        from math import isfinite
+        def number(value, decimals=1):
+            return round(value, decimals) if (
+                isinstance(value, (float, int)) and not isinstance(value, bool)
+                and isfinite(value)
+            ) else None
+
+        telemetry = ({
+            'ias_kt': number(s.ias_kt), 'gs_kt': number(s.groundspeed_kt),
+            'altitude_ft': number(s.altitude_ft, 0),
+            'agl_ft': number(s.agl_ft, 0), 'vs_fpm': number(s.vs_fpm, 0),
+            'heading_deg': number(s.heading_true_deg),
+            'on_ground': bool(s.on_ground),
+        } if s else None)
+        status = ('connected' if s else
+                  'reconnecting' if self.mode == 'MSFS' else 'offline')
+        self.bridge_state.update(
+            status=status, mode=self.mode, phase=self.tracker.phase.value,
+            balance=int(self.career.balance), aircraft=s.aircraft_title if s else None,
+            position={'lat': number(s.latitude, 6), 'lon': number(s.longitude, 6)} if s else None,
+            fuel_gallons=number(s.fuel_gallons) if s else None,
+            mission=mission, telemetry=telemetry,
+            remaining_nm=remaining, updated=now,
+        )
 
     def _open_local_panel(self):
         import webbrowser
