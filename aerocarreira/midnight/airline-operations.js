@@ -66,9 +66,39 @@ function overview(a,root){
    metric('COMPROMISSOS','0% / 10% / 20%'),
    metric('CAPITAL DE FUNDAÇÃO',money(a.investment)),
    metric('MODALIDADE','AUTÔNOMO'));
-  banner.append(button('Ver recrutamento',()=>choose('jobs')));
+  banner.append(button('Ver recrutamento',()=>choose('jobs')),
+   button('Treinar habilitações',()=>choose('training')));
  }
  root.append(banner,grid);
+}
+function training(a,root){
+ root.append(header('HABILITAÇÕES DE TIPO / MODELO',
+  'Treinamento registrado somente em voos reais do MSFS, nunca pela Demo nem por um clique.'));
+ const summary=panel('COMO OBTER UMA HABILITAÇÃO');
+ summary.append(message('Use no MSFS uma aeronave instalada, mesmo que não seja de sua propriedade na carreira. Realize 2 voos de pelo menos 10 minutos cada, sem aviso de estol e com pouso registrado entre -650 e -30 ft/min.'),
+  message('O FlightSim verifica modelo, duração e pousos salvos. A habilitação é concedida automaticamente no SQLite após o segundo voo válido. PPA/PCA/IFR/MLTE continuam separados.'),
+  button('Verificar aeronaves instaladas',()=>command('settings_scan')));
+ root.append(summary);
+ const candidates=a.type_ratings||[];
+ for(const company of ['nordeste','latam','gol','azul']){
+  const p=panel('FROTA AUTORIZADA • '+(names[company]||company));
+  p.append(message(company==='nordeste'?
+   'AeroNordeste: operações de entrada e aeronaves compatíveis. Modelos avançados exigem habilitação.':
+   'Para candidatura, tenha ao menos um modelo habilitado desta frota.'));
+  const list=node('div','airline-cards');
+  const allowed=a.fleets?.[company]||[];
+  for(const t of candidates.filter(t=>allowed.includes(t.code))){
+   const item=node('div','airline-metric');
+   item.append(node('strong','',t.title),
+    node('small','',t.rated?'HABILITADO':
+      t.flights+' / '+t.required+' voos de treinamento'),
+    node('small','',t.installed?'INSTALAÇÃO VERIFICADA':'Instalação não confirmada'));
+   list.append(item);
+  }
+  if(company==='nordeste')
+   p.append(message('A frota clássica C152, C172, Baron G58, King Air 350i e CJ4 também permanece disponível conforme progressão.'));
+  p.append(list);root.append(p);
+ }
 }
 function jobs(a,root){
  root.append(header('RECRUTAMENTO SEMANAL','Escolha a meta de trabalho ANTES da candidatura.'));
@@ -78,7 +108,8 @@ function jobs(a,root){
   const box=panel(v.name);
   box.append(node('span','airline-prestige','PRESTÍGIO '+Math.round(v.employer_prestige*100)+'%'),
    node('strong','airline-big',money(v.salary)),
-   message('Salário-base estimado por semana • Aeronave: '+v.aircraft.toUpperCase()),
+   message('Salário-base estimado por semana • Frota: '+(v.fleet||[v.aircraft]).join(', ')),
+   message('Candidatura exige uma habilitação de modelo da frota. Treinamento gratuito em aeronave disponível no MSFS.'),
    message('Nível '+v.min_level+' • '+v.min_hours+' horas • '+v.qualifications.join(' / ')));
   const label=node('label','airline-form-label','Seu compromisso na contratação');
   const sel=node('select','');
@@ -222,10 +253,10 @@ function render(s,force=false){
  $('airline-mode').textContent=({autonomo:'AUTÔNOMO',empregado:'PILOTO CONTRATADO',
   empresario:'EMPRESÁRIO'})[a.mode]||a.mode;
  const k=JSON.stringify([a.mode,a.employment,a.applications,a.vacancies,
-  a.business,a.employer_offers,a.corporate_offers,a.active_mission,a.notice?.seq,tab]);
+  a.business,a.employer_offers,a.corporate_offers,a.active_mission,a.type_ratings,a.notice?.seq,tab]);
  if(!force&&k===signature)return;signature=k;
  const root=$('airline-content');root.replaceChildren();
- ({overview,jobs,schedule,business,history}[tab]||overview)(a,root);
+ ({overview,jobs,training,schedule,business,history}[tab]||overview)(a,root);
 }
 window.FSCAirlineOperations={render,show:()=>current&&render(current,true)};
 })();

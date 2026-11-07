@@ -191,8 +191,32 @@ def equip(db, profile, code, active_codes):
     return "Medalha equipada." if code else "Medalha removida."
 
 
+DELIVERED_KEY = "pilot_unlock_last_ack_v087"
+
+def acknowledge_event(db, event_id: int):
+    """Acknowledge one actually shown event, never accept a future sequence."""
+    if type(event_id) is not int or event_id < 1:
+        raise ValueError("Identificador de conquista inválido.")
+    init(db)
+    current=int(db.get_setting(DELIVERED_KEY) or 0)
+    row=db.conn.execute("SELECT id FROM pilot_career_events WHERE id=?",(event_id,)).fetchone()
+    if not row or event_id<=current:
+        return False
+    # Reject skipping unseen entries, otherwise a crafted call loses animations.
+    first=db.conn.execute("""SELECT MIN(id) FROM pilot_career_events
+        WHERE id>?""",(current,)).fetchone()[0]
+    if first!=event_id:
+        raise ValueError("Aguardando conquista anterior.")
+    db.set_setting(DELIVERED_KEY,str(event_id))
+    return True
+
+
 def snapshot(db, profile=None):
     init(db)
+    # Upgrade baseline: do not replay events already known before v0.8.7.
+    if db.get_setting(DELIVERED_KEY) is None:
+        last=db.conn.execute("SELECT COALESCE(MAX(id),0) FROM pilot_career_events").fetchone()[0]
+        db.set_setting(DELIVERED_KEY,str(last))
     pilot=db.get_pilot()
     stats=db.pilot_stats()
     base=counts(db)
@@ -307,6 +331,10 @@ def snapshot(db, profile=None):
         contracts_by_month[datetime.fromtimestamp(row[2],timezone.utc).strftime("%Y-%m")]+=1
     for row in base["rows"]:
         if row[5]:hours_by_plane[row[5]]+=max(0,row[2]-row[1])/3600
+    last_ack=int(db.get_setting(DELIVERED_KEY) or 0)
+    pending=[dict(id=row[0],when=row[1],kind=row[2],code=row[3],title=row[4])
+        for row in db.conn.execute("""SELECT id,occurred_utc,kind,code,title
+            FROM pilot_career_events WHERE id>? ORDER BY id LIMIT 25""",(last_ack,))]
     return dict(name=pilot["name"] if pilot else None,level=level,rank={
         "code":rank[0],"title":rank[1],"min":rank[2],"max":rank[3]},
         rank_gallery=[dict(code=r[0],title=r[1],min=r[2],max=r[3],
@@ -316,7 +344,7 @@ def snapshot(db, profile=None):
         hours=round(stats["hours"],1),contracts=base["contract_count"],
         aircraft_types=len(hours_by_plane),earned_money=db.conn.execute(
              "SELECT COALESCE(SUM(amount),0) FROM finance_ledger WHERE kind='contrato'").fetchone()[0],
-        timeline=timeline[:100],events_seq=db.conn.execute("SELECT COALESCE(MAX(id),0) FROM pilot_career_events").fetchone()[0],
+        timeline=timeline[:100],pending_unlocks=pending,events_seq=db.conn.execute("SELECT COALESCE(MAX(id),0) FROM pilot_career_events").fetchone()[0],
         graphs={"landings":landings,"contracts":sorted(contracts_by_month.items())[-18:],
                 "hours_by_aircraft":sorted(hours_by_plane.items(),key=lambda x:-x[1])[:10]},
         is_test=_override_allowed(db,profile),

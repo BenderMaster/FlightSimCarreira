@@ -62,14 +62,24 @@ EMPLOYER_FLEET = (
     EmployerPlane("kingair", "Beechcraft King Air 350i", ("king air", "kingair"), 8, ("PCA", "IFR", "MLTE"), 4.0, 3, "turboprop", 1),
     EmployerPlane("cj4", "Cessna Citation CJ4", ("citation cj4", "cj4"), 11, ("PCA", "IFR", "MLTE"), 7.0, 3, "jet", 1),
 )
+FREELANCER_FLEET = EMPLOYER_FLEET
+from .type_ratings import TYPES as AIRLINE_TYPES, detect_model
+# Modelos das companhias mantidos separados das cinco aeronaves clássicas.
+EMPLOYER_FLEET = EMPLOYER_FLEET + tuple(
+    EmployerPlane(p.code, p.title, (p.code,), 5,
+                  ("PCA","IFR") if p.family=="jet" else ("PCA",),
+                  0.0, 0, p.family) for p in AIRLINE_TYPES)
 PLANE_BY_CODE = {p.code: p for p in EMPLOYER_FLEET}
 
 
 def aircraft_model(title: str | None) -> str | None:
     if not title:
         return None
+    airline_code=detect_model(title)
+    if airline_code:
+        return airline_code
     title = title.casefold()
-    for plane in EMPLOYER_FLEET:
+    for plane in FREELANCER_FLEET:
         if any(token in title for token in plane.keywords):
             return plane.code
     return None
@@ -82,7 +92,7 @@ def aircraft_family(title: str | None) -> str | None:
 
 def matches_aircraft(title: str | None, plane_code: str | None) -> bool:
     plane = PLANE_BY_CODE.get(plane_code or "")
-    return bool(plane and title and any(token in title.casefold() for token in plane.keywords))
+    return bool(plane and aircraft_model(title)==plane.code)
 
 
 def pilot_level(xp: int) -> int:
@@ -246,7 +256,7 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
             f"{kind.title} • {target.name[:24]}",reward,category=kind.code,
             origin_lat=origin.latitude,origin_lon=origin.longitude,
             destination_lat=target.latitude,destination_lon=target.longitude))
-    allowed_planes = [p for p in EMPLOYER_FLEET if eligibility(
+    allowed_planes = [p for p in FREELANCER_FLEET if eligibility(
         Mission("x",origin.icao,origin.icao,"",0,category="cargo",freelance=True,employer_plane=p.code),
         stats,qualifications,family_flights)[0]]
     freelance_kinds = [k for k in allowed if k.code not in ("rescue", "special")]

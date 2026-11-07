@@ -5,6 +5,7 @@
 'use strict';
 const el=id=>document.getElementById(id);
 let current=null,activeTab='overview',lastSeq=null,noticeSeq=null,lastSignature='',adminDraft=null,lastRenderedSignature='';
+let pendingUnlockId=null,lastDismissedUnlockId=0;
 const tabs=['overview','achievements','licenses','graphs','timeline','admin'];
 const xns='http://www.w3.org/2000/svg', fmt=(n,d=0)=>
  Number(n||0).toLocaleString('pt-BR',{maximumFractionDigits:d});
@@ -504,18 +505,37 @@ function render(s){
  if(pc.notice?.seq!=null&&noticeSeq!==pc.notice.seq){
   noticeSeq=pc.notice.seq;set('pc-message',pc.notice.message);
  }
- if(lastSeq==null){lastSeq=pc.events_seq;}
- else if(pc.events_seq>lastSeq){
-  const newest=pc.timeline.find(e=>['gain','loss','promotion'].includes(e.kind));
-  if(newest){
-   const kind=newest.kind==='gain'&&newest.key?.startsWith('medal:')&&
-    !newest.key.endsWith(':first')?'recovery':newest.kind;
-   showUnlock(kind,newest.title,newest.code);
-  }
-  lastSeq=pc.events_seq;
- }
+ lastSeq=pc.events_seq;
+ maybeShowPendingUnlock();
  showTab(activeTab);
 }
+function maybeShowPendingUnlock(){
+ // A new flight can be finalized with the WebView minimized or behind MSFS.
+ // The SQLite award is immediate; visual celebration is deferred to focus.
+ if(!current || document.visibilityState==='hidden' || !document.hasFocus() ||
+    current.settings_center?.preferences?.notifications===false ||
+    pendingUnlockId!==null || el('pc-unlock').open)return;
+ const events=current.pilot_career?.pending_unlocks||[];
+ const entry=events.find(e=>e.id>lastDismissedUnlockId);
+ if(!entry)return;
+ pendingUnlockId=entry.id;
+ const kind=entry.kind==='gain' && entry.id>0 &&
+    (current.pilot_career.medals||[]).some(m=>m.code===entry.code && m.awarded_utc<entry.when-.5)
+    ? 'recovery':entry.kind;
+ showUnlock(kind,entry.title,entry.code);
+}
+function onUnlockClosed(){
+ if(pendingUnlockId!==null){
+  const delivered=pendingUnlockId;pendingUnlockId=null;
+  lastDismissedUnlockId=Math.max(lastDismissedUnlockId,delivered);
+  act('pilot_event_ack',undefined,String(delivered));
+ }
+ // The next award is only displayed once the preceding dialog is closed.
+ maybeShowPendingUnlock();
+}
+window.addEventListener('focus',()=>maybeShowPendingUnlock());
+document.addEventListener('visibilitychange',()=>maybeShowPendingUnlock());
+
 function showUnlock(kind,label,code){
  const dialog=el('pc-unlock');
  const art=el('pc-unlock-art');art.replaceChildren();
@@ -602,6 +622,7 @@ function init(){
  el('pc-admin-preview-gain').onclick=()=>showUnlock('gain','Veterano • 50 Voos','veteran');
  el('pc-admin-preview-loss').onclick=()=>showUnlock('loss','Reputação 90','reputation90');
  el('pc-admin-preview-promotion').onclick=()=>showUnlock('promotion','Nova patente','major');
+ el('pc-unlock').addEventListener('close',onUnlockClosed);
  el('pc-close-unlock').onclick=()=>el('pc-unlock').close();
  el('pc-unlock-dismiss').onclick=()=>el('pc-unlock').close();
  el('pc-unlock').addEventListener('click',e=>{if(e.target===el('pc-unlock'))el('pc-unlock').close();});

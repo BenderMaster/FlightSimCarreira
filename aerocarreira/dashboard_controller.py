@@ -1,5 +1,7 @@
 """Allowlisted UI commands; all actions execute on Application's Tk thread."""
 import os
+import sqlite3
+from zipfile import BadZipFile
 import subprocess
 import sys
 from queue import Empty
@@ -12,7 +14,7 @@ from .dashboard import DashboardPresenter
 from .midnight_server import DashboardServer
 from .fleet_photos import normalize_photo, save_photo, delete_photo, photo_bytes, owned_fleet
 from .aircraft_marketplace import execute_market
-from . import pilot_career, financial_center, airline_operations as airline, flight_history
+from . import pilot_career, financial_center, airline_operations as airline, flight_history, type_ratings, settings_center
 
 class DashboardController:
     def __init__(self,app):
@@ -161,6 +163,102 @@ class DashboardController:
             if not self.closed:
                 for child in app.root.winfo_children():
                     if isinstance(child,Toplevel):child.lift();child.focus_force()
+        elif action=='pilot_event_ack':
+            try:
+                event_id=cmd.get('id','')
+                if not isinstance(event_id,str) or not event_id.isascii() or not event_id.isdecimal():
+                    raise ValueError('Evento inválido')
+                pilot_career.acknowledge_event(app.storage,int(event_id))
+                self.presenter.pilot_career_cache=None
+            except (ValueError,TypeError):
+                app._log('CONQUISTAS: confirmação inválida; notificação preservada.')
+        elif action in ('settings_set','settings_scan','settings_backup',
+                        'settings_restore','settings_export_log','settings_open_data'):
+            try:
+                if action=='settings_set':
+                    request=cmd['payload'];key=request['key'];value=request['value']
+                    if key in ('fuel','tax','failures'):
+                        if type(value) is not bool:
+                            raise ValueError('Opção inválida.')
+                        if app.tracker.phase==Phase.AIRBORNE:
+                            raise ValueError('Altere regras da carreira somente em solo.')
+                        if key=='fuel':
+                            app.storage.set_setting('fuel_control_enabled','1' if value else '0')
+                            message='Combustível '+('ativado.' if value else 'desativado: -30% R$/XP nos voos seguintes.')
+                        elif key=='tax':
+                            app.storage.set_setting('income_tax_enabled','1' if value else '0')
+                            message='Imposto virtual '+('ativado.' if value else 'desativado.')
+                            self.presenter.finance_cache=None
+                        else:
+                            app.storage.set_setting('simulated_failures_enabled','1' if value else '0')
+                            message='Preferência de falhas registrada; injeção de falhas ainda NÃO está implementada.'
+                    else:
+                        app.settings_prefs=settings_center.save_global(app.profiles.root,key,value)
+                        if key=='reconnect' and app.sim:
+                            app.sim.reconnect=value
+                        message='Preferência '+key+' salva.'
+                elif action=='settings_scan':
+                    from .aircraft_catalog import detect_package_roots, scan_installed_aircraft
+                    from .contracts import aircraft_model
+                    roots=detect_package_roots()
+                    if not roots:
+                        folder=filedialog.askdirectory(parent=app.root,
+                            title='Selecione a pasta InstalledPackages do MSFS')
+                        if not folder:
+                            raise ValueError('Busca cancelada.')
+                        roots=[__import__('pathlib').Path(folder)]
+                    installed=scan_installed_aircraft(roots)
+                    codes={aircraft_model(x.title) for x in installed}
+                    app.airline_available_codes.update(x for x in codes if x)
+                    app.airline_scan_count=len(installed)
+                    self.presenter.market_key=None
+                    self.presenter.refresh_market(force=True)
+                    message=str(len(installed))+' variações encontradas; modelos reconhecidos: '+str(len(codes-{None}))+'. Leitura não comprova licença de uso.'
+                elif action=='settings_backup':
+                    filename=filedialog.asksaveasfilename(parent=app.root,
+                        title='Backup de todas as carreiras',defaultextension='.zip',
+                        filetypes=[('FlightSim backup','*.zip')],
+                        initialfile='FlightSim-carreiras-backup.zip')
+                    if not filename:raise ValueError('Backup cancelado.')
+                    count=settings_center.export_profiles(app,filename)
+                    message='Backup salvo com segurança: '+str(count)+' perfil(is).'
+                elif action=='settings_restore':
+                    if app.tracker.phase==Phase.AIRBORNE or app.career.mission:
+                        raise ValueError('Finalize o voo e o contrato antes de importar perfis.')
+                    filename=filedialog.askopenfilename(parent=app.root,title='Importar backup FlightSim',
+                        filetypes=[('FlightSim backup','*.zip')])
+                    if not filename:raise ValueError('Restauração cancelada.')
+                    if not messagebox.askyesno('Importar carreiras',
+                        'Os pilotos do arquivo serão importados como NOVOS perfis. Nenhuma carreira existente será substituída. Continuar?',
+                        parent=app.root):
+                        raise ValueError('Importação cancelada.')
+                    names=settings_center.import_profiles(app,filename)
+                    message=str(len(names))+' carreira(s) importada(s). Troque pelo Gerenciador de Pilotos.'
+                    self.presenter.pilot_career_cache=None
+                elif action=='settings_export_log':
+                    filename=filedialog.asksaveasfilename(parent=app.root,title='Salvar diagnóstico',
+                        defaultextension='.txt',filetypes=[('Texto','*.txt')],
+                        initialfile='FlightSim-diagnostico.txt')
+                    if not filename:raise ValueError('Exportação cancelada.')
+                    raw=app.log_text.get('1.0','end')
+                    clean=settings_center.sanitize_log(raw,app.settings_prefs['redact_diagnostics'])
+                    with open(filename,'w',encoding='utf-8') as handle:
+                        handle.write('FlightSim • Diagnóstico local\n'+clean)
+                    message='Diagnóstico exportado; revise antes de compartilhar.'
+                else:
+                    if sys.platform!='win32':
+                        raise ValueError('Abertura da pasta disponível no Windows.')
+                    from .app import state_dir
+                    os.startfile(str(state_dir()))
+                    message='Pasta de dados aberta.'
+                ok=True
+            except (OSError,ValueError,TypeError,KeyError,RuntimeError,ImportError,
+                    BadZipFile,sqlite3.DatabaseError) as exc:
+                ok=False
+                message='Operação não concluída: '+str(exc)
+            app.settings_notice_seq=getattr(app,'settings_notice_seq',0)+1
+            app.settings_notice=dict(seq=app.settings_notice_seq,ok=ok,message=message)
+            app._log('CONFIGURAÇÕES: '+message)
         elif action=='flight_note':
             try:
                 payload=cmd['payload']

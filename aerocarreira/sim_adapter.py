@@ -204,11 +204,12 @@ class SimConnectWorker:
     Mensagens incluem ID de geração para descartar eventos de sessões antigas.
     """
     def __init__(self, outgoing: Queue, interval: float = 0.5, generation: int = 0,
-                 reconnect_delay: float = 3.0):
+                 reconnect_delay: float = 3.0, reconnect: bool = True):
         self.outgoing = outgoing
         self.interval = interval
         self.generation = generation
         self.reconnect_delay = reconnect_delay
+        self.reconnect = reconnect
         self.actions = Queue()
         self.stop_event = Event()
         self.thread = None
@@ -361,7 +362,10 @@ class SimConnectWorker:
                     self.stop_event.wait(self.interval)
             except Exception as exc:
                 if not self.stop_event.is_set():
-                    self._send("warning", f"Conexão interrompida: {exc}. Tentando reconectar...")
+                    self._send("warning", f"Conexão interrompida: {exc}. " +
+                        ("Tentando reconectar..." if self.reconnect else "Reconexão manual necessária."))
+                    if not self.reconnect:
+                        self.stop_event.set()
             finally:
                 if sm is not None:
                     try:

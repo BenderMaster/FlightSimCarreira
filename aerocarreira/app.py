@@ -37,7 +37,7 @@ from .flight_audit import real_clock_verified, assistance_verified, flight_safet
 from .taxi import PostLandingTaxi
 from .aircraft_catalog import scan_installed_aircraft, detect_package_roots
 from .ingame_bridge import PanelState, LocalPanelServer
-from . import __version__
+from . import __version__, type_ratings, settings_center
 
 BG = "#08111c"
 PANEL = "#101e2d"
@@ -69,6 +69,9 @@ class Application:
         self.tracker = FlightTracker()
         self.post_landing_taxi = PostLandingTaxi()
         self.profiles=ProfileManager(state_dir())
+        self.settings_prefs=settings_center.read_global(state_dir())
+        self.airline_available_codes=set()
+        self.airline_scan_count=None
         self.profile_dir=self.profiles.path()
         self.storage=Storage(self.profiles.database())
         self.location_recovered=self.storage.recover_legacy_location()
@@ -162,7 +165,8 @@ class Application:
             self.root.after(700,self._auto_connect)
 
     def _auto_connect(self):
-        if self.mode=='Desconectado' and self.sim is None:
+        if (self.mode=='Desconectado' and self.sim is None
+                and self.settings_prefs.get('autoconnect',True)):
             self._connect()
 
     def label(self, parent, text, size=10, color=FG, bold=False, bg=None):
@@ -505,7 +509,8 @@ class Application:
         if was_demo:
             self.tracker.reset()
         self.session_generation += 1
-        self.sim = SimConnectWorker(self.queue, generation=self.session_generation)
+        self.sim = SimConnectWorker(self.queue, generation=self.session_generation,
+            reconnect=self.settings_prefs.get('reconnect',True))
         self.airport_catalog=None
         self.msfs_airports_ready=False
         if self.dashboard:
@@ -622,6 +627,28 @@ class Application:
                                    self.storage.employment_state()['employer_code']!=m.company_code):
                 messagebox.showwarning('Contrato', 'Trecho exclusivo da companhia empregadora.')
                 return False
+            if m.company_code and m.company_code!='OWN':
+                if self.mode!='MSFS' or not self.connected or not self.last_sample:
+                    messagebox.showwarning('Contrato da companhia',
+                        'Conecte ao MSFS com a aeronave habilitada antes de aceitar a escala.')
+                    return False
+                model=m.employer_plane
+                company=m.company_code
+                ratings=type_ratings.owned(self.storage)
+                if not type_ratings.valid_for_company(company,model,ratings):
+                    messagebox.showwarning('Contrato da companhia',
+                        'Modelo não habilitado para esta empregadora. Consulte Treinamento.')
+                    return False
+                if model not in self.airline_available_codes:
+                    messagebox.showwarning('Contrato da companhia',
+                        'Aeronave não verificada no ambiente MSFS. Abra o modelo ou escaneie a instalação.')
+                    return False
+                if (self.mode=='MSFS' and self.last_sample and
+                        not matches_aircraft(self.last_sample.aircraft_title,model)):
+                    messagebox.showwarning('Contrato da companhia',
+                        'Carregue no MSFS o modelo '+PLANE_BY_CODE[model].name+
+                        ' antes de aceitar esta rota.')
+                    return False
             if self.storage.contract_completed(m.id):
                 messagebox.showwarning("Contrato", "Este contrato já foi concluído. Aguarde nova oferta.")
                 return False
@@ -1098,6 +1125,13 @@ class Application:
         self._log(f"Log salvo em {path}")
         messagebox.showinfo("Diagnóstico salvo", f"Arquivo local:\n{path}\n\nPode conter localização do voo; revise antes de compartilhar.")
 
+    def _mark_aircraft_available(self, title):
+        code=type_ratings.detect_model(title) or aircraft_model(title)
+        if code and code not in self.airline_available_codes:
+            self.airline_available_codes.add(code)
+            if getattr(self,'dashboard',None):
+                self.dashboard.presenter.market_key=None
+
     def _fuel_ref_for_sample(self,s):
         model=aircraft_model(s.aircraft_title)
         if not model:
@@ -1164,6 +1198,8 @@ class Application:
             self._log(f'COMBUSTÍVEL: {sum(s.fuel_tanks.values()):.1f} gal registrados no addon ({ref}).')
 
     def _process_sample(self,s):
+        if self.mode=='MSFS' and self.connected:
+            self._mark_aircraft_available(s.aircraft_title)
         self.last_sample=s
         self._sync_fuel(s)
         self._verify_payload(s)
@@ -1311,7 +1347,8 @@ class Application:
                                         fuel_penalty_fraction=self.fuel_penalty_frozen,
                                         fuel_prepaid=self.fuel_mode_at_takeoff,
                                         flight_xp_extra=safety_xp,
-                                        flight_xp_weight_bonus=(self.weight_bonus_frozen if payment else 0))
+                                        flight_xp_weight_bonus=(self.weight_bonus_frozen if payment else 0),
+                                        verified_msfs=self.mode=='MSFS' and self.connected)
                 except Exception as exc:
                     self._log(f"FALHA AO SALVAR pouso: {exc}. Não feche antes de exportar log.")
                     self.status_var.set("Erro ao salvar voo")
@@ -1332,6 +1369,12 @@ class Application:
                 self.career.balance = int(self.storage.get_setting("balance") or 0)
                 summary = self.storage.flight_finance(start)
                 actual_credit = self.career.balance - old_balance
+                if inserted:
+                    if getattr(self,'dashboard',None):
+                        self.dashboard.presenter.market_key=None
+                        self.dashboard.presenter.pilot_career_cache=None
+                    if self.mode=='MSFS' and self.connected:
+                        self._mark_aircraft_available(s.aircraft_title)
                 if inserted and self.storage.get_pilot() is not None:
                     base_xp=flight_xp(payment['reward'] if payment else 0)
                     bonus_xp=round(base_xp*realism_fraction) if payment else 0
