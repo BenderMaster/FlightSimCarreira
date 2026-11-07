@@ -253,6 +253,7 @@ class DashboardPresenter:
         candidate=stored or flightops_draft(m,pilot_origin)
         flight_ops={'draft':candidate,'ready':bool(active_catalog),
                     'route':None,
+                    'preview':getattr(app,'flightops_preview',None),
                     'notice':getattr(app,'flightops_notice',None),
                     'dispatch':getattr(app,'dispatch_state',{}),
                     'aircraft_title':plane['title'] if plane else None,
