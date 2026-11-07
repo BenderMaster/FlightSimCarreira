@@ -184,7 +184,7 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(self.request('/command',{**note,'extra':1})[0],400)
         self.assertEqual(self.request('/command',{'action':'flight_note','payload':{'flight_id':True,'note':'ok'}})[0],400)
         self.assertEqual(self.request('/command',{'action':'flight_note','payload':{'flight_id':42,'note':'x'*1201}})[0],400)
-        self.assertEqual(self.request('/command',{'action':'flight_note','payload':{'flight_id':42,'note':'invalid\\x01'}})[0],400)
+        self.assertEqual(self.request('/command',{'action':'flight_note','payload':{'flight_id':42,'note':'invalid'+chr(1)}})[0],400)
         self.assertEqual(self.request('/flight_history.py')[0],404)
 
     def test_loopback_and_authenticated_read(self):
