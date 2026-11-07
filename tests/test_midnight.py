@@ -254,24 +254,29 @@ class TransportTests(unittest.TestCase):
         from aerocarreira.app import Application
         from aerocarreira.contracts import AirportCatalog
         from aerocarreira.domain import AIRPORTS
-        app=object.__new__(Application)
-        app.airport_catalog=AirportCatalog(locations=AIRPORTS)
-        app.mode='Demo';app.connected=False;app.last_sample=None
-        app.career=Career();app.storage=self.db
-        self.pilot()
-        draft={'mode':'free','origin':'SBRF','destination':'SIPE','altitude_ft':2500,
-               'waypoints':[],'checks':{'runway_checked':False,'route_checked':False,
-                                      'fuel_checked':False,'payload_checked':False}}
-        previous=self.db.get_setting('flight_operations_v1')
-        before=self.db.conn.total_changes
-        direct=app._flightops_preview(draft)
-        self.assertEqual(len(direct['route']),2)
-        draft['waypoints'].append({'label':'FIX01','lat':-8.0,'lon':-35.0})
-        edited=app._flightops_preview(draft)
-        self.assertEqual(len(edited['route']),3)
-        self.assertGreater(edited['distance_nm'],direct['distance_nm'])
-        self.assertEqual(self.db.get_setting('flight_operations_v1'),previous)
-        self.assertEqual(self.db.conn.total_changes,before)
+        with tempfile.TemporaryDirectory() as tmp:
+            db=Storage(Path(tmp)/'flightops-preview.db')
+            try:
+                db.create_pilot('QA Planner','QA-VFR','SBRF')
+                app=object.__new__(Application)
+                app.airport_catalog=AirportCatalog(locations=AIRPORTS)
+                app.mode='Demo';app.connected=False;app.last_sample=None
+                app.career=Career();app.storage=db
+                draft={'mode':'free','origin':'SBRF','destination':'SIPE','altitude_ft':2500,
+                       'waypoints':[],'checks':{'runway_checked':False,'route_checked':False,
+                                              'fuel_checked':False,'payload_checked':False}}
+                previous=db.get_setting('flight_operations_v1')
+                before=db.conn.total_changes
+                direct=app._flightops_preview(draft)
+                self.assertEqual(len(direct['route']),2)
+                draft['waypoints'].append({'label':'FIX01','lat':-8.0,'lon':-35.0})
+                edited=app._flightops_preview(draft)
+                self.assertEqual(len(edited['route']),3)
+                self.assertGreater(edited['distance_nm'],direct['distance_nm'])
+                self.assertEqual(db.get_setting('flight_operations_v1'),previous)
+                self.assertEqual(db.conn.total_changes,before)
+            finally:
+                db.close()
 
     def test_flightops_transport_requires_token_and_does_not_allow_extra_fields(self):
         self.assertEqual(self.request('/flight-operations.js')[0],200)
