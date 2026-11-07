@@ -628,6 +628,10 @@ class Application:
                 messagebox.showwarning('Contrato', 'Trecho exclusivo da companhia empregadora.')
                 return False
             if m.company_code and m.company_code!='OWN':
+                if self.mode!='MSFS' or not self.connected or not self.last_sample:
+                    messagebox.showwarning('Contrato da companhia',
+                        'Conecte ao MSFS com a aeronave habilitada antes de aceitar a escala.')
+                    return False
                 model=m.employer_plane
                 company=m.company_code
                 ratings=type_ratings.owned(self.storage)
