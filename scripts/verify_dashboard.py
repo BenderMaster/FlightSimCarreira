@@ -195,6 +195,8 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#flightops-map-slot .map-area').is_visible()
             assert page.locator('.sidebar').is_visible()
             assert page.locator('#fo-waypoints').is_visible()
+            # A fixture abre com contrato ativo: mude para voo livre antes de editar ICAOs.
+            page.locator('#fo-free').click()
             # Rota direta antes do salvamento; a prévia vem do motor real.
             page.locator('#fo-origin').fill('SBRF')
             page.locator('#fo-destination').fill('SIPE')
