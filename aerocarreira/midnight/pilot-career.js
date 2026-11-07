@@ -513,6 +513,7 @@ function maybeShowPendingUnlock(){
  // A new flight can be finalized with the WebView minimized or behind MSFS.
  // The SQLite award is immediate; visual celebration is deferred to focus.
  if(!current || document.visibilityState==='hidden' || !document.hasFocus() ||
+    current.settings_center?.preferences?.notifications===false ||
     pendingUnlockId!==null || el('pc-unlock').open)return;
  const events=current.pilot_career?.pending_unlocks||[];
  const entry=events.find(e=>e.id>lastDismissedUnlockId);
