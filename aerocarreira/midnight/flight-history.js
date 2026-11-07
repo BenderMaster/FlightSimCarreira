@@ -202,7 +202,34 @@ window.FSCFlightHistory=(()=>{
   host.append(svg);
  }
  function renderAnalytics(){
-  const items=filtered('fa',false);
+  const items=filtered('fa',false),period=el('fa-period').value,kindFilter=el('fa-kind').value,
+    aircraftFilter=el('fa-aircraft').value;
+  const cutoff=period==='all'?null:Date.now()/1000-Number(period)*86400;
+  const includeDate=e=>cutoff===null||e.at_utc>=cutoff;
+  const keys=new Set(items.map(f=>f.flight_key).filter(Boolean));
+  // Uma transação sem flight_key só pode entrar em relatório agregado de todas
+  // as aeronaves; nunca a atribuímos arbitrariamente a um avião ou contrato.
+  const matchFlight=e=>[...keys].some(key=>e.event_key?.startsWith(key+':'));
+  const globalView=kindFilter==='all'&&aircraftFilter==='all';
+  const personalEvents=(current?.flight_history?.finance_events||[]).filter(includeDate);
+  const businessEvents=(current?.flight_history?.business_events||[]).filter(includeDate);
+  const salaryEligible=aircraftFilter==='all'&&['all','emprego'].includes(kindFilter);
+  const salaries=salaryEligible?personalEvents.filter(e=>e.kind==='salario')
+    .reduce((a,e)=>a+e.amount,0):null;
+  const operational=new Set(['combustivel','taxa_aeroporto','taxa_simulada','seguro',
+    'abastecimento','manutencao','aluguel','penalidade_combustivel']);
+  const labels={combustivel:'Combustível em voo',taxa_aeroporto:'Taxa de aeroporto',
+    taxa_simulada:'Imposto opcional',seguro:'Seguro de aeronave',abastecimento:'Abastecimento',
+    manutencao:'Manutenção',aluguel:'Aluguel',penalidade_combustivel:'Penalidade de combustível'};
+  const expenses={};
+  for(const [source,events] of [['Pessoal',personalEvents],['Empresa',businessEvents]]){
+   for(const e of events){
+    if(e.amount>=0||!operational.has(e.kind)||(!globalView&&!matchFlight(e)))continue;
+    const label=source+' · '+(labels[e.kind]||e.kind);
+    expenses[label]=(expenses[label]||0)-e.amount;
+   }
+  }
+  const expenseTotal=Object.values(expenses).reduce((a,b)=>a+b,0);
   const hours=items.reduce((n,f)=>n+(f.hours||0),0);
   const landings=items.filter(f=>valid(f.touchdown_fpm));
   const xp=items.reduce((n,f)=>n+(f.xp||0),0);
@@ -215,15 +242,22 @@ window.FSCFlightHistory=(()=>{
     fmt(landings.reduce((n,f)=>n+f.touchdown_fpm,0)/landings.length)+' ft/min':'—',
     fmt(landings.length)+' pousos com leitura'),
    metric('XP DOS VOOS',fmt(xp),'XP atrelado a voos, não folha'),
-   metric('CAIXA PESSOAL DOS VOOS',money(personal),'Lançamentos por voo'),
-   metric('RESULTADO DA EMPRESA',money(business),'Separado do caixa pessoal')
+   metric('RESULTADO PESSOAL EM VOOS',money(personal),'Lançamentos financeiros do voo'),
+   metric('RESULTADO EMPRESARIAL',money(business),'Separado do caixa pessoal'),
+   metric('SALÁRIOS LIQUIDADOS',salaries===null?'—':money(salaries),
+    salaries===null?'Não atribuível à aeronave':'Folhas realmente pagas no período'),
+   metric('DESPESAS REGISTRADAS',money(expenseTotal),
+    globalView?'Todos os custos operacionais no período':'Somente custos vinculados aos voos filtrados')
   );
-  const aircraft={},kind={},landing={Suave:0,Moderado:0,Forte:0};
+  const aircraft={},kind={},landing={Suave:0,Moderado:0,Forte:0},models={};
   for(const f of items){
    const name=f.aircraft||'Modelo não registrado';
    aircraft[name]=(aircraft[name]||0)+(f.hours||0);
    kind[names[f.kind]||'Outros']=(kind[names[f.kind]||'Outros']||0)+1;
+   const m=models[name]||(models[name]={flights:0,hours:0,landing:[],personal:0,business:0});
+   m.flights++;m.hours+=f.hours||0;m.personal+=f.personal_net||0;m.business+=f.business_net||0;
    if(valid(f.touchdown_fpm)){
+    m.landing.push(f.touchdown_fpm);
     const descent=Math.abs(f.touchdown_fpm);
     if(descent<150)landing.Suave++;
     else if(descent<=400)landing.Moderado++;
@@ -235,6 +269,22 @@ window.FSCFlightHistory=(()=>{
   addBars('fa-kind-chart',kind,' voo(s)');
   if(!landings.length)el('fa-landing-chart').replaceChildren(create('div','fh-empty','Nenhum pouso com taxa registrada.'));
   else addBars('fa-landing-chart',landing,' pouso(s)');
+  addBars('fa-cost-chart',expenses,' R$');
+  const table=el('fa-model-comparison');table.replaceChildren();
+  const entries=Object.entries(models).sort((a,b)=>b[1].hours-a[1].hours);
+  if(!entries.length)table.append(create('div','fh-empty','Nenhuma aeronave pilotada neste período.'));
+  else{
+   for(const [name,m] of entries){
+    const card=create('div','fa-compare-row');
+    const data=create('div','fa-compare-meta');
+    data.append(create('strong','',name),create('small','',fmt(m.flights)+' voos • '+
+      fmt(m.hours,1)+' h • pouso médio '+(m.landing.length?
+      fmt(m.landing.reduce((a,b)=>a+b,0)/m.landing.length)+' ft/min':'—')));
+    card.append(data,create('span','',
+      'Pessoal '+money(m.personal)+' • Empresa '+money(m.business)));
+    table.append(card);
+   }
+  }
  }
  function render(s,force=false){
   current=s;
