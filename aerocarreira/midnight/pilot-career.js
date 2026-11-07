@@ -5,20 +5,6 @@
 'use strict';
 const el=id=>document.getElementById(id);
 let current=null,activeTab='overview',lastSeq=null,noticeSeq=null,lastSignature='',adminDraft=null,lastRenderedSignature='';
-let achievementSound=null;
-function playAchievementSound(){
- // Áudio enviado pelo piloto; apenas conquistas, promoções e reconquistas.
- // Falha silenciosa se o WebView bloquear autoplay (nenhum efeito em XP/estado).
- try{
-  if(!achievementSound){
-   achievementSound=new Audio('/achievement-unlock.mp3');
-   achievementSound.preload='auto';achievementSound.volume=.8;
-  }
-  achievementSound.pause();achievementSound.currentTime=0;
-  const promise=achievementSound.play();
-  if(promise?.catch)promise.catch(()=>{});
- }catch(_error){}
-}
 const tabs=['overview','achievements','licenses','graphs','timeline','admin'];
 const xns='http://www.w3.org/2000/svg', fmt=(n,d=0)=>
  Number(n||0).toLocaleString('pt-BR',{maximumFractionDigits:d});
@@ -544,7 +530,6 @@ function showUnlock(kind,label,code){
   kind==='promotion'?'NOVA PATENTE':kind==='recovery'?'CONQUISTA RECUPERADA':'NOVA CONQUISTA');
  set('pc-unlock-title',label||'Conquista');
  if(!dialog.open)dialog.showModal();
- if(kind==='gain'||kind==='promotion'||kind==='recovery')playAchievementSound();
  // A animação termina, mas o diálogo continua aberto até o piloto fechar.
  // Reabrir um diálogo visível não reinicia automaticamente nenhum prêmio.
  el('pc-close-unlock').focus({preventScroll:true});
