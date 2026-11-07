@@ -44,7 +44,7 @@ class EmploymentTests(unittest.TestCase):
         self.assertEqual(len({x.id for x in items}),4)
         self.assertNotEqual({x.id for x in items},{x.id for x in vacancies(self.period+1,'SIPE')})
         self.assertTrue(all(x.airport=='SIPE' for x in items))
-        self.assertTrue(all('simulação' in EMPLOYER_BY_CODE[x.company].name or x.company=='nordeste' for x in items))
+        self.assertTrue(all('simulação' not in EMPLOYER_BY_CODE[x.company].name and 'fictícia' not in EMPLOYER_BY_CODE[x.company].name for x in items))
         with self.assertRaises(ValueError):vacancies(self.period,'../abc')
 
     def test_real_airline_names_are_not_actual_jobs(self):
