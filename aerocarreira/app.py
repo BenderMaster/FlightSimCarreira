@@ -627,6 +627,24 @@ class Application:
                                    self.storage.employment_state()['employer_code']!=m.company_code):
                 messagebox.showwarning('Contrato', 'Trecho exclusivo da companhia empregadora.')
                 return False
+            if m.company_code and m.company_code!='OWN':
+                model=m.employer_plane
+                company=m.company_code
+                ratings=type_ratings.owned(self.storage)
+                if not type_ratings.valid_for_company(company,model,ratings):
+                    messagebox.showwarning('Contrato da companhia',
+                        'Modelo não habilitado para esta empregadora. Consulte Treinamento.')
+                    return False
+                if model not in self.airline_available_codes:
+                    messagebox.showwarning('Contrato da companhia',
+                        'Aeronave não verificada no ambiente MSFS. Abra o modelo ou escaneie a instalação.')
+                    return False
+                if (self.mode=='MSFS' and self.last_sample and
+                        not matches_aircraft(self.last_sample.aircraft_title,model)):
+                    messagebox.showwarning('Contrato da companhia',
+                        'Carregue no MSFS o modelo '+PLANE_BY_CODE[model].name+
+                        ' antes de aceitar esta rota.')
+                    return False
             if self.storage.contract_completed(m.id):
                 messagebox.showwarning("Contrato", "Este contrato já foi concluído. Aguarde nova oferta.")
                 return False
