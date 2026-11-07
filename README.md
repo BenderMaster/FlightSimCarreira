@@ -3,11 +3,11 @@
 Início do suporte à toolbar do MSFS 2020. O Windows conserva o motor Python/SQLite/SimConnect;
 o pacote-fonte do MSFS abre um painel somente leitura via loopback com telemetria e mapa leve.
 Ainda é necessário compilar o package no **SDK do MSFS 2020** e validar a compatibilidade do
-iframe com o Coherent. **A \`main\` permanece a v0.8.7 homologada.**
+iframe com o Coherent. **A `main` permanece a v0.8.7 homologada.**
 
 - Guia de instalação: [v0.9.0 InGame](docs/INGAME_V090_BUILD.md)
 - Projeto SDK: [in_game/toolbar](in_game/toolbar)
-- API v2: \`http://127.0.0.1:8769/api/v1/health\` com o FlightSim Windows em execução
+- API v2: `http://127.0.0.1:8769/api/v1/health` com o FlightSim Windows em execução
 - Os artifacts da branch ficam em GitHub Actions; source SDK e Windows são downloads diferentes.
 
 ---

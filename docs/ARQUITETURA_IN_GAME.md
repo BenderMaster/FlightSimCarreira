@@ -66,4 +66,4 @@ MSFS 2020 <--> SimConnect <--> FlightSimCarreira (processo Windows)
 - [Exemplo de panel toolbar](https://github.com/bymaximus/msfs2020-toolbar-window-template)
 - [Exemplo de painel local web](https://github.com/MariusMyburg/msfs-panel-simaware)
 
-**Status:** arquitetura aprovada como direção do projeto, ainda sem package Community implementado.
+**Status v0.9.0 Alpha.1:** projeto-fonte SDK Community, wrapper da toolbar, ícone SVG e ponte local read-only implementados na branch `feature/v0.9.0-ingame-foundation`. O SPB e o package final ainda **precisam ser compilados no SDK e homologados no MSFS Steam real**. Guia em `docs/INGAME_V090_BUILD.md`. A main v0.8.7 permanece a base homologada.

@@ -1,3 +1,19 @@
+## v0.9.0 InGame Alpha.1 — projeto em homologação física
+
+- [x] Ponte local read-only com dados reais do motor, token efêmero e endpoints versionados.
+- [x] Painel Midnight compacto/completo, instrumentos, saldo, contrato e rota SVG sem dependência WebGL.
+- [x] Fonte SDK com SPB + Copy, definição toolbar, custom SVG icon e wrapper iframe.
+- [x] Testes unitários de isolamento/HTTP/XML e teste de navegador em CI.
+- [x] Artifact de fonte SDK e build Windows v0.9.0 publicados no Actions da branch.
+- [ ] Compilar SPB no SDK MSFS 2020 Steam do piloto e confirmar package com manifest/layout.
+- [ ] Instalar package Community, abrir ícone na toolbar e validar iframe/Coherent.
+- [ ] Homologar telemetria e mapa real, fechar/reabrir, reconectar e impacto em FPS.
+- [ ] Após aprovação, mesclar PR #23 na main; v0.9.1 virá em branch nova.
+
+Documentação: `docs/INGAME_V090_BUILD.md` e `in_game/toolbar/README.md`.
+A janela Windows continua operante; v0.9.0 **não** expõe comandos financeiros in-game.
+
+---
 ## v0.7.3 — Proa real e operações do mapa / mercado no Midnight Ops
 - [x] Eliminar mapa dimensionado pela metade, manter responsividade e câmera controlada pelo piloto.
 - [x] Separar o botão Satélite do zoom/recentralização e posicionar créditos sem sobreposição.
