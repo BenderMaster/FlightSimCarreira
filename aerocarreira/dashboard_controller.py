@@ -12,7 +12,7 @@ from .dashboard import DashboardPresenter
 from .midnight_server import DashboardServer
 from .fleet_photos import normalize_photo, save_photo, delete_photo, photo_bytes, owned_fleet
 from .aircraft_marketplace import execute_market
-from . import pilot_career, financial_center, airline_operations as airline
+from . import pilot_career, financial_center, airline_operations as airline, flight_history
 
 class DashboardController:
     def __init__(self,app):
@@ -161,6 +161,14 @@ class DashboardController:
             if not self.closed:
                 for child in app.root.winfo_children():
                     if isinstance(child,Toplevel):child.lift();child.focus_force()
+        elif action=='flight_note':
+            try:
+                payload=cmd['payload']
+                flight_history.save_note(app.storage,payload['flight_id'],payload['note'])
+                self.presenter.history_cache=None
+                app._log('LOGBOOK: anotação salva para o voo #'+str(payload['flight_id']))
+            except (ValueError,TypeError,KeyError) as exc:
+                app._log('LOGBOOK: '+str(exc))
         elif action in ('fleet_select','fleet_photo','fleet_photo_clear','fleet_service'):
             try:
                 ref=cmd.get('id')
