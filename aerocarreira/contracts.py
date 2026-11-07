@@ -62,6 +62,7 @@ EMPLOYER_FLEET = (
     EmployerPlane("kingair", "Beechcraft King Air 350i", ("king air", "kingair"), 8, ("PCA", "IFR", "MLTE"), 4.0, 3, "turboprop", 1),
     EmployerPlane("cj4", "Cessna Citation CJ4", ("citation cj4", "cj4"), 11, ("PCA", "IFR", "MLTE"), 7.0, 3, "jet", 1),
 )
+FREELANCER_FLEET = EMPLOYER_FLEET
 from .type_ratings import TYPES as AIRLINE_TYPES, detect_model
 # Modelos das companhias mantidos separados das cinco aeronaves clássicas.
 EMPLOYER_FLEET = EMPLOYER_FLEET + tuple(
@@ -255,7 +256,7 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
             f"{kind.title} • {target.name[:24]}",reward,category=kind.code,
             origin_lat=origin.latitude,origin_lon=origin.longitude,
             destination_lat=target.latitude,destination_lon=target.longitude))
-    allowed_planes = [p for p in EMPLOYER_FLEET if eligibility(
+    allowed_planes = [p for p in FREELANCER_FLEET if eligibility(
         Mission("x",origin.icao,origin.icao,"",0,category="cargo",freelance=True,employer_plane=p.code),
         stats,qualifications,family_flights)[0]]
     freelance_kinds = [k for k in allowed if k.code not in ("rescue", "special")]
