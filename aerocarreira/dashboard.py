@@ -129,7 +129,7 @@ class DashboardPresenter:
                          for p in airline.business_planes(db)) if emp['mode']=='empresario' else ()
         key=(center.icao,day,stats['xp'],stats['reputation'],tuple(sorted(stats['qualifications'])),emp['mode'],
              emp['employer_code'],generator_version,len(cat.locations),business_sig,
-             tuple(sorted(type_ratings.owned(db))),tuple(sorted(app.airline_available_codes)))
+             tuple(sorted(type_ratings.owned(db))),tuple(sorted(getattr(app,'airline_available_codes',set()))))
         if key==self.market_key and not force:
             self.offers={k:v for k,v in self.offers.items() if not db.contract_completed(k)}
             return
@@ -139,7 +139,7 @@ class DashboardPresenter:
             if emp['mode']=='empregado':
                 offers+=generate_employer_routes(emp['employer_code'],center,cat,stats,
                     db.owned_qualifications(),db.family_experience(),day,
-                    ratings=type_ratings.owned(db),available=app.airline_available_codes)
+                    ratings=type_ratings.owned(db),available=getattr(app,'airline_available_codes',set()))
             if emp['mode']=='empresario':
                 offers+=db.company_routes(center,cat,day)
             db.save_offers(center.icao,offers,now=now,valid_s=(day+1)*86400-now)
@@ -334,7 +334,7 @@ class DashboardPresenter:
                     qualifications=list(v.qualifications),
                     allowed=eligible,reason=reason,
                     targets=[dict(tier=t,**airline.thresholds(v.company,t)) for t in airline.TIERS]))
-        ops=dict(mode=state['mode'],type_ratings=type_ratings.progress(db,app.airline_available_codes),
+        ops=dict(mode=state['mode'],type_ratings=type_ratings.progress(db,getattr(app,'airline_available_codes',set())),
                  fleets={code:list(models) for code,models in type_ratings.FLEETS.items()},employment=jobdata,
                  vacancies=openings,applications=db.list_applications(),
                  business=db.company_business() if state['mode']=='empresario' else None,
@@ -344,7 +344,7 @@ class DashboardPresenter:
                         if m.company_code and m.company_code!='OWN'],
                  investment=OWN_INVESTMENT,notice=getattr(app,'airline_notice',None),
                  active_mission=m.id if m else None)
-        return dict(settings_center=settings_center.snapshot(app),flight_history=history_data,airline_operations=ops,financial_center=finances,pilot=pilot,pilot_career=pc,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
+        return dict(settings_center=settings_center.snapshot(app) if getattr(app,'profiles',None) else {},flight_history=history_data,airline_operations=ops,financial_center=finances,pilot=pilot,pilot_career=pc,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
             status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,
