@@ -31,8 +31,8 @@ REQUIREMENTS={
     'gol':(14,7),'latam':(16,8),
 }
 # Base de emprego nos quatro níveis, antes dos multiplicadores reais.
-BASE_SALARY={'nordeste':9000,'azul':17000,'gol':23000,'latam':30000}
-PRESTIGE={'nordeste':1.00,'azul':1.18,'gol':1.33,'latam':1.50}
+BASE_SALARY={'nordeste':9000,'azul':30000,'gol':23000,'latam':17000}
+PRESTIGE={'nordeste':1.00,'azul':1.50,'gol':1.33,'latam':1.18}
 
 def company_grade(flights,hours):
     grade=GRADES[0]
