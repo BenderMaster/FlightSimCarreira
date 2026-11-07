@@ -233,7 +233,7 @@ with tempfile.TemporaryDirectory() as temp:
             page.locator('#fo-fix-lon').fill('-34.9')
             page.locator('#fo-add-fix').click()
             assert 'FSC01' in page.locator('#fo-waypoints').inner_text()
-            assert 'ALTERAÇÕES' in page.locator('#fo-status').inner_text()
+            assert 'PRÉVIA' in page.locator('#fo-status').inner_text()
             page.locator('#fo-waypoints button').first.click()
             assert 'FSC01' not in page.locator('#fo-waypoints').inner_text()
             page.locator('.nav-item[data-action="dashboard"]').click()
