@@ -1,3 +1,9 @@
+## v0.9.0 InGame Alpha.2 — Midnight Tablet e painel ajustado
+
+- Corrige o wrapper do SDK após o primeiro teste físico: remove `content-fit`, melhora preenchimento e dimensões iniciais, mantém o movimento sob responsabilidade do MSFS.
+- Substitui os cards estreitos por um tablet Midnight de quatro páginas reais de leitura, menu lateral adaptativo e visual responsivo. O modo InGame continua sem ações financeiras.
+- Testes de browser passam a verificar navegação, atualização, mapa, conexão e diversas resoluções. Build Windows e SDK source distribuídos separados.
+
 ## v0.9.0 InGame Alpha.1 — Foundation, toolbar e telemetria read-only
 
 - **Ajuste após primeiro teste físico:** usuário confirmou painel visível na toolbar, conexão real com SimConnect e dados carregados. Movimento/redimensionamento do wrapper exigiu patch (ainda pendente de reteste no MSFS).

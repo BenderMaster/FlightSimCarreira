@@ -1,4 +1,4 @@
-# FlightSim v0.9.0 InGame Alpha.1 — branch em homologação
+# FlightSim v0.9.0 InGame Alpha.2 — branch em homologação
 
 Início do suporte à toolbar do MSFS 2020. O Windows conserva o motor Python/SQLite/SimConnect;
 o pacote-fonte do MSFS abre um painel somente leitura via loopback com telemetria e mapa leve.

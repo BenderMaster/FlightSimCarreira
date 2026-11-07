@@ -1,4 +1,4 @@
-# FlightSim v0.9.0 InGame Alpha.1 — build e homologação no MSFS 2020
+# FlightSim v0.9.0 InGame Alpha.2 — build e homologação no MSFS 2020
 
 **Estado:** projeto-fonte de Community para compilar no SDK MSFS 2020; **não é pacote SPB pronto**. O SDK e o MSFS real não estão disponíveis nos runners do GitHub Actions. A branch de testes é separada da main v0.8.7.
 
@@ -6,8 +6,8 @@
 
 Na execução da branch `feature/v0.9.0-ingame-foundation`, baixe **dois artifacts**:
 
-1. `FlightSim-0.9.0-ingame-alpha1-Windows`: extraia o aplicativo completo em uma **pasta nova** e abra `FlightSim.exe`.
-2. `FlightSim-InGame-0.9.0-SDK-Source`: contém o projeto-fonte SDK (`package.xml`, `PackageDefinitions`, `PackageSources`) e **precisa ser compilado** no MSFS.
+1. `FlightSim-0.9.0-ingame-alpha2-Windows`: extraia o aplicativo completo em uma **pasta nova** e abra `FlightSim.exe`.
+2. `FlightSim-InGame-0.9.0-alpha2-SDK-Source`: contém o projeto-fonte SDK (`package.xml`, `PackageDefinitions`, `PackageSources`) e **precisa ser compilado** no MSFS.
 
 Não coloque o ZIP do SDK, o diretório `PackageSources` ou os arquivos `.py` diretamente na Community. O artefato de source não substitui o pacote final do MSFS.
 
@@ -17,7 +17,7 @@ Não coloque o ZIP do SDK, o diretório `PackageSources` ou os arquivos `.py` di
 2. Extraia o ZIP Windows inteiro em uma pasta nova, sem substituir arquivos da v0.8.7. Execute `FlightSim.exe` e conecte ao MSFS. A interface Windows permanece normal.
 3. Com o FlightSim aberto, teste `http://127.0.0.1:8769/` no navegador do PC. Deve exibir **FlightSim InGame 0.9.0**, telemetria e saldo. Verifique `http://127.0.0.1:8769/api/v1/health`: o campo `read_only` deve ser `true`. Se o serviço não abrir, confira o log do FlightSim, firewall local e se outra aplicação está usando a porta 8769.
 4. Ative **Developer Mode** nas opções gerais do MSFS 2020. Na barra superior de desenvolvimento, menu **Help > SDK Installer** se o SDK não estiver instalado; siga a versão compatível com seu MSFS.
-5. Extraia o artifact **FlightSim-InGame-0.9.0-SDK-Source** em `C:\FlightSim-InGame-v090` (qualquer pasta sem permissão restrita). Confira que `package.xml` aparece **na raiz** da pasta extraída, ao lado de `PackageDefinitions` e `PackageSources`.
+5. Extraia o artifact **FlightSim-InGame-0.9.0-alpha2-SDK-Source** em `C:\FlightSim-InGame-v090` (qualquer pasta sem permissão restrita). Confira que `package.xml` aparece **na raiz** da pasta extraída, ao lado de `PackageDefinitions` e `PackageSources`.
 6. No MSFS, abra **Project Editor**. Selecione **Open Project** e aponte para `C:\FlightSim-InGame-v090\package.xml`. Selecione o pacote `flightsimcarreira-panel`. Verifique que aparecem os grupos de assets **SPB** e **Copy**.
 7. **Corrija os metadados de compilação.** À esquerda, `Default Creator Name = FlightSim` e `Default Company Name = flightsim` (obrigatoriamente minúsculo, apenas letras e números). No Inspector do pacote, `Content-Type = MISC`. Os dois asset groups continuam `SPB` e `Copy`. O tipo `UNKNOWN` impede o Build All. Para o build local, o Inspector pode pedir uma miniatura JPG do Content Manager (a interface mostrará o tamanho exigido). Não é necessário adicionar conteúdo de Marketplace.
 8. Use **Build All** (ou **Build Package**) e abra **Debug > Console** para conferir erros. O resultado esperado é uma pasta de package compilado sob `Packages`, contendo pelo menos `manifest.json`, `layout.json`, `InGamePanels\*.spb` e `html_ui\InGamePanels\FlightCare\...`. Se o compilador acusar erros, **não copie o build incompleto para a Community**; envie o log do Console para corrigirmos.
@@ -26,7 +26,7 @@ Não coloque o ZIP do SDK, o diretório `PackageSources` ou os arquivos `.py` di
 11. Abra novamente o MSFS, carregue um voo e abra a toolbar superior. Procure o botão FlightSim — se não aparecer, confira a personalização/itens ocultos da toolbar e o Content Manager. O FlightSim Windows deve permanecer aberto durante o teste.
 12. Clique FlightSim. Deve surgir o **Midnight Tablet** (layout horizontal EFB) com menu lateral **Painel / Mapa / Aeronave / Carreira**. Confira missão, rota, altitude, velocidades e as quatro abas. O menu vira uma barra inferior quando a janela está estreita. Teste fechar/abrir e mover pelo **título nativo FLIGHTSIM** do MSFS (não arrastando o conteúdo do iframe).
 
-## Teste de aceitação da Alpha.1
+## Teste de aceitação da Alpha.2
 
 - [ ] Ícone FlightSim aparece na toolbar sem conflitos com outros addons
 - [ ] Painel abre e fecha, sem impedir interação com o avião
