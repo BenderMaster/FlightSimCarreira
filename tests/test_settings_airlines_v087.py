@@ -44,8 +44,14 @@ class AirlineTypeTests(unittest.TestCase):
             ('Airbus A320-200','a320200'),
             ('A321neo','a321neo'),('Airbus A321P2F','a321p2f'),
             ('Boeing 737 MAX 8','b737max8'),('Boeing 737-800','b737800'),
-            ('Embraer E195-E2','e195e2'),('ATR 72-600','atr72600'),
-            ('Boeing 787-9','b7879'),('Cessna 408 SkyCourier','c408'),
+            ('Embraer E195-E2','e195e2'),('Embraer E195 E1','e195e1'),
+            ('ATR 72-600','atr72600'),('Airbus A330-900neo','a330900neo'),
+            ('Airbus A330-200','a330200'),('Boeing 737-8','b737max8'),
+            ('Boeing 737-700','b737700'),('Boeing 767-300ER','b767300er'),
+            ('Boeing 777-300ER','b777300er'),
+            ('Boeing 787-8','b7878'),('Boeing 787-9','b7879'),
+            ('Cessna 408 SkyCourier','c408'),('Cessna 208B','c208b'),
+            ('Airbus A319-100','a319100'),('Airbus A321XLR','a321xlr'),
         ):
             self.assertEqual(type_ratings.detect_model(title),model,title)
         for title in ('A320','Airbus A321','Boeing 737','A320 A321neo','Boeing 737 MAX 8 737-800',''):
