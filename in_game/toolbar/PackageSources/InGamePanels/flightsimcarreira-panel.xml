@@ -1,8 +1,14 @@
-<?xml version="1.0" encoding="windows-1252"?>
+<?xml version="1.0" encoding="Windows-1252"?>
 <SimBase.Document Type="InGamePanels" version="1,0">
   <Filename>InGamePanel_FlightSimCarreira.spb</Filename>
-  <InGamePanels.InGamePanelDefinition id="PANEL_FLIGHTSIMCARREIRA" Name="FlightSim"
-    url="html_ui/InGamePanels/FlightCare/FlightCare.html" resizeDirections="Both"
-    minWidth="30" minHeight="35" defaultWidth="42" defaultHeight="60"
-    defaultTop="20" defaultRight="2" icon="ICON_TOOLBAR" buttonVisible="true" />
+  <InGamePanels.InGamePanelDefinition
+    id="PANEL_FLIGHTSIMCARREIRA"
+    Name="FlightSim"
+    url="html_ui/InGamePanels/FlightCare/FlightCare.html"
+    resizeDirections="both"
+    minWidth="30" minHeight="30"
+    defaultWidth="45" defaultHeight="60"
+    defaultTop="20" defaultRight="2"
+    icon="ICON_TOOLBAR_FLIGHTSIMCARREIRA"
+    buttonVisible="true" />
 </SimBase.Document>
