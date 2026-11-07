@@ -1,5 +1,7 @@
 """Allowlisted UI commands; all actions execute on Application's Tk thread."""
 import os
+import sqlite3
+from zipfile import BadZipFile
 import subprocess
 import sys
 from queue import Empty
@@ -250,7 +252,8 @@ class DashboardController:
                     os.startfile(str(state_dir()))
                     message='Pasta de dados aberta.'
                 ok=True
-            except (OSError,ValueError,TypeError,KeyError,RuntimeError,ImportError) as exc:
+            except (OSError,ValueError,TypeError,KeyError,RuntimeError,ImportError,
+                    BadZipFile,sqlite3.DatabaseError) as exc:
                 ok=False
                 message='Operação não concluída: '+str(exc)
             app.settings_notice_seq=getattr(app,'settings_notice_seq',0)+1
