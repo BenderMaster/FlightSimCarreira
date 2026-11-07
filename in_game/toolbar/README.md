@@ -11,7 +11,10 @@ visualização física na toolbar só podem ser homologadas com SDK/MSFS 2020.
 2. Abra `FlightSim.exe` da versão **0.9.0** e confirme
    `http://127.0.0.1:8769/` no navegador do computador.
 3. No MSFS Steam, habilite Developer Mode, instale o SDK em Help se necessário.
-4. Abra o Project Editor, abra `package.xml`, selecione `flightsimcarreira-panel`,
+4. Na tela Project Editor, preencha `Default Creator Name = FlightSim`,
+   `Default Company Name = flightsim` e defina `Content-Type = MISC` no
+   Inspector do pacote (os grupos continuam com tipos `SPB` e `Copy`).
+   Abra o Project Editor, abra `package.xml`, selecione `flightsimcarreira-panel`,
    confira os assets SPB e Copy e use **Build All**.
 5. Copie **somente a pasta compilada** dentro de `Packages/` que contém
    `manifest.json`, `layout.json`, `InGamePanels/` e `html_ui/`

@@ -120,6 +120,10 @@ class InGameFoundationTests(unittest.TestCase):
         panel = definition.find('InGamePanels.InGamePanelDefinition')
         self.assertEqual(project.attrib['Version'], '2')
         self.assertEqual(package.attrib['Version'], '0.9.0')
+        # A toolbar is a MISC *package*, with an SPB *asset group*.
+        # UNKNOWN or SPB as ContentType blocks Build All on MSFS 2020.
+        self.assertEqual(package.findtext('ItemSettings/ContentType'), 'MISC')
+        self.assertEqual(sorted(g.findtext('Type') for g in package.findall('AssetGroups/AssetGroup')), ['Copy', 'SPB'])
         self.assertEqual(panel.attrib['id'], 'PANEL_FLIGHTSIMCARREIRA')
         self.assertEqual(panel.attrib['icon'], 'ICON_TOOLBAR_FLIGHTSIMCARREIRA')
         self.assertEqual(panel.attrib['buttonVisible'], 'true')

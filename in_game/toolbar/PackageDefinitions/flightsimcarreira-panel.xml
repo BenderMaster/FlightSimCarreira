@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <AssetPackage Name="flightsimcarreira-panel" Version="0.9.0">
   <ItemSettings>
-    <ContentType>SPB</ContentType>
+    <ContentType>MISC</ContentType>
     <Title>FlightSim InGame Alpha 0.9.0</Title>
     <Manufacturer>FlightSim</Manufacturer>
     <Creator>FlightSim</Creator>
