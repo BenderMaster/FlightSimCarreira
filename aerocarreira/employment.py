@@ -25,10 +25,10 @@ class Employer:
 
 
 EMPLOYERS = (
-    Employer('nordeste', 'AeroNordeste (fictícia)', 'NORDESTE', 'SBRF', 2, 0.4, ('PPA',), 'c172', 650),
-    Employer('azul', 'Azul (simulação)', 'AZUL', 'SBRF', 7, 3.0, ('PCA','IFR'), 'kingair', 2200, True),
-    Employer('gol', 'GOL (simulação)', 'GLO', 'SBRF', 9, 5.0, ('PCA','IFR','MLTE'), 'cj4', 2900, True),
-    Employer('latam', 'LATAM (simulação)', 'TAM', 'SBGR', 11, 8.0, ('PCA','IFR','MLTE'), 'cj4', 3600, True),
+    Employer('nordeste', 'AeroNordeste', 'NORDESTE', 'SBRF', 2, 0.4, ('PPA',), 'c172', 650),
+    Employer('azul', 'Azul', 'AZUL', 'SBRF', 7, 3.0, ('PCA','IFR'), 'kingair', 2200, True),
+    Employer('gol', 'GOL', 'GLO', 'SBRF', 9, 5.0, ('PCA','IFR','MLTE'), 'cj4', 2900, True),
+    Employer('latam', 'LATAM', 'TAM', 'SBGR', 11, 8.0, ('PCA','IFR','MLTE'), 'cj4', 3600, True),
 )
 EMPLOYER_BY_CODE = {c.code: c for c in EMPLOYERS}
 
