@@ -1619,6 +1619,20 @@ class Application:
                  ("mode", "origin", "destination", "altitude_ft", "waypoints", "checks")}
         return validated_flight_operations(draft, catalog, self.career.mission)
 
+    def _flightops_preview(self, data):
+        """Projeção autoritativa, sem SQLite, sem dispatch e sem alterar plano salvo."""
+        catalog=self._flightops_catalog()
+        plan=validated_flight_operations(data,catalog,self.career.mission)
+        s=self.last_sample
+        live=(self.mode=='MSFS' and self.connected and s is not None and
+              time()-s.timestamp<10)
+        selected=self.storage.fleet_manager().selected()
+        aircraft=(selected['title'] if selected else
+                  (s.aircraft_title if live else None))
+        return flightops_route_stats(
+            plan,catalog,aircraft,
+            s.fuel_gallons if live else None,s if live else None)
+
     def _flightops_save(self, data):
         if self.tracker.phase == Phase.AIRBORNE:
             raise ValueError("Planejamento e checklist ficam congelados após decolar.")
