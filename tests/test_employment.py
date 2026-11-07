@@ -44,7 +44,7 @@ class EmploymentTests(unittest.TestCase):
         self.assertEqual(len({x.id for x in items}),4)
         self.assertNotEqual({x.id for x in items},{x.id for x in vacancies(self.period+1,'SIPE')})
         self.assertTrue(all(x.airport=='SIPE' for x in items))
-        self.assertTrue(all('simulação' in EMPLOYER_BY_CODE[x.company].name or x.company=='nordeste' for x in items))
+        self.assertTrue(all('simulação' not in EMPLOYER_BY_CODE[x.company].name and 'fictícia' not in EMPLOYER_BY_CODE[x.company].name for x in items))
         with self.assertRaises(ValueError):vacancies(self.period,'../abc')
 
     def test_real_airline_names_are_not_actual_jobs(self):
@@ -91,7 +91,7 @@ class EmploymentTests(unittest.TestCase):
 
     def test_endgame_company_validation_and_atomic_investment(self):
         with self.assertRaises(ValueError):self.db.found_company('Nossa Empresa',self.now)
-        self.db.set_setting('balance','150000')
+        self.db.set_setting('balance','500000')
         # XP/hours são lidos de fatos existentes, não é possível forçar nível por parâmetro UI.
         with self.db.conn:
             self.db.conn.execute("INSERT INTO pilot_xp_ledger VALUES('endgame',8000,?)",(self.now,))
@@ -102,9 +102,9 @@ class EmploymentTests(unittest.TestCase):
         state=self.db.found_company('Aero Bender',self.now)
         self.assertEqual(state['mode'],'empresario')
         self.assertEqual(state['owner_company'],'Aero Bender')
-        self.assertEqual(int(self.db.get_setting('balance')),150000-OWN_INVESTMENT)
+        self.assertEqual(int(self.db.get_setting('balance')),500000-OWN_INVESTMENT)
         with self.assertRaises(ValueError):self.db.found_company('Duplicada',self.now)
-        self.assertEqual(int(self.db.get_setting('balance')),50000)
+        self.assertEqual(int(self.db.get_setting('balance')),100000)
         self.db.close();self.db=Storage(self.path)
         self.assertEqual(self.db.employment_state()['owner_company'],'Aero Bender')
 

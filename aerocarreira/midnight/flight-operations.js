@@ -2,16 +2,71 @@
 (()=>{
 'use strict';
 const el=id=>document.getElementById(id);
-let mode='free',fixes=[],draftKey='',dirty=false,noticeSeq=null,currentState=null,lastSuccessful=null,projection=null;
+let mode='free',fixes=[],draftKey='',dirty=false,noticeSeq=null,currentState=null,projection=null;
+let previewSerial=0,previewRequest='',previewTimer=null,lastPreviewRoute=null;
+const radians=Math.PI/180;
+function distanceNm(a,b){
+ const x=a[0]*radians,y=b[0]*radians,d=(b[0]-a[0])*radians,l=(b[1]-a[1])*radians;
+ const z=Math.sin(d/2)**2+Math.cos(x)*Math.cos(y)*Math.sin(l/2)**2;
+ return 3440.065*2*Math.asin(Math.min(1,Math.sqrt(Math.max(0,z))));
+}
+function bearing(a,b){
+ const x=a[0]*radians,y=b[0]*radians,d=(b[1]-a[1])*radians;
+ return (Math.atan2(Math.sin(d)*Math.cos(y),Math.cos(x)*Math.sin(y)-Math.sin(x)*Math.cos(y)*Math.cos(d))/radians+360)%360;
+}
+function localRoute(base){
+ // Visualização imediata; ICAOs e coordenadas das extremidades são validados pelo motor.
+ if(!base||base.origin!==el('fo-origin').value.trim().toUpperCase()||
+    base.destination!==el('fo-destination').value.trim().toUpperCase()||
+    !Array.isArray(base.route)||base.route.length<2)return null;
+ const coords=[base.route[0],...fixes.map(w=>[w.lat,w.lon]),base.route[base.route.length-1]];
+ if(!coords.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)))return null;
+ const names=[base.origin,...fixes.map(w=>w.label),base.destination],cruise=Number(base.cruise_kts)||90;
+ let total=0;
+ const legs=coords.slice(0,-1).map((p,i)=>{
+  const nm=distanceNm(p,coords[i+1]);total+=nm;
+  return {from:names[i],to:names[i+1],nm:Math.round(nm*10)/10,
+    bearing_deg:Math.round(bearing(p,coords[i+1]))%360,minutes:Math.round(60*nm/cruise*10)/10};
+ });
+ return {...base,route:coords,waypoints:fixes.map(w=>({...w})),legs,
+  distance_nm:Math.round(total*10)/10,minutes:Math.max(8,Math.round(60*total/cruise+5)),
+  route_key:JSON.stringify([base.origin,base.destination,fixes])};
+}
+function visibleRoute(data){
+ if(!dirty)return data?.route||null;
+ const preview=data?.preview;
+ if(preview?.id===previewRequest){
+  if(preview.error)return null;
+  if(preview.route){lastPreviewRoute=preview.route;return preview.route;}
+ }
+ return localRoute(lastPreviewRoute)||localRoute(data?.route);
+}
+function refreshMap(){
+ if(currentState)render(currentState);
+ window.dispatchEvent(new Event('flightops-preview-changed'));
+}
+function schedulePreview(delay=120){
+ previewRequest=String(++previewSerial);
+ if(previewTimer)clearTimeout(previewTimer);
+ previewTimer=setTimeout(()=>{
+  previewTimer=null;
+  if(!currentState?.flight_operations?.ready)return;
+  const p=collect();
+  if(!/^[A-Z0-9]{4}$/.test(p.origin)||!/^[A-Z0-9]{4}$/.test(p.destination)||
+     !Number.isInteger(p.altitude_ft)||p.altitude_ft<500||p.altitude_ft>45000)return;
+  send('flightops_preview',p,previewRequest);
+ },delay);
+}
+
 const ids=['origin','destination','altitude'];
 const checkKeys={runway_checked:'fo-check-runway',route_checked:'fo-check-route',
                  fuel_checked:'fo-check-fuel',payload_checked:'fo-check-payload'};
 const text=(id,value)=>{el(id).textContent=value==null?'—':String(value)};
 const number=(n,d=0)=>n==null?'—':Number(n).toLocaleString('pt-BR',{maximumFractionDigits:d});
 function markDirty(){
- dirty=true;text('fo-status','ALTERAÇÕES NÃO SALVAS');
- text('fo-message','Salve o plano para recalcular e atualizar o mapa.');
- renderLegs(null);
+ dirty=true;text('fo-status','PRÉVIA • NÃO SALVA');
+ text('fo-message','Rota em prévia; salve somente quando estiver pronta.');
+ schedulePreview();refreshMap();
 }
 function showMode(){
  el('fo-free').classList.toggle('primary',mode==='free');
@@ -26,15 +81,19 @@ function useDraft(p){
  el('fo-altitude').value=p.altitude_ft??2500;
  fixes=(p.waypoints||[]).map(w=>({...w}));
  for(const [key,id] of Object.entries(checkKeys))el(id).checked=!!p.checks?.[key];
- showMode();renderFixes();dirty=false;lastSuccessful=JSON.stringify(collect());
+ showMode();renderFixes();dirty=false;
+ if(previewTimer)clearTimeout(previewTimer);
+ previewTimer=null;previewRequest='';lastPreviewRoute=null;
 }
 function renderFixes(){
  const box=el('fo-waypoints');box.replaceChildren();
  if(!fixes.length){const e=document.createElement('small');e.textContent='Rota direta • sem waypoints';box.append(e);return;}
  fixes.forEach((w,i)=>{
   const row=document.createElement('div'),name=document.createElement('span'),remove=document.createElement('button');
+  row.className='fo-waypoint-row';row.dataset.index=String(i);
   name.textContent=(i+1)+'. '+w.label+' • '+number(w.lat,4)+'°, '+number(w.lon,4)+'°';
-  remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Remover '+w.label);
+  remove.type='button';remove.className='fo-waypoint-remove';remove.textContent='×';
+  remove.title='Excluir waypoint '+w.label;remove.setAttribute('aria-label','Excluir waypoint '+w.label);
   remove.onclick=()=>{fixes.splice(i,1);renderFixes();markDirty();};
   row.append(name,remove);box.append(row);
  });
@@ -46,19 +105,22 @@ function collect(){
   altitude_ft:altitude,waypoints:fixes.map(w=>({...w})),
   checks:Object.fromEntries(Object.entries(checkKeys).map(([key,id])=>[key,el(id).checked]))};
 }
-async function send(action,payload){
+async function send(action,payload,id=null){
  const body=payload?{action,payload}:{action};
+ if(id!==null)body.id=id;
  try{
   const r=await fetch('/command',{method:'POST',headers:{
     'X-Flight-Token':token,'Content-Type':'application/json'
    },body:JSON.stringify(body)});
   if(!r.ok)throw Error('HTTP '+r.status);
-  text('fo-message','Solicitação recebida pelo motor. Aguardando confirmação.');
- }catch(err){text('fo-message','Falha ao comunicar com o motor: '+err.message);}
+  if(action!=='flightops_preview')text('fo-message','Solicitação recebida pelo motor. Aguardando confirmação.');
+ }catch(err){
+  text('fo-message',(action==='flightops_preview'?'Falha ao calcular prévia: ':'Falha ao comunicar com o motor: ')+err.message);
+ }
 }
 function renderLegs(r){
  const parent=el('fo-legs');parent.replaceChildren();
- if(!r){parent.textContent='Revisão necessária • salve para calcular.';return;}
+ if(!r){parent.textContent='Informe os aeroportos e clique em Planejar rota.';return;}
  (r.legs||[]).forEach(leg=>{
   const line=document.createElement('div');line.className='flightops-leg';
   const desc=document.createElement('span');desc.textContent=leg.from+' → '+leg.to;
@@ -81,7 +143,7 @@ function render(s){
  if(data.notice?.seq!=null && data.notice.seq!==noticeSeq){
   noticeSeq=data.notice.seq;text('fo-message',data.notice.message);
   if(data.notice.ok && ['flightops_save','flightops_clear'].includes(data.notice.action)){
-   dirty=false;draftKey='';lastSuccessful=JSON.stringify(collect());
+   dirty=false;draftKey='';lastPreviewRoute=null;
   }
  }
  el('fo-contract').disabled=!data.contract;
@@ -90,8 +152,11 @@ function render(s){
  el('fo-export').disabled=!data.ready||dirty||!data.route;
  el('fo-send').disabled=!data.ready||dirty||!data.route||s?.connection!=='connected'||s?.telemetry?.stale||!(s?.phase!=='EM VOO'&&s?.phase!=='AIRBORNE');
  text('fo-airport-source',data.ready?'ICAOs confirmados pelo MSFS':'Aguardando catálogo MSFS');
- const r=dirty?null:data.route;
+ const r=visibleRoute(data);
  if(!dirty)text('fo-status',r?'ROTA VFR SALVA':'AGUARDANDO ROTA');
+ else text('fo-status',r?'PRÉVIA • NÃO SALVA':'AGUARDANDO CÁLCULO');
+ if(dirty&&data.preview?.id===previewRequest&&data.preview.error)
+  text('fo-message','Prévia não disponível: '+data.preview.error);
  text('fo-distance',r?number(r.distance_nm,1)+' NM':'—');
  text('fo-duration',r?number(r.minutes)+' min':'—');
  text('fo-aircraft',data.aircraft_title||'Aeronave não selecionada');
@@ -115,17 +180,22 @@ function render(s){
    invalid_airport:'Aeroporto de contrato não verificado'};
  text('fo-dispatch-state',mode==='contract'&&data.contract?
    statuses[data.dispatch?.route]||'Não preparado': 'Voo livre: exportação/ATC opcional');
- if(!dirty)renderLegs(r);
+ renderLegs(r);
 }
 function show(){if(currentState)render(currentState);}
 function mapState(s){
- const route=(!dirty && s?.flight_operations?.route)||null;
+ const route=visibleRoute(s?.flight_operations);
  if(!route?.route||route.route.length<2)return {...s,mission:null};
  const points=route.route;
  return {...s,mission:{id:'flightops:'+route.route_key,origin:route.origin,
   destination:route.destination,start:points[0],end:points[points.length-1],
   route_points:points,waypoints:route.waypoints}};
 }
+el('fo-plan').onclick=()=>{
+ dirty=true;lastPreviewRoute=visibleRoute(currentState?.flight_operations)||lastPreviewRoute;
+ text('fo-message','Calculando rota com os waypoints atuais...');
+ schedulePreview(0);refreshMap();
+};
 el('fo-free').onclick=()=>{mode='free';showMode();markDirty();};
 el('fo-contract').onclick=()=>{
  const m=currentState?.flight_operations?.contract;
@@ -167,27 +237,31 @@ function proposeWaypoint(lat,lon){
  if(document.querySelector('.workspace')?.dataset.view!=='planning')return false;
  if(fixes.length>=8){text('fo-message','Limite de oito waypoints atingido.');return false;}
  if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)return false;
- const dialog=el('fo-map-point-dialog');
  let i=1;while(fixes.some(w=>w.label==='FSC'+String(i).padStart(2,'0')))i++;
- el('fo-map-label').value='FSC'+String(i).padStart(2,'0');
- el('fo-map-lat').value=lat.toFixed(6);
- el('fo-map-lon').value=lon.toFixed(6);
- if(!dialog.open)dialog.showModal();
- return true;
+ fixes.push({label:'FSC'+String(i).padStart(2,'0'),lat:+lat.toFixed(7),lon:+lon.toFixed(7)});
+ renderFixes();markDirty();return true;
 }
-function fromSvgEvent(e){
- if(!projection||document.querySelector('.workspace')?.dataset.view!=='planning')return false;
+function moveWaypoint(index,lat,lon){
+ if(document.querySelector('.workspace')?.dataset.view!=='planning'||!Number.isInteger(index)||
+    index<0||index>=fixes.length||!Number.isFinite(lat)||!Number.isFinite(lon)||
+    Math.abs(lat)>90||Math.abs(lon)>180)return false;
+ fixes[index]={...fixes[index],lat:+lat.toFixed(7),lon:+lon.toFixed(7)};
+ renderFixes();markDirty();return true;
+}
+function fallbackCoords(e){
+ if(!projection||document.querySelector('.workspace')?.dataset.view!=='planning')return null;
  const svg=el('route-map');
  let x,y;
  try{
   const point=svg.createSVGPoint();point.x=e.clientX;point.y=e.clientY;
-  const transformed=point.matrixTransform(svg.getScreenCTM().inverse());
-  x=transformed.x;y=transformed.y;
- }catch{return false;}
+  const transformed=point.matrixTransform(svg.getScreenCTM().inverse());x=transformed.x;y=transformed.y;
+ }catch{return null;}
  const p=projection;
- const lon=p.lon0+(x-450-p.panX)/(p.cos*p.scale);
- const lat=p.lat0-(y-170-p.panY)/p.scale;
- return proposeWaypoint(lat,lon);
+ return {lon:p.lon0+(x-450-p.panX)/(p.cos*p.scale),lat:p.lat0-(y-170-p.panY)/p.scale};
+}
+function fromSvgEvent(e){
+ const p=fallbackCoords(e);
+ return p?proposeWaypoint(p.lat,p.lon):false;
 }
 function registerMapGestures(){
  const svg=el('route-map');
@@ -207,17 +281,11 @@ function registerMapGestures(){
  for(const eventName of ['pointerup','pointercancel','pointerleave'])
   svg.addEventListener(eventName,()=>{clearTimeout(touchTimer);touchTimer=null;started=null;});
 }
-el('fo-map-confirm').onclick=()=>{
- const label=el('fo-map-label').value.trim().toUpperCase();
- if(!/^[A-Z0-9_-]{1,12}$/.test(label)||fixes.some(w=>w.label===label)){
-  text('fo-message','Nome de waypoint inválido ou duplicado.');return;
- }
- fixes.push({label,lat:Number(el('fo-map-lat').value),lon:Number(el('fo-map-lon').value)});
- renderFixes();markDirty();el('fo-map-point-dialog').close();
-};
-for(const id of ['fo-map-cancel','fo-map-cancel-top'])el(id).onclick=()=>el('fo-map-point-dialog').close();
+// Clique direito/Shift+clique adicionam diretamente, sem diálogo de confirmação.
+for(const id of ['fo-map-cancel','fo-map-cancel-top'])
+ if(el(id))el(id).onclick=()=>el('fo-map-point-dialog').close();
 registerMapGestures();
-window.FSCFlightOps={render,show,mapState,proposeWaypoint,
-  setFallbackProjection:p=>{projection=p;}};
+window.FSCFlightOps={render,show,mapState,proposeWaypoint,moveWaypoint,fallbackCoords,
+  fallbackProjection:()=>projection,setFallbackProjection:p=>{projection=p;}};
 
 })();

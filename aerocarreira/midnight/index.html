@@ -12,7 +12,7 @@
 <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 22V2h12v20M16 9h5v13M8 6h4M8 10h4M8 14h4M8 18h4M1 22h22"/></symbol>
 <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 5Q6 1 2 4v16q5-2 10 1 5-3 10-1V4q-4-3-10 1v16M5 8h4M15 8h4M5 12h4M15 12h4"/></symbol>
 <symbol id="i-chart" viewBox="0 0 24 24"><path d="M2 22h20M5 19V9h3v10M11 19V5h3v14M17 19V2h3v17"/></symbol>
-<symbol id="i-gear" viewBox="0 0 24 24"><path d="m10 2-1 3-3-1-2 3 2 3-3 1v4l3 1-1 3 3 2 3-2 2 3 3-1v-3l3-1 2-3-2-2 2-3-2-3-3 1-1-3Z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33A1.65 1.65 0 0 0 14 20.91V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.5 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3.09 14H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.5-1.08 1.65 1.65 0 0 0-.33-1.82L4.2 7.04a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33A1.65 1.65 0 0 0 10 3.09V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.5 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82A1.65 1.65 0 0 0 20.91 10H21a2 2 0 0 1 0 4h-.09A1.65 1.65 0 0 0 19.4 15Z"/></symbol>
 <symbol id="i-box" viewBox="0 0 24 24"><path d="m2 7 10-5 10 5v12l-10 4-10-4ZM2 7l10 5 10-5M12 12v11M7 4l10 5"/></symbol>
 <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 10l2-7h14l2 7v11H3V10zM2 10h20M8 10v5M16 10v5M9 21v-6h6v6"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 5v7l4 3"/></symbol>
 <symbol id="i-layers" viewBox="0 0 24 24"><path d="m2 7 10-5 10 5-10 5ZM2 12l10 5 10-5M2 17l10 5 10-5"/></symbol>
@@ -159,9 +159,10 @@
     <h2>ROTA VFR</h2><div class="flightops-mode"><button class="button primary" id="fo-free" type="button">Voo livre</button><button class="button" id="fo-contract" type="button">Contrato ativo</button></div>
     <div class="flightops-two"><label>ORIGEM (ICAO)<input id="fo-origin" maxlength="4" autocomplete="off" placeholder="SBRF"></label><label>DESTINO (ICAO)<input id="fo-destination" maxlength="4" autocomplete="off" placeholder="SBJP"></label></div>
     <label>ALTITUDE DE CRUZEIRO (FT)<input id="fo-altitude" type="number" min="500" max="45000" step="500" value="2500"></label>
+    <div class="flightops-plan-row"><button id="fo-plan" class="button primary" type="button">Planejar rota</button><small>Prévia em tempo real • ainda não salva</small></div>
     <div class="flightops-subheading"><strong>WAYPOINTS INTERMEDIÁRIOS</strong><small>Até 8 • coordenadas</small></div><div id="fo-waypoints" class="flightops-waypoints"></div>
     <div class="flightops-waypoint-inputs"><input id="fo-fix-label" maxlength="12" placeholder="Nome / FIX" aria-label="Nome do waypoint"><input id="fo-fix-lat" type="number" step="any" min="-90" max="90" placeholder="Latitude" aria-label="Latitude"><input id="fo-fix-lon" type="number" step="any" min="-180" max="180" placeholder="Longitude" aria-label="Longitude"></div>
-    <button id="fo-add-fix" class="button" type="button">+ Adicionar ponto</button><div class="flightops-legs"><strong>PERNAS DA ROTA</strong><div id="fo-legs">Salve uma rota para calcular as pernas.</div></div>
+    <button id="fo-add-fix" class="button" type="button">+ Adicionar ponto</button><small class="flightops-waypoint-hint">No mapa: clique direito para adicionar • arraste o waypoint para mudar • X para excluir.</small><div class="flightops-legs"><strong>PERNAS DA ROTA</strong><div id="fo-legs">Salve uma rota para calcular as pernas.</div></div>
    </section>
    <section class="flightops-map-panel card" aria-label="Mapa do plano"><div class="flightops-map-heading"><strong>MAPA INTERATIVO</strong><small>Mapa compartilhado com o Dashboard</small></div><div id="flightops-map-slot" class="flightops-map-slot"></div><small>Rota indicativa. Confira procedimentos e obstáculos dentro do MSFS.</small></section>
    <section class="flightops-dispatch card" aria-label="Despacho operacional"><h2>DESPACHO OPERACIONAL</h2>
@@ -257,6 +258,127 @@
   </div>
   <footer class="pc-page-foot"><span id="pc-message" role="status">Uma carreira é construída um voo de cada vez.</span><span>FLIGHTSIM · PILOT CAREER</span></footer>
  </section>
+ <section id="financial-center-page" class="page-shell fin-page card" hidden aria-labelledby="fin-title">
+  <header class="page-head fin-head">
+   <div><small class="eyebrow">MIDNIGHT OPS • FLIGHTSIM FINANCIAL CENTER</small>
+    <h1 id="fin-title">FINANÇAS</h1>
+    <p>O controle financeiro da sua carreira. Todos os valores vêm dos lançamentos registrados no SQLite.</p></div>
+   <div class="fin-head-right"><small>MOEDA DA CARREIRA</small><strong>BRL · R$</strong></div>
+  </header>
+  <div class="fin-hero">
+   <div class="fin-balance-card"><span>CAIXA DISPONÍVEL</span><strong id="fin-balance">—</strong>
+    <small>Saldo real da carreira ativa • não inclui financiamentos como receita</small></div>
+   <div class="fin-overview-metrics">
+    <div><small>RECEITAS OPERACIONAIS</small><strong id="fin-income">—</strong></div>
+    <div><small>DESPESAS OPERACIONAIS</small><strong id="fin-expenses">—</strong></div>
+    <div><small>RESULTADO OPERACIONAL</small><strong id="fin-net">—</strong></div>
+    <div><small>PATRIMÔNIO LÍQUIDO ESTIMADO</small><strong id="fin-worth">—</strong></div>
+   </div>
+  </div>
+  <nav class="fin-tabs" aria-label="Seções financeiras">
+   <button type="button" data-fin-tab="overview" class="active" aria-pressed="true">Resumo</button>
+   <button type="button" data-fin-tab="statement" aria-pressed="false">Extrato</button>
+   <button type="button" data-fin-tab="flights" aria-pressed="false">Operações</button>
+   <button type="button" data-fin-tab="assets" aria-pressed="false">Patrimônio</button>
+   <button type="button" data-fin-tab="bank" aria-pressed="false">Banco</button>
+  </nav>
+  <div class="fin-body">
+   <section id="fin-overview" class="fin-section">
+    <div class="fin-chart-grid">
+     <article class="fin-panel"><div class="fin-panel-heading"><h2>FLUXO FINANCEIRO MENSAL</h2><small>Receita x despesa · R$</small></div><div id="fin-monthly-chart" class="fin-chart-container"></div></article>
+     <article class="fin-panel"><div class="fin-panel-heading"><h2>DESTINO DAS DESPESAS</h2><small>Acumulado por categoria · R$</small></div><div id="fin-expense-chart" class="fin-chart-container"></div></article>
+    </div>
+    <div class="fin-mini-row">
+     <div class="fin-panel"><small>AERONAVES COMPRADAS</small><strong id="fin-aircraft-count">—</strong><small>Valor estimado de revenda</small><b id="fin-resale-short">—</b></div>
+     <div class="fin-panel"><small>CONTRATOS CONCLUÍDOS</small><strong id="fin-completed">—</strong><small>Registrados no histórico</small></div>
+     <div class="fin-panel"><small>SEGUROS PAGOS</small><strong id="fin-insurance-paid">—</strong><small>Apólices efetivamente lançadas no extrato</small></div>
+     <div class="fin-panel"><small>SALDO DEVEDOR</small><strong id="fin-debt-short">—</strong><small>Empréstimos ainda não quitados</small></div>
+    </div>
+   </section>
+   <section id="fin-statement" class="fin-section" hidden>
+    <div class="fin-panel fin-filters">
+     <div class="fin-panel-heading"><h2>EXTRATO DA CARREIRA</h2><small id="fin-count">—</small></div>
+     <div class="fin-filter-controls">
+      <label>Pesquisar descrição<input id="fin-search" type="search" placeholder="Contrato, aeronave, seguro..."></label>
+      <label>Tipo de movimento<select id="fin-category"><option value="all">Todas as categorias</option><option value="receita">Receitas</option><option value="operacional">Despesas operacionais</option><option value="patrimonio">Patrimônio / Crédito</option><option value="outros">Outros</option></select></label>
+      <label>Período<select id="fin-period"><option value="all">Todo o histórico disponível</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="365">Últimos 12 meses</option></select></label>
+      <button id="fin-export" class="button" type="button">Exportar extrato CSV</button>
+     </div>
+    </div>
+    <div class="fin-panel fin-table-panel"><div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>DATA</th><th>DESCRIÇÃO</th><th>CATEGORIA</th><th>VALOR</th><th>SALDO APÓS</th></tr></thead><tbody id="fin-transactions"></tbody></table></div><p id="fin-list-note" class="fin-note"></p></div>
+   </section>
+   <section id="fin-flights" class="fin-section" hidden>
+    <div class="fin-panel-heading"><h2>RESULTADO POR VOO</h2><small>Receitas e custos efetivamente registrados</small></div>
+    <div id="fin-operation-list" class="fin-operation-list"></div>
+   </section>
+   <section id="fin-assets" class="fin-section" hidden>
+    <div class="fin-asset-summary">
+     <div class="fin-panel"><small>INVESTIDO NAS AERONAVES ATUAIS</small><strong id="fin-invested">—</strong></div>
+     <div class="fin-panel"><small>REVENDA ESTIMADA</small><strong id="fin-resale">—</strong></div>
+     <div class="fin-panel"><small>CAIXA + REVENDA − DÍVIDA</small><strong id="fin-assets-total">—</strong></div>
+    </div>
+    <div class="fin-panel"><div class="fin-panel-heading"><h2>MINHA FROTA</h2><small>Não inclui aeronaves alugadas</small></div><div id="fin-assets-list" class="fin-assets-list"></div>
+    <p class="fin-note">Aeronaves iniciais e legadas não vendáveis aparecem no inventário, mas não recebem valor artificial de revenda. Estimativas não são dinheiro disponível em caixa.</p></div>
+   </section>
+   <section id="fin-bank" class="fin-section" hidden>
+    <div class="fin-bank-grid">
+     <div class="fin-panel fin-bank-balance">
+      <h2>BANCO DA CARREIRA</h2>
+      <small>DÍVIDA EM ABERTO</small><strong id="fin-debt">—</strong>
+      <span id="fin-loan-status">Nenhum empréstimo ativo</span>
+      <div class="fin-bank-hint">Limite por operação: <b>R$ 150.000</b><br>Custo único: <b>8%</b>, sem juros recorrentes.<br>Um empréstimo por vez.</div>
+     </div>
+     <div class="fin-panel fin-bank-form"><h2>CONTRATAR CRÉDITO</h2>
+      <label>Valor desejado (R$)<input type="number" id="fin-loan-value" min="1000" max="150000" step="1000" value="10000"></label>
+      <div class="fin-quick-values"><button type="button" data-fin-loan-preset="10000">10 mil</button><button type="button" data-fin-loan-preset="50000">50 mil</button><button type="button" data-fin-loan-preset="100000">100 mil</button><button type="button" data-fin-loan-preset="150000">150 mil</button></div>
+      <div class="fin-reading"><span>Valor recebido</span><b id="fin-loan-principal">—</b></div>
+      <div class="fin-reading"><span>Custo fixo de 8%</span><b id="fin-loan-fee">—</b></div>
+      <div class="fin-reading fin-reading-total"><span>Dívida após contratar</span><strong id="fin-loan-total">—</strong></div>
+      <button type="button" class="button primary" id="fin-take-loan">Revisar empréstimo</button>
+     </div>
+     <div class="fin-panel fin-bank-form"><h2>QUITAR DÍVIDA</h2>
+      <label>Valor a pagar (R$)<input type="number" id="fin-repay-value" min="1" step="1" value="1000"></label>
+      <div class="fin-reading"><span>Caixa disponível</span><b id="fin-repay-cash">—</b></div>
+      <div class="fin-reading"><span>Saldo devedor após pagamento</span><b id="fin-repay-after">—</b></div>
+      <button type="button" class="button primary" id="fin-repay">Revisar pagamento</button>
+     </div>
+     <div class="fin-panel fin-bank-form"><h2>CONFIGURAÇÕES FINANCEIRAS</h2>
+      <label class="fin-option"><input id="fin-tax" type="checkbox"> Imposto virtual de 4% sobre novos contratos</label>
+      <p class="fin-note">A opção altera apenas os voos futuros. Nenhum imposto retroativo será aplicado.</p>
+      <p class="fin-note">Seguros e revisões continuam sendo contratados pelo Hangar. Seus pagamentos aparecem normalmente aqui como despesas.</p>
+     </div>
+    </div>
+   </section>
+  </div>
+  <footer class="page-foot fin-footer"><small id="fin-message" role="status">Financeiro sincronizado com a carreira.</small><button type="button" class="button" data-action="fleet">Abrir meu Hangar</button></footer>
+ </section>
+ <section id="airline-page" class="page-shell airline-page card" hidden aria-labelledby="airline-title">
+  <header class="page-head airline-head">
+   <div><small class="eyebrow">MIDNIGHT OPS • FLIGHTSIM AIRLINE OPERATIONS</small>
+    <h1 id="airline-title">COMPANHIAS AÉREAS</h1>
+    <p>Da primeira contratação à gestão de uma companhia própria.</p></div>
+   <div class="airline-status"><small>MODALIDADE ATUAL</small><strong id="airline-mode">AUTÔNOMO</strong></div>
+  </header>
+  <nav class="airline-tabs" aria-label="Áreas da companhia">
+   <button type="button" data-airline-tab="overview" class="active">Minha carreira</button>
+   <button type="button" data-airline-tab="jobs">Recrutamento</button>
+   <button type="button" data-airline-tab="schedule">Escala de voos</button>
+   <button type="button" data-airline-tab="business">Minha companhia</button>
+   <button type="button" data-airline-tab="history">Histórico</button>
+  </nav>
+  <div id="airline-content" class="airline-content"></div>
+  <footer class="page-foot airline-footer">
+   <small id="airline-message" role="status">Contratos da empresa pagam salário e XP pela folha semanal, não por pouso.</small>
+   <button type="button" class="button" id="airline-review">Atualizar seleção e folha</button>
+  </footer>
+ </section>
+ <dialog id="airline-confirm" class="fin-dialog" aria-labelledby="airline-confirm-title">
+  <div class="fin-dialog-head"><h2 id="airline-confirm-title">REVISAR OPERAÇÃO</h2>
+   <button type="button" id="airline-confirm-x" aria-label="Fechar">×</button></div>
+  <div id="airline-confirm-body" class="fin-confirm-body"></div>
+  <footer><button type="button" id="airline-confirm-cancel" class="button">Cancelar</button>
+   <button type="button" id="airline-confirm-yes" class="button primary">Confirmar</button></footer>
+ </dialog>
  <section id="module-page" class="page-shell module-page card" hidden aria-labelledby="module-title">
   <header class="page-head"><div><small class="eyebrow">FLIGHTSIM • PAINEL INTEGRADO</small><h1 id="module-title">MÓDULO</h1><p id="module-description"></p></div></header>
   <div id="module-context" class="module-context" aria-live="polite"></div>
@@ -291,6 +413,15 @@
  </section>
  </main>
 
+ <dialog id="fin-receipt" class="fin-dialog" aria-labelledby="fin-receipt-title">
+  <div class="fin-dialog-head"><h2 id="fin-receipt-title">COMPROVANTE</h2><button type="button" id="fin-receipt-close-top" aria-label="Fechar">×</button></div>
+  <div id="fin-receipt-body"></div><footer><button id="fin-receipt-close" type="button" class="button primary">Fechar</button></footer>
+ </dialog>
+ <dialog id="fin-confirm" class="fin-dialog" aria-labelledby="fin-confirm-title">
+  <div class="fin-dialog-head"><h2 id="fin-confirm-title">CONFIRMAR OPERAÇÃO</h2><button id="fin-confirm-close-top" type="button" aria-label="Fechar">×</button></div>
+  <div id="fin-confirm-body" class="fin-confirm-body"></div>
+  <footer><button id="fin-confirm-cancel" type="button" class="button">Cancelar</button><button id="fin-confirm-yes" type="button" class="button primary">Confirmar</button></footer>
+ </dialog>
  <dialog id="fo-map-point-dialog" class="pc-profiles-dialog fo-map-point-dialog">
   <div class="pc-dialog-top"><h2>ADICIONAR WAYPOINT</h2><button id="fo-map-cancel-top" type="button" aria-label="Fechar">×</button></div>
   <p>Coordenadas selecionadas no mapa. Confirme o ponto antes de alterar a rota.</p>
@@ -339,4 +470,4 @@
   <p class="aircraft-checkout-note">Esta operação altera de verdade o saldo e o patrimônio virtual. Nenhum avião será carregado automaticamente no MSFS.</p>
   <footer><button type="button" class="button" id="am-cancel">Cancelar</button><button type="button" class="button primary" id="am-commit">Confirmar operação</button></footer>
  </dialog>
- <div id="toast" role="status"></div><script src="/free-map.js"></script><script src="/app.js"></script><script src="/aircraft-market.js"></script><script src="/flight-operations.js"></script><script src="/pilot-career.js"></script></body></html>
+ <div id="toast" role="status"></div><script src="/free-map.js"></script><script src="/app.js"></script><script src="/aircraft-market.js"></script><script src="/flight-operations.js"></script><script src="/pilot-career.js"></script><script src="/finance-center.js"></script><script src="/airline-operations.js"></script></body></html>

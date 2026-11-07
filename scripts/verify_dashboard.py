@@ -195,12 +195,45 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#flightops-map-slot .map-area').is_visible()
             assert page.locator('.sidebar').is_visible()
             assert page.locator('#fo-waypoints').is_visible()
+            # A fixture abre com contrato ativo: mude para voo livre antes de editar ICAOs.
+            page.locator('#fo-free').click()
+            # Rota direta antes do salvamento; a prévia vem do motor real.
+            page.locator('#fo-origin').fill('SBRF')
+            page.locator('#fo-destination').fill('SIPE')
+            page.locator('#fo-plan').click()
+            route_ready=False
+            for _ in range(60):
+                route_ready=page.evaluate("""() => {
+                  const r=FSCFlightOps.mapState(state).mission;
+                  return Boolean(r && r.route_points?.length===2);
+                }""")
+                if route_ready:break
+                time.sleep(.1)
+            assert route_ready,'Planejar rota deve desenhar SBRF → SIPE sem salvar'
+            assert page.locator('#fo-distance').inner_text().endswith('NM')
+            # Clique direito usa o mesmo handler proposeWaypoint, sem popup.
+            proposed=page.evaluate("() => FSCFlightOps.proposeWaypoint(-8.20,-34.95)")
+            assert proposed and not page.locator('#fo-map-point-dialog').is_visible()
+            assert 'FSC01' in page.locator('#fo-waypoints').inner_text()
+            assert page.evaluate("() => FSCFlightOps.mapState(state).mission.route_points.length")==3
+            # Arrastar solta na nova posição (mesmo método do dragend MapLibre/SVG).
+            moved=page.evaluate("() => FSCFlightOps.moveWaypoint(0,-8.15,-34.85)")
+            assert moved
+            assert '-8,15' in page.locator('#fo-waypoints').inner_text()
+            before_save=page.evaluate("""() => ({
+              draft:JSON.stringify(state.flight_operations.draft),
+              points:FSCFlightOps.mapState(state).mission.route_points
+            })""")
+            assert abs(before_save['points'][1][0]-(-8.15))<1e-6,before_save
+            page.locator('#fo-waypoints button').first.click()
+            assert page.evaluate("() => FSCFlightOps.mapState(state).mission.route_points.length")==2
+            assert page.evaluate("() => JSON.stringify(state.flight_operations.draft)")==before_save['draft']
             page.locator('#fo-fix-label').fill('FSC01')
             page.locator('#fo-fix-lat').fill('-8.1')
             page.locator('#fo-fix-lon').fill('-34.9')
             page.locator('#fo-add-fix').click()
             assert 'FSC01' in page.locator('#fo-waypoints').inner_text()
-            assert 'ALTERAÇÕES' in page.locator('#fo-status').inner_text()
+            assert 'PRÉVIA' in page.locator('#fo-status').inner_text()
             page.locator('#fo-waypoints button').first.click()
             assert 'FSC01' not in page.locator('#fo-waypoints').inner_text()
             page.locator('.nav-item[data-action="dashboard"]').click()
@@ -301,6 +334,77 @@ with tempfile.TemporaryDirectory() as temp:
                 assert page.locator('#pc-hero').count()==0  # CSS class, not duplicate node
                 assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
                 page.screenshot(path=str(OUTPUT/f'pilot-career-{width}x{height}.png'))
+            page.set_viewport_size({'width':1600,'height':900})
+            # Financial Center: 5 abas nativas; fixture somente DOM, sem mover dinheiro.
+            page.locator('.nav-item[data-action="finance"]').click()
+            assert page.locator('#financial-center-page').is_visible()
+            assert not page.locator('#module-page').is_visible()
+            assert page.locator('.fin-tabs button').count()==5
+            page.evaluate("""() => {
+              const original=FSCFinancialCenter.render;
+              FSCFinancialCenter.render=(incoming,force)=>{
+                const clone=structuredClone(incoming);
+                clone.financial_center={
+                  ...clone.financial_center, balance:26284,income:15400,expenses:4100,
+                  operating_net:11300,assets_value:97500,invested:145000,net_worth:114984,
+                  debt:8800,loan_open:true,contracts_completed:4,total_transactions:2,
+                  expense_categories:[{kind:'seguro',label:'Seguro de aeronave',value:220},
+                    {kind:'abastecimento',label:'Abastecimento',value:550}],
+                  monthly:[{month:'2026-10',income:6200,expense:1800},
+                           {month:'2026-11',income:9200,expense:2300}],
+                  transactions:[
+                    {id:2,event_key:'insurance:1',kind:'seguro',label:'Seguro de aeronave',
+                      category:'operacional',amount:-220,balance_after:26284,
+                      description:'Apólice C152',occurred_utc:1794000000},
+                    {id:1,event_key:'contract:1',kind:'contrato',label:'Contrato',
+                      category:'receita',amount:1550,balance_after:26504,
+                      description:'Contrato SBRF → SBJP',occurred_utc:1793900000}],
+                  operations:[{id:1,flight_key:'test-flight',started_utc:1793900000,
+                    ended_utc:1793901200,mission:'REG-SBRF-SBJP',aircraft:'Cessna 152',
+                    gross:1550,expenses:210,net:1340,bonus:0,fuel:140,airport:70,tax:0,
+                    paid:true}],
+                  assets:[{ref:'unit:1',title:'Cessna 172 Skyhawk',kind:'new',
+                    purchase_price:145000,resale_price:97500,condition:98,
+                    airport:'SBRF',insured:true}]
+                };
+                original(clone,force);
+              };
+              FSCFinancialCenter.render(state,true);
+            }""")
+            assert '26.284' in page.locator('#fin-balance').inner_text()
+            assert '11.300' in page.locator('#fin-net').inner_text()
+            assert page.locator('#fin-monthly-chart svg rect').count()==4
+            assert 'Seguro' in page.locator('#fin-expense-chart').inner_text()
+            page.locator('[data-fin-tab="statement"]').click()
+            assert page.locator('#fin-transactions tr.fin-transaction').count()==2
+            page.locator('#fin-category').select_option('operacional')
+            assert page.locator('#fin-transactions tr.fin-transaction').count()==1
+            page.locator('#fin-transactions tr.fin-transaction').first.click()
+            assert page.locator('#fin-receipt').is_visible()
+            assert 'Apólice C152' in page.locator('#fin-receipt-body').inner_text()
+            page.locator('#fin-receipt-close').click()
+            page.locator('#fin-category').select_option('all')
+            page.locator('[data-fin-tab="flights"]').click()
+            assert page.locator('.fin-operation').count()==1
+            assert '1.340' in page.locator('.fin-operation').inner_text()
+            page.locator('[data-fin-tab="assets"]').click()
+            assert '97.500' in page.locator('#fin-resale').inner_text()
+            assert 'Segurada' in page.locator('#fin-assets-list').inner_text()
+            page.locator('[data-fin-tab="bank"]').click()
+            assert page.locator('#fin-take-loan').is_disabled()
+            page.locator('[data-fin-loan-preset="150000"]').click()
+            assert '162.000' in page.locator('#fin-loan-total').inner_text()
+            page.locator('#fin-repay-value').fill('1000')
+            assert '7.800' in page.locator('#fin-repay-after').inner_text()
+            page.locator('#fin-repay').click()
+            assert page.locator('#fin-confirm').is_visible()
+            page.locator('#fin-confirm-cancel').click()  # Sem cobrança real.
+            for width,height in [(1280,720),(1600,900),(1920,1080)]:
+                page.set_viewport_size({'width':width,'height':height})
+                page.wait_for_timeout(130)
+                assert page.locator('#financial-center-page').is_visible()
+                assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+                page.screenshot(path=str(OUTPUT/f'financial-center-{width}x{height}.png'))
             page.set_viewport_size({'width':1600,'height':900})
             page.locator('.nav-item[data-action="dashboard"]').click()
 

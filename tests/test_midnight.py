@@ -59,6 +59,20 @@ class PresenterTests(unittest.TestCase):
         self.assertEqual(summary['net'],-paid['cost_brl'])
         self.assertNotEqual(summary['net'],int(self.db.get_setting('balance')))
 
+    def test_financial_center_snapshot_per_career_and_insurance(self):
+        self.pilot()
+        self.db.set_setting('balance','30000')
+        self.db.set_insurance('c152',True)
+        result=self.presenter.snapshot()
+        finance=result['financial_center']
+        self.assertEqual(finance['balance'],29780)
+        self.assertEqual(finance['expenses'],220)
+        self.assertEqual(finance['income'],0)
+        self.assertEqual(finance['operating_net'],-220)
+        self.assertEqual(finance['assets_value'],0)
+        self.assertEqual(finance['debt'],0)
+        self.assertEqual(finance['expense_categories'][0]['kind'],'seguro')
+
     def test_webview_failure_opens_complete_classic_fallback(self):
         controller=object.__new__(DashboardController)
         controller.closed=False;controller.fallback=False;controller.app=Mock()
@@ -221,6 +235,49 @@ class TransportTests(unittest.TestCase):
         self.assertIn("flightops_export",planner)
         self.assertIn("flightops_send",planner)
 
+    def test_planner_live_preview_ui_and_airline_labels(self):
+        html=(ASSETS/'index.html').read_text(encoding='utf-8')
+        js=(ASSETS/'flight-operations.js').read_text(encoding='utf-8')
+        mapjs=(ASSETS/'free-map.js').read_text(encoding='utf-8')
+        from aerocarreira.employment import EMPLOYERS
+        self.assertIn('id="fo-plan"',html)
+        self.assertIn('moveWaypoint(index,lat,lon)',js)
+        self.assertIn("send('flightops_preview',p,previewRequest)",js)
+        self.assertIn('draggable=editingRoute',mapjs)
+        self.assertIn("marker.on('dragend'",mapjs)
+        self.assertNotIn('simulação',','.join(x.name for x in EMPLOYERS))
+        self.assertNotIn('fictícia',','.join(x.name for x in EMPLOYERS))
+        self.assertIn('<symbol id="i-gear"',html)
+        self.assertNotIn('m10 2-1 3-3-1-2 3',html)
+
+    def test_planner_preview_does_not_write_ledger(self):
+        from aerocarreira.app import Application
+        from aerocarreira.contracts import AirportCatalog
+        from aerocarreira.domain import AIRPORTS
+        with tempfile.TemporaryDirectory() as tmp:
+            db=Storage(Path(tmp)/'flightops-preview.db')
+            try:
+                db.create_pilot('QA Planner','QA-VFR','SBRF')
+                app=object.__new__(Application)
+                app.airport_catalog=AirportCatalog(locations=AIRPORTS)
+                app.mode='Demo';app.connected=False;app.last_sample=None
+                app.career=Career();app.storage=db
+                draft={'mode':'free','origin':'SBRF','destination':'SIPE','altitude_ft':2500,
+                       'waypoints':[],'checks':{'runway_checked':False,'route_checked':False,
+                                              'fuel_checked':False,'payload_checked':False}}
+                previous=db.get_setting('flight_operations_v1')
+                before=db.conn.total_changes
+                direct=app._flightops_preview(draft)
+                self.assertEqual(len(direct['route']),2)
+                draft['waypoints'].append({'label':'FIX01','lat':-8.0,'lon':-35.0})
+                edited=app._flightops_preview(draft)
+                self.assertEqual(len(edited['route']),3)
+                self.assertGreater(edited['distance_nm'],direct['distance_nm'])
+                self.assertEqual(db.get_setting('flight_operations_v1'),previous)
+                self.assertEqual(db.conn.total_changes,before)
+            finally:
+                db.close()
+
     def test_flightops_transport_requires_token_and_does_not_allow_extra_fields(self):
         self.assertEqual(self.request('/flight-operations.js')[0],200)
         payload={"mode":"free","origin":"SIPE","destination":"SIFC",
@@ -230,6 +287,14 @@ class TransportTests(unittest.TestCase):
         request={"action":"flightops_save","payload":payload}
         self.assertEqual(self.request('/command',request)[0],202)
         self.assertEqual(self.server.commands.get_nowait(),request)
+        preview={'action':'flightops_preview','payload':payload,'id':'7'}
+        self.assertEqual(self.request('/command',preview)[0],202)
+        self.assertEqual(self.server.commands.get_nowait(),preview)
+        self.assertEqual(self.request('/command',preview,auth=False)[0],403)
+        self.assertEqual(self.request('/command',{**preview,'id':'oops!'} )[0],400)
+        self.assertEqual(self.request('/command',{**preview,'extra':'no'})[0],400)
+        self.assertEqual(self.request('/command',{'action':'flightops_preview','id':'8','payload':{}})[0],400)
+
         self.assertEqual(self.request('/command',request,auth=False)[0],403)
         self.assertEqual(self.request('/command',request,origin=False)[0],403)
         self.assertEqual(self.request('/command',{**request,"amount":500})[0],400)
@@ -283,6 +348,37 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(self.request('/command',{'action':'pilot_showcase','id':'admin'})[0],400)
         self.assertEqual(self.request('/command',{'action':'pilot_profile_switch','id':'principal'})[0],202)
         self.assertEqual(self.request('/command',{'action':'flightops_clear'})[0],202)
+
+    def test_financial_center_native_page_and_authenticated_csv(self):
+        html=(ASSETS/'index.html').read_text(encoding='utf-8')
+        js=(ASSETS/'app.js').read_text(encoding='utf-8')
+        finance=(ASSETS/'finance-center.js').read_text(encoding='utf-8')
+        self.assertIn('id="financial-center-page"',html)
+        self.assertIn('id="fin-transactions"',html)
+        self.assertIn('id="fin-loan-value"',html)
+        self.assertIn('id="fin-receipt"',html)
+        self.assertIn('id="fin-confirm"',html)
+        self.assertIn('src="/finance-center.js"',html)
+        self.assertIn("finance=view==='finance'",js)
+        self.assertIn("window.FSCFinancialCenter?.render(s)",js)
+        self.assertIn("150000",finance)
+        self.assertIn("finance_export",finance)
+        self.assertEqual(self.request('/finance-center.js')[0],200)
+        self.assertEqual(self.request('/finance-export')[0],404)
+        self.assertEqual(self.request('/finance-export',auth=False)[0],403)
+        self.server.set_finance_csv('ID;Data UTC\n1;1\n'.encode())
+        code,body=self.request('/finance-export')
+        self.assertEqual(code,200)
+        self.assertIn(b'ID;Data UTC',body)
+        self.assertEqual(self.request('/finance-export',auth=False)[0],403)
+        req={'action':'finance_loan','id':'150000|11111111-2222-4333-8444-555555555555'}
+        self.assertEqual(self.request('/command',req)[0],202)
+        self.assertEqual(self.server.commands.get_nowait(),req)
+        self.assertEqual(self.request('/command',req,origin=False)[0],403)
+        self.assertEqual(self.request('/command',req,auth=False)[0],403)
+        self.assertEqual(self.request('/command',{'action':'finance_repay','id':1234})[0],400)
+        self.assertEqual(self.request('/command',{'action':'finance_export','amount':100})[0],400)
+        self.assertEqual(self.request('/finance.py')[0],404)
 
     def test_static_page_contains_no_session_token(self):
         code,body=self.request('/');self.assertEqual(code,200);self.assertNotIn(self.server.token.encode(),body)

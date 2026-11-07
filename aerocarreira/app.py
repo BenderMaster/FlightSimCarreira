@@ -604,7 +604,21 @@ class Application:
             if not allowed:
                 messagebox.showwarning("Contrato bloqueado", reason)
                 return False
-            if m.company_code and (self.storage.employment_state()['mode']!='empregado' or
+            if m.company_code=='OWN':
+                from .airline_operations import business_planes
+                if self.storage.employment_state()['mode']!='empresario':
+                    messagebox.showwarning('Contrato','Somente o proprietário pode aceitar rota empresarial.')
+                    return False
+                # Só uma aeronave empresarial real, na origem, pode executar
+                # esse contrato; nenhuma aeronave particular é transferida.
+                eligible_planes=[p for p in business_planes(self.storage)
+                    if m.id.startswith('OWN-'+str(p['id'])+'-')
+                    and p['code']==m.employer_plane and p['airport']==m.origin
+                    and p['condition']>=15]
+                if not eligible_planes:
+                    messagebox.showwarning('Contrato','Aeronave empresarial não está disponível nesta origem.')
+                    return False
+            elif m.company_code and (self.storage.employment_state()['mode']!='empregado' or
                                    self.storage.employment_state()['employer_code']!=m.company_code):
                 messagebox.showwarning('Contrato', 'Trecho exclusivo da companhia empregadora.')
                 return False
@@ -1028,7 +1042,7 @@ class Application:
             except ValueError as exc:
                 messagebox.showwarning('Companhia',str(exc),parent=window)
         self.button(panel,'Fundar companhia',create_company,accent=True).pack(side='right')
-        self.label(wrapper,'Registro inicial da companhia implementado; frota IA, pinturas, gestores e rotas empresariais são blocos futuros.',
+        self.label(wrapper,'Opere sua companhia pela nova aba Midnight: caixa empresarial, frota e rotas próprias.',
                    9,MUTED).pack(anchor='w',pady=(8,0))
         redraw()
 
@@ -1332,6 +1346,10 @@ class Application:
                     saved = self.storage.get_checkpoint()
                     if saved:
                         self.career.restore(saved.get("career", {}))
+                elif payment and payment['mission'].startswith('EMP-'):
+                    self._log('VOO DA EMPREGADORA: não paga R$ nem XP imediato; contabilizado na meta semanal.')
+                elif payment and payment['mission'].startswith('OWN-'):
+                    self._log('VOO EMPRESARIAL: receita e custos lançados somente no caixa da companhia.')
                 elif payment and summary['gross'] > 0:
                     self._log(f"CONTRATO CONCLUÍDO: {brl(summary['gross'])} bruto; {brl(summary['expenses'])} de custos; líquido {brl(summary['net'])}.")
                 elif payment:
@@ -1600,6 +1618,20 @@ class Application:
         draft = {k: stored[k] for k in
                  ("mode", "origin", "destination", "altitude_ft", "waypoints", "checks")}
         return validated_flight_operations(draft, catalog, self.career.mission)
+
+    def _flightops_preview(self, data):
+        """Projeção autoritativa, sem SQLite, sem dispatch e sem alterar plano salvo."""
+        catalog=self._flightops_catalog()
+        plan=validated_flight_operations(data,catalog,self.career.mission)
+        s=self.last_sample
+        live=(self.mode=='MSFS' and self.connected and s is not None and
+              time()-s.timestamp<10)
+        selected=self.storage.fleet_manager().selected()
+        aircraft=(selected['title'] if selected else
+                  (s.aircraft_title if live else None))
+        return flightops_route_stats(
+            plan,catalog,aircraft,
+            s.fuel_gallons if live else None,s if live else None)
 
     def _flightops_save(self, data):
         if self.tracker.phase == Phase.AIRBORNE:

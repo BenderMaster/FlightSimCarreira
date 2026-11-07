@@ -6,9 +6,10 @@ import json
 from pathlib import Path
 from time import time
 from .contracts import AirportCatalog, generate_offers, eligibility, TYPE_BY_CODE, next_level_xp, aircraft_model, PLANE_BY_CODE
-from .employment import generate_employer_routes
+from .employment import generate_employer_routes, vacancies, weekly_period, EMPLOYER_BY_CODE, employment_eligibility, OWN_INVESTMENT
+from . import airline_operations as airline
 from .pilot import level_progress
-from . import pilot_career
+from . import pilot_career, financial_center
 from .domain import AIRPORTS, Phase, distance_nm
 from .planning import inspect_preflight, Preflight
 from .flight_operations import read_saved as read_flight_operations, draft as flightops_draft, validated as validate_flightops, route_stats as flightops_stats
@@ -61,6 +62,9 @@ class DashboardPresenter:
         self.offers={}
         self.center=None
         self.market_key=None
+        self.finance_cache=None
+        self.finance_cache_at=0.0
+        self.finance_stamp=None
         self.pilot_career_cache=None
         self.pilot_career_cache_at=0.0
         self.avatar_key=None
@@ -116,9 +120,11 @@ class DashboardPresenter:
         self.center=center
         if not center:self.offers={};return
         stats=db.pilot_stats(); emp=db.employment_state();now=time();day=int(now//86400)
-        generator_version='msfs-airports-session-v2-pay-v2' if app.mode=='MSFS' else 'nordeste-v1-pay-v2'
+        generator_version='msfs-airports-session-v3-airlines' if app.mode=='MSFS' else 'nordeste-v3-airlines'
+        business_sig=tuple((p['id'],p['airport'],round(p['condition'],1))
+                         for p in airline.business_planes(db)) if emp['mode']=='empresario' else ()
         key=(center.icao,day,stats['xp'],stats['reputation'],tuple(sorted(stats['qualifications'])),emp['mode'],
-             emp['employer_code'],generator_version,len(cat.locations))
+             emp['employer_code'],generator_version,len(cat.locations),business_sig)
         if key==self.market_key and not force:
             self.offers={k:v for k,v in self.offers.items() if not db.contract_completed(k)}
             return
@@ -127,11 +133,15 @@ class DashboardPresenter:
             offers=generate_offers(center,cat,stats,db.owned_qualifications(),db.family_experience(),day)
             if emp['mode']=='empregado':
                 offers+=generate_employer_routes(emp['employer_code'],center,cat,stats,db.owned_qualifications(),db.family_experience(),day)
+            if emp['mode']=='empresario':
+                offers+=db.company_routes(center,cat,day)
             db.save_offers(center.icao,offers,now=now,valid_s=(day+1)*86400-now)
             db.set_setting('offer_generator',generator_version)
         self.offers={}
         for m in db.active_offers(center.icao,now):
-            if m.company_code and (emp['mode']!='empregado' or emp['employer_code']!=m.company_code):
+            if m.company_code=='OWN':
+                if emp['mode']!='empresario':continue
+            elif m.company_code and (emp['mode']!='empregado' or emp['employer_code']!=m.company_code):
                 continue
             if app.mode=='MSFS':
                 validated=strict_mission(m,cat)
@@ -243,6 +253,7 @@ class DashboardPresenter:
         candidate=stored or flightops_draft(m,pilot_origin)
         flight_ops={'draft':candidate,'ready':bool(active_catalog),
                     'route':None,
+                    'preview':getattr(app,'flightops_preview',None),
                     'notice':getattr(app,'flightops_notice',None),
                     'dispatch':getattr(app,'dispatch_state',{}),
                     'aircraft_title':plane['title'] if plane else None,
@@ -274,7 +285,46 @@ class DashboardPresenter:
             {'id':'principal','name':'Carreira principal','kind':'official'}]
         pc['active_profile']=app.profiles.active()['id'] if getattr(app,'profiles',None) else 'principal'
         pc['notice']=getattr(app,'pilot_career_notice',None)
-        return dict(pilot=pilot,pilot_career=pc,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
+        # A interface consulta a cada 500ms. A consolidação contábil só
+        # é recalculada quando há movimentação (ou a cada 4 segundos).
+        fin_sig=(db.conn.execute(
+            "SELECT COALESCE(MAX(id),0),COUNT(*) FROM finance_ledger").fetchone(),
+            db.get_setting('balance'), db.outstanding_loan(),
+            db.conn.execute("SELECT COUNT(*),COALESCE(SUM(condition),0) FROM fleet_units").fetchone())
+        if (self.finance_cache is None or fin_sig!=self.finance_stamp or
+                now-self.finance_cache_at>4):
+            self.finance_cache=financial_center.snapshot(db)
+            self.finance_stamp=fin_sig
+            self.finance_cache_at=now
+        finances=dict(self.finance_cache)
+        finances['notice']=getattr(app,'finance_notice',None)
+        state=db.employment_state()
+        jobdata=db.airline_employment(now) if state['mode']=='empregado' else {'active':False}
+        region=self.center.icao if self.center else (pilot['home_icao'] if pilot else 'SBRF')
+        openings=[]
+        if pilot:
+            for v in vacancies(weekly_period(now),region):
+                eligible,reason=employment_eligibility(v,stats,db.owned_qualifications())
+                opening_rate=airline.rate(v.company,stats['level'],stats['reputation'])[0]
+                openings.append(dict(id=v.id,company=v.company,
+                    name=EMPLOYER_BY_CODE[v.company].name,
+                    aircraft=EMPLOYER_BY_CODE[v.company].plane,
+                    employer_prestige=airline.PRESTIGE[v.company],
+                    salary=opening_rate,
+                    min_level=v.min_level,min_hours=v.min_hours,
+                    qualifications=list(v.qualifications),
+                    allowed=eligible,reason=reason,
+                    targets=[dict(tier=t,**airline.thresholds(v.company,t)) for t in airline.TIERS]))
+        ops=dict(mode=state['mode'],employment=jobdata,
+                 vacancies=openings,applications=db.list_applications(),
+                 business=db.company_business() if state['mode']=='empresario' else None,
+                 corporate_offers=[mission_data(m) for m in self.offers.values()
+                        if m.company_code=='OWN'],
+                 employer_offers=[mission_data(m) for m in self.offers.values()
+                        if m.company_code and m.company_code!='OWN'],
+                 investment=OWN_INVESTMENT,notice=getattr(app,'airline_notice',None),
+                 active_mission=m.id if m else None)
+        return dict(airline_operations=ops,financial_center=finances,pilot=pilot,pilot_career=pc,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
             status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,

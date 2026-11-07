@@ -689,3 +689,225 @@
 .pc-unlock-art .pc-rank-svg{width:112px;height:160px;max-width:112px;max-height:160px}
 .pc-unlock[data-kind="recovery"]{border-color:#c9d393;background:radial-gradient(ellipse at center,#24554f,#071c2d 72%)}
 .pc-unlock[data-kind="recovery"]>small:first-of-type{color:#d7eca5}
+
+/* FlightSim v0.8.4 Financial Center — native Midnight, independently scrollable. */
+.fin-page{gap:.75em!important;min-width:0;background:linear-gradient(145deg,#041724,#092538 72%,#041521)}
+.fin-head{flex:0 0 auto;align-items:center}
+.fin-head-right{display:flex;flex-direction:column;align-items:flex-end;gap:.3em;white-space:nowrap}
+.fin-head-right small{font-size:.66em;color:#98c6d7}.fin-head-right strong{color:#e7c677;font-size:1.15em}
+.fin-hero{display:grid;grid-template-columns:minmax(245px,32%) minmax(0,1fr);gap:.75em;flex:0 0 auto;min-height:108px}
+.fin-balance-card{padding:1em 1.2em;border:1px solid #c7a45a;border-radius:9px;display:flex;flex-direction:column;gap:.18em;
+ background:linear-gradient(116deg,#0a2b3e,#062335 60%,#203b42);box-shadow:inset 0 1px 0 #c0d0a426}
+.fin-balance-card>span{color:#d8c183;font-size:.76em;letter-spacing:.085em;font-weight:800}
+.fin-balance-card strong{font-size:clamp(1.55em,2.4vw,2.55em);line-height:1.1;color:#f9d679}
+.fin-balance-card small{font-size:.71em;color:#9cc6d2;line-height:1.3}
+.fin-overview-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.55em}
+.fin-overview-metrics>div{display:flex;flex-direction:column;justify-content:center;padding:.65em .65em;
+ border:1px solid #31586d;border-radius:8px;gap:.38em;background:#072433;min-width:0}
+.fin-overview-metrics small{font-size:.66em;color:#a1c6d3;line-height:1.3;letter-spacing:.055em}
+.fin-overview-metrics strong{font-size:clamp(1.04em,1.45vw,1.45em);color:#f8f8f4;white-space:nowrap}
+.fin-overview-metrics>div:nth-child(1) strong{color:#87efd9}
+.fin-overview-metrics>div:nth-child(2) strong{color:#fa9b92}
+.fin-overview-metrics>div:nth-child(4) strong{color:#f4cf82}
+.fin-positive{color:#8be6b6!important}.fin-negative{color:#f9a099!important}
+.fin-tabs{display:flex;gap:.55em;flex:0 0 auto;min-width:0}
+.fin-tabs button{flex:1;min-width:0;text-align:center;color:#c8e3ed;font:inherit;font-weight:700;font-size:.9em;
+ padding:.68em .4em;border:1px solid #315a70;border-radius:8px;background:#082536;cursor:pointer}
+.fin-tabs button:hover{border-color:#50cadd;color:white}
+.fin-tabs button.active{border-color:#05d9eb;color:#eaffff;background:#0b4656;box-shadow:inset 0 -3px #08cfe7}
+.fin-body{flex:1;min-width:0;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable}
+.fin-section{display:flex;flex-direction:column;gap:.8em;min-width:0;min-height:100%;padding:.1em .15em .6em}
+.fin-section[hidden]{display:none!important}
+.fin-chart-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:.8em}
+.fin-panel{min-width:0;border:1px solid #31566c;border-radius:10px;background:linear-gradient(145deg,#092738,#051b2a);
+ padding:1em;color:#e8f4fa;box-sizing:border-box}
+.fin-panel-heading{display:flex;justify-content:space-between;align-items:center;gap:.65em;flex-wrap:wrap;margin-bottom:.7em}
+.fin-panel h2,.fin-panel-heading h2{margin:0;color:#23d9ed;font-size:.91em;letter-spacing:.07em;font-weight:800}
+.fin-panel-heading small{font-size:.77em;color:#a3c9d7}
+.fin-chart-container{min-height:230px;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:.5em}
+.fin-chart-container svg{width:100%;max-height:320px;display:block;overflow:visible}
+.fin-chart-legend{display:flex;gap:1em;flex-wrap:wrap;color:#badce6;font-size:.78em}
+.fin-chart-legend>span{display:flex;align-items:center;gap:.4em}
+.fin-chart-legend i{display:inline-block;width:11px;height:11px;border-radius:2px}
+.fin-expense-item{display:flex;flex-direction:column;gap:.25em;margin-bottom:.54em}
+.fin-expense-label{display:flex;justify-content:space-between;gap:.5em;font-size:.8em}
+.fin-expense-label>span{color:#b8d8e4}.fin-expense-label>strong{white-space:nowrap;color:#f9d89f}
+.fin-expense-track{height:10px;border-radius:99px;background:#133a4c;overflow:hidden}
+.fin-expense-track i{display:block;background:linear-gradient(90deg,#10cadd,#ecc681);height:100%;border-radius:99px}
+.fin-mini-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7em}
+.fin-mini-row>div{display:flex;flex-direction:column;gap:.3em;justify-content:center}
+.fin-mini-row small,.fin-asset-summary small{color:#a6ccd9;font-size:.72em;letter-spacing:.045em}
+.fin-mini-row strong,.fin-asset-summary strong{font-size:1.46em;color:#f2d28e}
+.fin-mini-row b{color:#d3edfa;font-size:.84em}
+.fin-filters{display:flex;flex-direction:column}
+.fin-filter-controls{display:flex;flex-wrap:wrap;align-items:end;gap:.6em}
+.fin-filter-controls label,.fin-bank-form label{display:flex;flex-direction:column;gap:.35em;
+ color:#a9cddb;font-size:.79em;min-width:150px}
+.fin-filter-controls label:first-child{flex:1;min-width:210px}
+.fin-page input,.fin-page select{background:#041a28;color:#e6f8ff;border:1px solid #35677d;
+ border-radius:6px;padding:.62em;font:inherit;min-width:0;width:100%}
+.fin-page input:focus-visible,.fin-page select:focus-visible{outline:2px solid #0bdef0;outline-offset:2px}
+.fin-filter-controls .button{padding:.68em .9em;font-size:.82em}
+.fin-table-panel{padding:0;overflow:hidden}
+.fin-table-wrap{overflow:auto;max-height:465px}
+.fin-table{border-collapse:collapse;width:100%;min-width:700px;font-size:.83em;text-align:left}
+.fin-table th{position:sticky;top:0;background:#13384b;color:#47dcf0;letter-spacing:.08em;
+ padding:.82em .8em;z-index:2;border-bottom:1px solid #39748b}
+.fin-table td{padding:.85em .8em;border-bottom:1px solid #25495c}
+.fin-table td:nth-child(1),.fin-table td:nth-child(4),.fin-table td:nth-child(5){white-space:nowrap}
+.fin-table tbody tr.fin-transaction{cursor:pointer}
+.fin-table tbody tr.fin-transaction:hover,.fin-table tbody tr.fin-transaction:focus-visible{background:#1c536388;outline:1px solid #63dff0}
+.fin-note{font-size:.78em;line-height:1.48;color:#a7c9d4;margin:.55em 0 0}
+.fin-table-panel>.fin-note{padding:0 1em 1em}
+.fin-empty{font-size:.88em;padding:1.4em 1em;color:#a8cedc;text-align:center;line-height:1.4}
+.fin-operation-list{display:flex;flex-direction:column;gap:.65em}
+.fin-operation>summary{display:flex;align-items:center;justify-content:space-between;gap:1em;cursor:pointer}
+.fin-operation-name{display:flex;flex-direction:column;gap:.35em;min-width:0}
+.fin-operation-name strong{color:#e6f7fd}
+.fin-operation-name small{color:#a6c6d7;font-size:.78em}
+.fin-operation>summary>strong{font-size:1.22em;white-space:nowrap}
+.fin-operation-breakdown{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35em 1.4em;
+ border-top:1px solid #31546a;padding-top:.7em;margin-top:.8em}
+.fin-receipt-attribute,.fin-reading{display:flex;justify-content:space-between;align-items:baseline;gap:1em;
+ padding:.42em 0;border-bottom:1px solid #2d536a;font-size:.84em}
+.fin-receipt-attribute span,.fin-reading span{color:#b1d3df}
+.fin-receipt-attribute strong,.fin-reading strong,.fin-reading b{color:#f3d49b;overflow-wrap:anywhere;text-align:right}
+.fin-asset-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7em}
+.fin-asset-summary>div{display:flex;flex-direction:column;gap:.5em}
+.fin-assets-list{display:flex;flex-direction:column;gap:.5em}
+.fin-asset-item{display:flex;justify-content:space-between;gap:.65em;align-items:center;
+ padding:.8em;border:1px solid #31556a;border-radius:6px;background:#061e2c}
+.fin-asset-name,.fin-asset-prices{display:flex;flex-direction:column;gap:.3em}
+.fin-asset-name strong{font-size:.94em}
+.fin-asset-name small{font-size:.77em;color:#a7c9d9}
+.fin-asset-prices{text-align:right}
+.fin-asset-prices span{font-size:.73em;color:#a1bfcb}.fin-asset-prices strong{color:#edd08e}
+.fin-bank-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85em}
+.fin-bank-grid .fin-panel{display:flex;flex-direction:column;gap:.72em}
+.fin-bank-balance>small{color:#adcad5;font-size:.8em}
+.fin-bank-balance>strong{color:#f7ce82;font-size:2.3em;line-height:1.1}
+.fin-bank-balance>span{font-size:.83em;color:#accbd7}
+.fin-bank-hint{margin-top:auto;background:#051d2c;padding:1em;border:1px solid #34566b;
+ border-radius:6px;line-height:1.7;color:#c4dfeb;font-size:.8em}
+.fin-bank-hint b{color:#efd18e}
+.fin-bank-form label{min-width:0}
+.fin-quick-values{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.45em}
+.fin-quick-values button{background:#0b3448;border:1px solid #386a7d;border-radius:5px;
+ padding:.55em .15em;font:inherit;color:#bee8f4;cursor:pointer}
+.fin-quick-values button:hover{border-color:#18d5eb}
+.fin-reading-total{font-size:1em;font-weight:700}
+.fin-bank-form .button.primary{margin-top:auto}
+.fin-bank-form label.fin-option{display:flex;align-items:center;flex-direction:row;gap:.7em;
+ color:#e3f4f9;font-size:.9em}
+.fin-option input{width:auto;accent-color:#04cee5;flex:none}
+.fin-footer{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;gap:1em}
+.fin-footer small{color:#aed2de;font-size:.77em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fin-dialog{width:min(540px,calc(100vw - 40px));max-height:90vh;overflow:auto;color:#e8f9fd;background:#071d2d;
+ border:1px solid #58a3ac;box-shadow:0 22px 72px #000a;border-radius:10px;padding:1.3em}
+.fin-dialog::backdrop{background:#000b}
+.fin-dialog-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #335a70;padding-bottom:.7em}
+.fin-dialog-head h2{color:#36dbe9;font-size:1.1em;letter-spacing:.065em}
+.fin-dialog-head button{font:inherit;font-size:1.5em;border:0;background:transparent;color:#d8f4f8;cursor:pointer}
+.fin-dialog footer{display:flex;justify-content:flex-end;gap:.6em;margin-top:1.3em}
+.fin-confirm-body{display:flex;flex-direction:column;gap:.65em;padding-top:.8em}
+.fin-confirm-body p{margin:0;line-height:1.4}
+@media(max-width:1350px){.fin-overview-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fin-chart-grid{grid-template-columns:1fr 1fr}
+ .fin-mini-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fin-bank-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:900px){.fin-hero,.fin-chart-grid{grid-template-columns:1fr}
+ .fin-tabs{gap:.3em}.fin-tabs button{font-size:.77em;padding:.65em .22em}
+ .fin-overview-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fin-asset-summary{grid-template-columns:1fr}
+ .fin-bank-grid{grid-template-columns:1fr}
+ .fin-operation-breakdown{grid-template-columns:1fr}}
+@media(max-width:560px){.fin-tabs{flex-wrap:wrap}.fin-tabs button{flex:1 1 30%}
+ .fin-mini-row{grid-template-columns:1fr}
+ .fin-asset-item{flex-direction:column;align-items:stretch}.fin-asset-prices{text-align:left}
+ .fin-footer{flex-direction:column;align-items:stretch}
+ .fin-head-right{display:none}}
+
+/* FlightSim 0.8.5 Airline Operations + correction for tiny Financial Center SVG. */
+.fin-chart-container>svg{display:block!important;width:100%!important;
+ height:clamp(245px,23vw,320px)!important;max-height:none!important;
+ aspect-ratio:690 / 300;flex:0 0 auto;overflow:visible}
+.fin-chart-container svg text{paint-order:stroke;stroke:#081f2c;stroke-width:.7px}
+.airline-page{min-width:0;gap:.8em!important;background:linear-gradient(135deg,#061923,#092c3c 55%,#03151e)}
+.airline-head{flex:0 0 auto;align-items:center}
+.airline-status{display:flex;flex-direction:column;align-items:flex-end;gap:.4em;white-space:nowrap}
+.airline-status small{color:#a8d7e4;font-size:.7em}.airline-status strong{color:#e9c877;font-size:1.1em}
+.airline-tabs{display:flex;gap:.5em;flex:0 0 auto}
+.airline-tabs button{flex:1;min-width:0;background:#092839;border:1px solid #355e72;border-radius:7px;
+ color:#d3ecf7;padding:.78em .35em;font:inherit;font-size:.9em;font-weight:700;cursor:pointer}
+.airline-tabs button:hover{border-color:#47cade}
+.airline-tabs button.active{color:#e9ffff;background:#0b4d5b;border-color:#04dcef;box-shadow:inset 0 -3px #04d1e6}
+.airline-content{flex:1;overflow:auto;min-height:0;padding:.35em .3em 1.2em;display:flex;flex-direction:column;gap:.9em;scrollbar-gutter:stable}
+.airline-panel{border:1px solid #315b71;background:linear-gradient(133deg,#0b3041,#061b2a 78%);
+ border-radius:10px;padding:1.05em;display:flex;flex-direction:column;gap:.7em;min-width:0}
+.airline-panel h2,.airline-subhead h2{color:#22d9e9;font-size:1em;font-weight:850;letter-spacing:.09em;white-space:normal}
+.airline-panel .button{width:max-content;max-width:100%;font-size:.85em}
+.airline-description{font-size:.85em;line-height:1.45;color:#bcd9e3;margin:0}
+.airline-subhead{display:flex;justify-content:space-between;align-items:center;gap:1em;flex-wrap:wrap}
+.airline-subhead .airline-description{font-size:.78em}
+.airline-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7em}
+.airline-metric{border:1px solid #335d6d;border-radius:9px;background:#061e2e;padding:.95em;
+ display:flex;flex-direction:column;gap:.55em;min-width:0}
+.airline-metric small{font-size:.72em;color:#a9cad8;letter-spacing:.07em}
+.airline-metric strong{font-size:clamp(1em,1.4vw,1.46em);color:#f3d388;overflow-wrap:anywhere}
+.airline-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8em}
+.airline-prestige{display:inline-block;width:max-content;max-width:100%;color:#f4cf83;
+ background:#6a50242f;border:1px solid #bc9650;border-radius:3px;padding:.35em .6em;font-size:.7em;letter-spacing:.1em}
+.airline-big{color:#f8d17e;font-size:clamp(1.15em,2.05vw,2em);line-height:1.15}
+.airline-form-label{color:#bbd7e3;display:flex;flex-direction:column;gap:.42em;font-size:.86em;min-width:0}
+.airline-page input,.airline-page select{width:100%;min-width:0;background:#041a28;
+ border:1px solid #397389;border-radius:6px;color:#e5f8fa;padding:.68em;font:inherit}
+.airline-page input:focus-visible,.airline-page select:focus-visible{outline:2px solid #22dce8}
+.airline-warning{color:#f5a897;font-size:.8em}
+.airline-bar{background:#163c4d;overflow:hidden;border-radius:99px;height:13px;border:1px solid #2a6577}
+.airline-bar i{height:100%;display:block;width:0;background:linear-gradient(90deg,#11bed6,#5bffcd);
+ box-shadow:0 0 6px #26ebf6;border-radius:99px;transition:width .35s}
+.airline-plane-mark svg{width:3.3em;height:3.3em;fill:#c5eaf4;stroke:none;opacity:.9}
+.airline-route-footer{display:flex;justify-content:space-between;align-items:center;gap:.6em;
+ border-top:1px solid #33556c;padding-top:.7em;color:#b3d3e0;font-size:.81em}
+.airline-route-footer strong{color:#f1d291;font-size:1.2em}
+.airline-aircraft,.airline-history-row{display:flex;justify-content:space-between;gap:.65em;
+ align-items:center;border:1px solid #315a6e;background:#071d2c;border-radius:6px;
+ padding:.68em .75em;font-size:.88em}
+.airline-history-row{display:block;color:#c8e3ec;line-height:1.45;overflow-wrap:anywhere}
+.airline-aircraft strong{min-width:0;flex:1}
+.airline-aircraft span{color:#eacf92;white-space:nowrap}
+.airline-aircraft .button{font-size:.82em;padding:.4em .75em}
+.airline-footer{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;gap:.75em}
+.airline-footer small{font-size:.78em;color:#b1d1de;min-width:0;line-height:1.25}
+.airline-footer button{flex:none}
+.airline-content .airline-panel>h2:not(:first-child){margin-top:.35em}
+@media(max-width:1200px){.airline-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .airline-cards{grid-template-columns:1fr}.airline-status{display:none}}
+@media(max-width:740px){.airline-tabs{flex-wrap:wrap}.airline-tabs button{flex:1 1 28%;font-size:.8em}
+ .airline-metrics{grid-template-columns:1fr 1fr}.airline-aircraft{flex-wrap:wrap}
+ .airline-footer{flex-direction:column;align-items:stretch}.fin-chart-container>svg{height:260px!important}}
+@media(prefers-reduced-motion:reduce){.airline-bar i{transition:none}}
+
+/* Edição interativa do Flight Operations — marcadores e ações discretas. */
+.flightops-plan-row{display:flex;align-items:center;gap:.65em;flex-wrap:wrap}
+.flightops-plan-row .button{min-width:9em;border-color:#19cddf}
+.flightops-plan-row small,.flightops-waypoint-hint{font-size:.73em;color:#8bb9cb;line-height:1.3}
+.flightops-waypoint-row{transition:border-color .14s,background .14s}
+.flightops-waypoint-row:hover,.flightops-waypoint-row:focus-within{border-color:#24bcca;background:#093246}
+.flightops-waypoints .fo-waypoint-remove{color:#ff6472;background:#321722;border:1px solid #7d3443;
+ border-radius:5px;font-size:1.3em;font-weight:700;line-height:1;min-width:1.5em;min-height:1.5em;
+ opacity:.15;transition:opacity .14s,background .14s}
+.flightops-waypoint-row:hover .fo-waypoint-remove,
+.flightops-waypoint-row:focus-within .fo-waypoint-remove{opacity:1}
+.flightops-waypoints .fo-waypoint-remove:hover{background:#862536;color:#fff}
+@media(hover:none){.flightops-waypoints .fo-waypoint-remove{opacity:1}}
+.fsc-airport-marker.fsc-waypoint-marker{background:#084054;border-color:#1de6f1;
+ color:#e6fbff;cursor:grab;user-select:none;touch-action:none;padding:.3em .5em;
+ box-shadow:0 0 0 3px #00dded30}
+.fsc-airport-marker.fsc-waypoint-marker:active{cursor:grabbing;border-color:#ffd285}
+#route-map [data-waypoint-index]{cursor:grab;touch-action:none}
+#route-map [data-waypoint-index]:active{cursor:grabbing}
+
+/* Waypoints sempre visíveis: painel rola verticalmente, nunca esmaga a lista. */
+.flightops-waypoints{flex:0 0 auto;min-height:2em}
+.flightops-plan-row,.flightops-waypoint-hint{flex-shrink:0}

@@ -78,6 +78,9 @@ function updateMarkers(s){
  if(!map||!routeSourceReady)return;
  const m=s?.mission;
  const key=m?.id||('base:'+ (s?.market?.icao||''));
+ const editingRoute=document.querySelector('.workspace')?.dataset.view==='planning'&&
+   typeof key==='string'&&key.startsWith('flightops:');
+ const samePlanningCamera=editingRoute&&typeof missionKey==='string'&&missionKey.startsWith('flightops:');
  if(key!==missionKey){
   missionKey=key;
   for(const item of airportMarkers)item.remove();airportMarkers=[];
@@ -91,13 +94,26 @@ function updateMarkers(s){
   map.getSource('fsc-route').setData(line);
   if(start&&end){
    const markerPoints=[[start,m.origin],...((via||[]).slice(1,-1).map((p,i)=>[p,m.waypoints?.[i]?.label||('FIX'+(i+1))])),[end,m.destination]];
-   for(const [p,label] of markerPoints){
-    const el=document.createElement('div');el.className='fsc-airport-marker';el.textContent=label;
-    airportMarkers.push(new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([p.lng,p.lat]).addTo(map));
+   for(let i=0;i<markerPoints.length;i++){
+    const [p,label]=markerPoints[i],draggable=editingRoute&&i>0&&i<markerPoints.length-1;
+    const el=document.createElement('div');
+    el.className='fsc-airport-marker'+(draggable?' fsc-waypoint-marker':'');
+    el.textContent=label;
+    if(draggable)el.title='Arraste para editar a posição de '+label;
+    const marker=new maplibregl.Marker({element:el,anchor:'bottom',draggable})
+      .setLngLat([p.lng,p.lat]).addTo(map);
+    if(draggable&&typeof marker.on==='function')
+     marker.on('dragend',()=>{
+      const moved=marker.getLngLat();
+      window.FSCFlightOps?.moveWaypoint?.(i-1,moved.lat,moved.lng);
+     });
+    airportMarkers.push(marker);
    }
-   const bounds=new maplibregl.LngLatBounds();
-   for(const p of path)bounds.extend([p.lng,p.lat]);
-   map.fitBounds(bounds,{padding:35,maxZoom:12,duration:0});
+   if(!samePlanningCamera){
+    const bounds=new maplibregl.LngLatBounds();
+    for(const p of path)bounds.extend([p.lng,p.lat]);
+    map.fitBounds(bounds,{padding:35,maxZoom:12,duration:0});
+   }
   }else if(s?.telemetry&&Number.isFinite(s.telemetry.lat)&&Number.isFinite(s.telemetry.lon)){
    map.jumpTo({center:[s.telemetry.lon,s.telemetry.lat],zoom:11});
   }else if(s?.market&&Number.isFinite(s.market.lat)&&Number.isFinite(s.market.lon)){
