@@ -1,3 +1,17 @@
+# FlightSim v0.9.0 InGame Alpha.1 — branch em homologação
+
+Início do suporte à toolbar do MSFS 2020. O Windows conserva o motor Python/SQLite/SimConnect;
+o pacote-fonte do MSFS abre um painel somente leitura via loopback com telemetria e mapa leve.
+Ainda é necessário compilar o package no **SDK do MSFS 2020** e validar a compatibilidade do
+iframe com o Coherent. **A \`main\` permanece a v0.8.7 homologada.**
+
+- Guia de instalação: [v0.9.0 InGame](docs/INGAME_V090_BUILD.md)
+- Projeto SDK: [in_game/toolbar](in_game/toolbar)
+- API v2: \`http://127.0.0.1:8769/api/v1/health\` com o FlightSim Windows em execução
+- Os artifacts da branch ficam em GitHub Actions; source SDK e Windows são downloads diferentes.
+
+---
+
 ## v0.8.3 Midnight Ops Alpha.3 — FlightSim: nome, insígnias e patrimônio pago
 
 - Marca visual do aplicativo, certificados, janelas e nomes de exportação: **FlightSim**. Repositório, pacote Python `aerocarreira`, identificadores internos do painel SDK e banco original permanecem iguais para não quebrar integrações nem saves.

@@ -1,3 +1,15 @@
+## v0.9.0 InGame Alpha.1 — Foundation, toolbar e telemetria read-only
+
+- **FlightSim InGame:** painel Midnight compacto/completo com contrato, saldo, aeronave, instrumentos, combustível, rumo e mapa SVG leve baseado em coordenadas verificadas.
+- **Ponte:** evolução da \`LocalPanelServer\` em \`127.0.0.1:8769\`, sem POST ou ações financeiras. Protocolo 2, estado real publicado do motor Tk/SimConnect, endpoint v1 autenticado por chave de leitura efêmera injetada em página local e health/diagnostics.
+- **SDK:** package-fonte para MSFS 2020 com SPB + Copy, wrapper da toolbar, icon SVG próprio em ambas localizações compatíveis e iframe para a aplicação local; compilação real depende de SDK e MSFS físico.
+- **Resiliência:** dados indisponíveis não são inventados; estado offline/reconectando, atualização manual, atualização periódica 1,5 s, reconexão sem gravar no SQLite.
+- **Validação:** testes unitários de host, token, endpoints, somente leitura, assets e XML; Playwright em bridge real com resolução variada e reconexão. CI segue compilação Windows, unit Linux/Windows 3.11/3.13 e dashboard.
+- **Distribuição:** Windows 0.9.0 e artifact de código-fonte InGame separado; manual do Project Editor, Community Steam e diagnóstico em \`docs/INGAME_V090_BUILD.md\`.
+- A primeira Alpha **não comprova** que o SPB funciona no MSFS real, nem habilita comandos no jogo: homologação física pendente na branch. A \`main\` permanece v0.8.7.
+
+---
+
 ## v0.8.7 Midnight Ops Alpha.1 — Configurações, companhias e conquistas com foco
 
 - **Configurações:** última tela Midnight Ops nativa com seis seções (Simulador, Carreira, Interface, Dados e backups, Diagnóstico e Sobre), mantendo navegação lateral. Preferências persistentes e autenticação do backend, sem operações de SQLite no JavaScript.

@@ -1,10 +1,11 @@
 """Playwright smoke for the local, live InGame bridge (no MSFS SDK in CI)."""
 from pathlib import Path
 import json
+import sys
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 from playwright.sync_api import sync_playwright
 from aerocarreira.ingame_bridge import PanelState, LocalPanelServer
-
-ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / 'validation' / 'ingame'
 OUTPUT.mkdir(parents=True, exist_ok=True)
 

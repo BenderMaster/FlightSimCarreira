@@ -1,22 +1,27 @@
-# Painel experimental da toolbar — MSFS 2020 (SDK NECESSÁRIO)
+# FlightSim InGame v0.9.0 Alpha.1 — projeto SDK MSFS 2020
 
-**Não é um pacote pronto para instalar.** Este diretório contém apenas o projeto-fonte da primeira prova de conceito. O `FlightCare` servido por `http://127.0.0.1:8769` já é funcional em navegador. O wrapper do jogo exige o **SDK do MSFS 2020** para compilar o SPB e **teste físico no MSFS Steam**. O CI atual não compila nem simula o SDK.
+Este diretório é o **source** compilável do package Community, ainda **não**
+um package com SPB, manifest.json e layout.json prontos. A compilação e a
+visualização física na toolbar só podem ser homologadas com SDK/MSFS 2020.
 
-1. No FlightSimCarreira Windows clique **Painel local (experimental)** e teste no navegador em `http://127.0.0.1:8769/`. O serviço só responde em loopback e é somente leitura.
-2. Instale e habilite o SDK no MSFS 2020 (Developer Mode, Help / SDK Installer). Salve uma cópia deste projeto em uma pasta simples.
-3. No **Project Editor** do MSFS abra `in_game/toolbar/package.xml`, selecione o package e verifique o tipo **SPB** e o grupo **Copy**.
-4. Execute **Build All**. O resultado deve conter o SPB em `InGamePanels` e arquivos HTML/JS em `html_ui`. **Se o SDK apontar erros de schema, registre o log e não instale uma build quebrada.**
-5. Coloque **somente o package compilado** na pasta Community do MSFS, **não** a pasta `PackageSources` nem `Build` inteira. Feche e reabra o MSFS e inicie um voo. Localize o painel na toolbar. Alguns templates aparecem com ícone genérico.
-6. Se o painel exibir erro ou tela vazia, teste o endereço de loopback no navegador do Windows, confira o console Coherent do SDK e informe mensagens. O iframe/loopback pode ser bloqueado por política da versão do Coherent.
+## Compilar no MSFS
 
-## Limitações nesta etapa
+1. Extraia esta pasta em algum diretório no Windows, com \`package.xml\`,
+   \`PackageDefinitions/\` e \`PackageSources/\` lado a lado.
+2. Abra \`FlightSim.exe\` da versão **0.9.0** e confirme
+   \`http://127.0.0.1:8769/\` no navegador do computador.
+3. No MSFS Steam, habilite Developer Mode, instale o SDK em Help se necessário.
+4. Abra o Project Editor, abra \`package.xml\`, selecione \`flightsimcarreira-panel\`,
+   confira os assets SPB e Copy e use **Build All**.
+5. Copie **somente a pasta compilada** dentro de \`Packages/\` que contém
+   \`manifest.json\`, \`layout.json\`, \`InGamePanels/\` e \`html_ui/\`
+   para a Community correta (Tools > Virtual File System > Open Community Folder).
+6. Reinicie o MSFS, inicie um voo, habilite o ícone FlightSim na toolbar e abra.
 
-- Somente leitura: posição, status, contrato, saldo, esboço geométrico de rota. **Não é mapa VFR do simulador**, não exibe cartas, outros jogadores, pista, iluminação, radar ou dados de meteorologia certificados.
-- A interface integrada ainda é **não validada**. Não modificar a toolbar global nem recursos de terceiros.
-- Esta versão não altera o modelo da aeronave, não grava valores no SimConnect e não oferece botões que gastem dinheiro.
-- Um painel completo com ações seguras de contratação, mapa licenciado e administração in-game será desenvolvido depois de validar o wrapper e a ponte local.
+O painel usa um iframe local read-only em \`127.0.0.1:8769\`. O código
+do simulador **não executa** o Python automaticamente. Se o iframe não
+carregar no Coherent, compare com o navegador do Windows e envie os
+erros de Debug > Console/Coherent. Não tente abrir CORS na aplicação principal.
 
-## Fontes técnicas consultadas
-
-- SDK MSFS: InGamePanels e SimConnect (documentação Microsoft Flight Simulator).
-- Exemplos públicos de projetos de toolbar, consultados para referência **estrutural**, sem incorporar recursos gráficos ou código desses addons: `diagonalization-lab/msfs-panel-notepad`, `bymaximus/msfs2020-toolbar-window-template`.
+Guia completo de aceitação e troubleshooting:
+\`docs/INGAME_V090_BUILD.md\` na raiz do repositório.
