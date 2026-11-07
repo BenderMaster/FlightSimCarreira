@@ -195,6 +195,37 @@ with tempfile.TemporaryDirectory() as temp:
             assert page.locator('#flightops-map-slot .map-area').is_visible()
             assert page.locator('.sidebar').is_visible()
             assert page.locator('#fo-waypoints').is_visible()
+            # Rota direta antes do salvamento; a prévia vem do motor real.
+            page.locator('#fo-origin').fill('SBRF')
+            page.locator('#fo-destination').fill('SIPE')
+            page.locator('#fo-plan').click()
+            route_ready=False
+            for _ in range(60):
+                route_ready=page.evaluate("""() => {
+                  const r=FSCFlightOps.mapState(state).mission;
+                  return Boolean(r && r.route_points?.length===2);
+                }""")
+                if route_ready:break
+                time.sleep(.1)
+            assert route_ready,'Planejar rota deve desenhar SBRF → SIPE sem salvar'
+            assert page.locator('#fo-distance').inner_text().endswith('NM')
+            # Clique direito usa o mesmo handler proposeWaypoint, sem popup.
+            proposed=page.evaluate("() => FSCFlightOps.proposeWaypoint(-8.20,-34.95)")
+            assert proposed and not page.locator('#fo-map-point-dialog').is_visible()
+            assert 'FSC01' in page.locator('#fo-waypoints').inner_text()
+            assert page.evaluate("() => FSCFlightOps.mapState(state).mission.route_points.length")==3
+            # Arrastar solta na nova posição (mesmo método do dragend MapLibre/SVG).
+            moved=page.evaluate("() => FSCFlightOps.moveWaypoint(0,-8.15,-34.85)")
+            assert moved
+            assert '-8,15' in page.locator('#fo-waypoints').inner_text()
+            before_save=page.evaluate("""() => ({
+              draft:JSON.stringify(state.flight_operations.draft),
+              points:FSCFlightOps.mapState(state).mission.route_points
+            })""")
+            assert abs(before_save['points'][1][0]-(-8.15))<1e-6,before_save
+            page.locator('#fo-waypoints button').first.click()
+            assert page.evaluate("() => FSCFlightOps.mapState(state).mission.route_points.length")==2
+            assert page.evaluate("() => JSON.stringify(state.flight_operations.draft)")==before_save['draft']
             page.locator('#fo-fix-label').fill('FSC01')
             page.locator('#fo-fix-lat').fill('-8.1')
             page.locator('#fo-fix-lon').fill('-34.9')
