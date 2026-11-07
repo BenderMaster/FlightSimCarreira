@@ -79,7 +79,7 @@ def aircraft_model(title: str | None) -> str | None:
     if airline_code:
         return airline_code
     title = title.casefold()
-    for plane in EMPLOYER_FLEET:
+    for plane in FREELANCER_FLEET:
         if any(token in title for token in plane.keywords):
             return plane.code
     return None
