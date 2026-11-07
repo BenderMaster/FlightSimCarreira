@@ -18,7 +18,7 @@ ACTIONS={'pilot','market','fleet','planning','finance','employment','history','r
          'pilot_profile_create','pilot_profile_update','pilot_profile_switch',
          'pilot_profile_reset','pilot_showcase','pilot_medal_equip','pilot_license_claim',
          'finance_loan','finance_repay','finance_tax','finance_export',
-         'airline_apply','airline_review','airline_resign','airline_found','airline_buy_plane'}
+         'airline_apply','airline_review','airline_resign','airline_found','airline_buy_plane','flight_note'}
 ASSETS=Path(__file__).with_name('midnight')
 class DashboardServer:
     def __init__(self):
@@ -56,7 +56,7 @@ class DashboardServer:
                         jpeg=owner.photos.get(match.group(1))
                     self.reply(200,jpeg,'image/jpeg') if jpeg else self.reply(404,b'{}')
                     return
-                paths={'/brand-icon.png':('brand-icon.png','image/png'),'/scenery.jpg':('scenery.jpg','image/jpeg'),'/c152.jpg':('c152.jpg','image/jpeg'),'/market-c172.jpg':('market-c172.jpg','image/jpeg'),'/market-g58.jpg':('market-g58.jpg','image/jpeg'),'/market-kingair.jpg':('market-kingair.jpg','image/jpeg'),'/market-cj4.jpg':('market-cj4.jpg','image/jpeg'),'/':('index.html','text/html; charset=utf-8'),'/style.css':('style.css','text/css'),'/app.js':('app.js','text/javascript'),'/aircraft-market.js':('aircraft-market.js','text/javascript'),'/flight-operations.js':('flight-operations.js','text/javascript'),'/pilot-career.js':('pilot-career.js','text/javascript'),'/finance-center.js':('finance-center.js','text/javascript'),'/airline-operations.js':('airline-operations.js','text/javascript'),'/achievement-unlock.mp3':('achievement-unlock.mp3','audio/mpeg'),'/free-map.js':('free-map.js','text/javascript'),'/vendor/maplibre-gl.js':('vendor/maplibre-gl.js','text/javascript'),'/vendor/maplibre-gl.css':('vendor/maplibre-gl.css','text/css'),'/scenery.svg':('scenery.svg','image/svg+xml'),'/fonts/BarlowSemiCondensed-Regular.ttf':('fonts/BarlowSemiCondensed-Regular.ttf','font/ttf'),'/fonts/BarlowSemiCondensed-SemiBold.ttf':('fonts/BarlowSemiCondensed-SemiBold.ttf','font/ttf')}
+                paths={'/brand-icon.png':('brand-icon.png','image/png'),'/scenery.jpg':('scenery.jpg','image/jpeg'),'/c152.jpg':('c152.jpg','image/jpeg'),'/market-c172.jpg':('market-c172.jpg','image/jpeg'),'/market-g58.jpg':('market-g58.jpg','image/jpeg'),'/market-kingair.jpg':('market-kingair.jpg','image/jpeg'),'/market-cj4.jpg':('market-cj4.jpg','image/jpeg'),'/':('index.html','text/html; charset=utf-8'),'/style.css':('style.css','text/css'),'/app.js':('app.js','text/javascript'),'/aircraft-market.js':('aircraft-market.js','text/javascript'),'/flight-operations.js':('flight-operations.js','text/javascript'),'/pilot-career.js':('pilot-career.js','text/javascript'),'/finance-center.js':('finance-center.js','text/javascript'),'/airline-operations.js':('airline-operations.js','text/javascript'),'/flight-history.js':('flight-history.js','text/javascript'),'/achievement-unlock.mp3':('achievement-unlock.mp3','audio/mpeg'),'/free-map.js':('free-map.js','text/javascript'),'/vendor/maplibre-gl.js':('vendor/maplibre-gl.js','text/javascript'),'/vendor/maplibre-gl.css':('vendor/maplibre-gl.css','text/css'),'/scenery.svg':('scenery.svg','image/svg+xml'),'/fonts/BarlowSemiCondensed-Regular.ttf':('fonts/BarlowSemiCondensed-Regular.ttf','font/ttf'),'/fonts/BarlowSemiCondensed-SemiBold.ttf':('fonts/BarlowSemiCondensed-SemiBold.ttf','font/ttf')}
                 if self.path not in paths:self.reply(404,b'{}');return
                 name,mime=paths[self.path];asset=ASSETS/name
                 if self.path=='/achievement-unlock.mp3' and not asset.is_file():
@@ -82,6 +82,15 @@ class DashboardServer:
                         if set(data) != {'action','payload'} or not isinstance(data['payload'],dict):
                             raise ValueError()
                         if len(json.dumps(data['payload'],ensure_ascii=False))>3000:
+                            raise ValueError()
+                    elif data['action']=='flight_note':
+                        if set(data)!={'action','payload'} or not isinstance(data['payload'],dict):
+                            raise ValueError()
+                        p=data['payload']
+                        if (set(p)!={'flight_id','note'} or
+                            type(p['flight_id']) is not int or not 1<=p['flight_id']<=2147483647 or
+                            not isinstance(p['note'],str) or len(p['note'])>1200 or
+                            any(ord(c)<32 and c not in '\\n\\t' for c in p['note'])):
                             raise ValueError()
                     elif data['action'] in ('flightops_save','flightops_preview'):
                         required={'action','payload','id'} if data['action']=='flightops_preview' else {'action','payload'}
