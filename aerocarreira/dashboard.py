@@ -130,11 +130,14 @@ class DashboardPresenter:
         key=(center.icao,day,stats['xp'],stats['reputation'],tuple(sorted(stats['qualifications'])),emp['mode'],
              emp['employer_code'],generator_version,len(cat.locations),business_sig,
              tuple(sorted(type_ratings.owned(db))),tuple(sorted(getattr(app,'airline_available_codes',set()))))
-        if key==self.market_key and not force:
+        changed=key!=self.market_key
+        if not changed and not force:
             self.offers={k:v for k,v in self.offers.items() if not db.contract_completed(k)}
             return
         self.market_key=key
-        if force or db.get_setting('offer_generator')!=generator_version or not db.offer_cache_valid(center.icao,now):
+        if (force or (changed and emp['mode']=='empregado') or
+            db.get_setting('offer_generator')!=generator_version or
+            not db.offer_cache_valid(center.icao,now)):
             offers=generate_offers(center,cat,stats,db.owned_qualifications(),db.family_experience(),day)
             if emp['mode']=='empregado':
                 offers+=generate_employer_routes(emp['employer_code'],center,cat,stats,
