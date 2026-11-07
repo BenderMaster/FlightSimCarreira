@@ -286,6 +286,6 @@ for(const id of ['fo-map-cancel','fo-map-cancel-top'])
  if(el(id))el(id).onclick=()=>el('fo-map-point-dialog').close();
 registerMapGestures();
 window.FSCFlightOps={render,show,mapState,proposeWaypoint,moveWaypoint,fallbackCoords,
-  setFallbackProjection:p=>{projection=p;}};
+  fallbackProjection:()=>projection,setFallbackProjection:p=>{projection=p;}};
 
 })();
