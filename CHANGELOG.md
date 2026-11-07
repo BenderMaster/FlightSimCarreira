@@ -1,3 +1,22 @@
+## v0.8.5 Midnight Ops Alpha.2 — Planner VFR interativo
+
+- Companhias AeroNordeste, Azul, GOL e LATAM exibidas sem os sufixos “fictícia” ou “simulação”, mantendo códigos, critérios de admissão, salários, contratos e regras inalterados.
+- Editor de rota com **Planejar rota** para calcular a linha direta em prévia antes do salvamento. Clique direito no mapa adiciona waypoint imediatamente; até oito pontos com nomes FSC01, FSC02… e coordenadas válidas. Shift+clique e toque longo também funcionam.
+- Waypoints do MapLibre arrastáveis pelo mouse; posição e pernas atualizadas ao soltar. O mapa SVG alternativo oferece a mesma edição por alças arrastáveis.
+- X vermelho visível ao passar o mouse na linha do waypoint (ou em foco/touch) exclui o ponto e atualiza a rota no mapa sem clicar em salvar.
+- Distância total, pernas, proas e duração aproximada recalculadas ao editar. Prévia autoritativa validada pelo motor em função do catálogo aeroportuário confirmado do MSFS e sem gravação no SQLite; atualização geométrica imediata na UI enquanto aguarda retorno.
+- **Salvar planejamento** continua transação explícita, necessária antes de exportar .PLN ou enviar ao MSFS. Nenhuma alteração em economia, XP, contratos ou aeronave é causada ao editar a rota.
+- Engrenagem das Configurações substituída por SVG simétrico, mantendo tema Midnight e navegação.
+- Protegidos testes de transporte autenticado, ausência de persistência da prévia, edição/remoção de waypoints, labels das companhias, interface em Playwright e compilação Windows/Linux.
+- MP3 de conquistas permanece removido por solicitação anterior. PR fica em rascunho até homologação no MSFS; `main` inalterada.
+
+## v0.8.5 Midnight Ops Alpha.1 — Airline Operations
+
+- Progressão como empregado com metas de horas/voos semanais e compromissos opcionais de 0%, 10% e 20%, com bônus ou redução proporcional por não atingir a meta escolhida.
+- Contratos da empregadora contam para a folha semanal e não dão saldo nem XP imediatamente ao concluir cada voo.
+- Companhia própria fundada com aporte de R$ 400 mil, caixa empresarial, frota e operações separados do patrimônio pessoal; receitas e custos dos voos corporativos permanecem no ledger da empresa.
+- Finanças v0.8.4 integradas na branch de desenvolvimento; sem merge na main até homologação das versões pendentes.
+
 ## v0.8.4 Midnight Ops Alpha.1 — Financial Center
 
 - Cinco abas financeiras nativas: Resumo, Extrato, Operações, Patrimônio e Banco.
