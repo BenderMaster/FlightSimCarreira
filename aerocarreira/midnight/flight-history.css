@@ -1,0 +1,79 @@
+/* v0.8.6 — Midnight Flight History & Analytics, isolated from existing views */
+.fh-page{display:flex;flex-direction:column;min-height:0;overflow:hidden;background:linear-gradient(140deg,#051a29,#03101c 75%)}
+.fh-head{flex:0 0 auto;border-bottom:1px solid #214a61}
+.fh-head-data{display:flex;flex-direction:column;text-align:right;gap:.2em}
+.fh-head-data strong{font-size:1.65em;color:var(--cyan)}
+.fh-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:.65em;padding:.72em .9em;
+ border-bottom:1px solid #23495d;flex:0 0 auto;background:#051927}
+.fh-toolbar label{display:flex;flex-direction:column;gap:.35em;color:#8dd8e9;min-width:7em;
+ font-size:.8em;font-weight:650;letter-spacing:.025em}
+.fh-toolbar select,.fh-toolbar input,.fh-notes-label textarea{border:1px solid #34677c;background:#082437;color:#ecf9ff;
+ border-radius:7px;padding:.62em .7em;outline:none;font:inherit;min-height:2.7em;min-width:0}
+.fh-toolbar select:focus,.fh-toolbar input:focus,.fh-notes-label textarea:focus{border-color:var(--cyan);
+ box-shadow:0 0 0 2px #00cce329}
+.fh-toolbar .fh-search{flex:1;min-width:10em}
+.fh-toolbar-note{font-size:.75em;color:#85aebf;margin-left:auto;margin-bottom:.5em}
+.fh-toolbar .button{font-size:.82em;min-height:2.7em}
+.fh-scroll,.fa-scroll{flex:1;min-height:0;overflow:auto;scrollbar-color:#397188 #03121c}
+.fh-table-head,.fh-entry{display:grid;grid-template-columns:1.24fr 1.75fr .95fr .75fr .85fr 1.17fr;
+ gap:.8em;align-items:center}
+.fh-table-head{font-size:.75em;color:#85b6c8;letter-spacing:.065em;padding:1em 1.25em .7em;
+ border-bottom:1px solid #25465a;position:sticky;top:0;background:#062133;z-index:1;font-weight:700}
+.fh-list{padding:.5em .7em;display:flex;flex-direction:column;gap:.42em}
+.fh-entry{width:100%;text-align:left;color:#e4f5ff;border:1px solid #20465c;
+ background:linear-gradient(110deg,#0c3044,#041925);border-radius:9px;padding:.88em .7em;min-height:3.65em}
+.fh-entry:hover,.fh-entry:focus-visible{border-color:#1bd4ed;background:#0b3c53}
+.fh-entry span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.fh-entry .fh-stack{display:flex;flex-direction:column;gap:.3em}
+.fh-entry strong{font-size:1.05em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fh-entry small{font-size:.8em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fh-entry .fh-accent{color:#37e2f1}.fh-entry .fh-money{color:#f6c45c}
+.fh-empty{padding:4em 1em;color:#90b7c9;text-align:center;border:1px dashed #345b70;
+ border-radius:9px;margin:1.2em}
+.fh-footer{padding:.7em 1em;display:flex;align-items:center;justify-content:space-between;
+ gap:.5em;border-top:1px solid #204c60;flex-shrink:0}
+.fh-footer>div{display:flex;align-items:center;gap:.7em}
+.fh-footer .button{font-size:.82em;padding:.45em .8em}
+.fh-footer strong{color:#eaf9ff;font-size:.83em}
+.fh-detail{width:min(800px,92vw);max-width:92vw;max-height:90vh;overflow:auto;background:linear-gradient(150deg,#0b2c41,#03121e);
+ padding:1.4em}
+.fh-detail header,.fh-detail footer{display:flex;justify-content:space-between;align-items:center;gap:1em}
+.fh-detail header{border-bottom:1px solid #28516a;padding-bottom:1em}.fh-detail header h2{color:#f2fbff}
+.fh-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7em;margin:1.3em 0}
+.fh-detail-item{background:#092c3e;border:1px solid #274f62;border-radius:7px;padding:.75em;min-width:0}
+.fh-detail-item small{display:block;letter-spacing:.04em;margin-bottom:.45em}
+.fh-detail-item strong{overflow-wrap:anywhere;color:#d9f5ff}
+.fh-notes-label{display:flex;flex-direction:column;gap:.5em;color:#a4dcec;font-size:.92em}
+.fh-notes-label textarea{min-height:6em;resize:vertical;line-height:1.45}
+.fh-detail footer{padding-top:1em}.fh-detail footer small{max-width:50%}
+.fa-scroll{padding:.9em}
+.fa-metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.7em;margin-bottom:.9em}
+.fa-metric{padding:.9em .65em;border:1px solid #2b576e;background:linear-gradient(145deg,#0c3045,#061b2a);
+ border-radius:9px;min-width:0}
+.fa-metric small{display:block;font-size:.75em;color:#8fdbe8;letter-spacing:.035em;min-height:2.1em}
+.fa-metric strong{display:block;font-size:1.6em;color:#effcff;margin-top:.3em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fa-metric em{display:block;font-size:.7em;color:#7aaaba;font-style:normal;margin-top:.3em}
+.fa-metric.primary{border-color:#19b8d6;box-shadow:0 0 0 1px #03dded23 inset}
+.fa-metric.primary strong{color:#59ecff}
+.fa-graphs{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:.8em}
+.fa-panel{padding:1.05em;min-height:265px;display:flex;flex-direction:column}
+.fa-panel-head{display:flex;justify-content:space-between;align-items:center;gap:.7em;
+ border-bottom:1px solid #1d4559;padding-bottom:.65em;margin-bottom:.8em}
+.fa-panel h2{color:#17d9f1;font-size:1.06em}
+.fa-chart{flex:1;min-height:215px;display:flex;align-items:center;justify-content:center}
+.fa-chart svg{width:100%;height:auto;max-height:265px;overflow:visible}
+.fa-chart text{font-family:Barlow,'Segoe UI',sans-serif;fill:#bdd8e5;stroke:none}
+.fa-bars{display:flex;flex-direction:column;gap:.8em;justify-content:center;flex:1}
+.fa-bar-head{display:flex;align-items:center;justify-content:space-between;gap:1em;
+ font-size:.9em}.fa-bar-head span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.fa-bar-head strong{color:#f4cf81;white-space:nowrap}
+.fa-bar-track{height:9px;background:#17394a;border-radius:8px;overflow:hidden;margin-top:.32em}
+.fa-bar-track>i{height:100%;display:block;background:linear-gradient(90deg,#04c8df,#e5c47a);border-radius:8px}
+.fa-footnote{font-size:.78em;color:#90b8c8;line-height:1.5;margin:1.25em .25em}
+@media(max-width:1450px){.fa-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .fh-entry,.fh-table-head{grid-template-columns:1.05fr 1.65fr .9fr .7fr .7fr .9fr;gap:.45em}}
+@media(max-width:980px){.fa-graphs{grid-template-columns:1fr}.fa-metrics{grid-template-columns:repeat(2,1fr)}
+ .fh-table-head{display:none}.fh-entry{grid-template-columns:repeat(3,1fr);gap:.8em}
+ .fh-detail-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.fh-entry{grid-template-columns:repeat(2,1fr)}
+ .fh-detail-grid{grid-template-columns:1fr}.fh-toolbar label{flex:1;min-width:8em}}
