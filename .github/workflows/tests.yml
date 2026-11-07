@@ -50,12 +50,12 @@ jobs:
       - name: Build standalone Windows folder
         run: python -m PyInstaller --icon assets/flight_sim_carreira.ico --noconfirm --clean --noupx --onedir --name FlightSim --collect-all webview --collect-all pythonnet --collect-all clr_loader --collect-all cffi --hidden-import clr --collect-all SimConnect --add-data "aerocarreira/midnight;aerocarreira/midnight" --add-data "in_game;in_game" launch_midnight.py
       - name: Validate packaged airport catalog and UI assets
-        run: python -c "from pathlib import Path; p=Path('dist/FlightSim/_internal'); assert Path('assets/flight_sim_carreira.ico').is_file(), 'Approved icon missing'; assert (p/'aerocarreira/midnight/index.html').is_file(); assert (p/'aerocarreira/midnight/free-map.js').is_file(); assert (p/'aerocarreira/midnight/aircraft-market.js').is_file(); assert (p/'aerocarreira/midnight/flight-operations.js').is_file(); assert (p/'aerocarreira/midnight/pilot-career.js').is_file(); assert (p/'aerocarreira/midnight/finance-center.js').is_file(); assert (p/'aerocarreira/midnight/airline-operations.js').is_file(); assert all((p/'aerocarreira/midnight'/('market-'+name+'.jpg')).is_file() for name in ('c172','g58','kingair','cj4')); assert (p/'aerocarreira/midnight/vendor/maplibre-gl.js').is_file(); assert (p/'aerocarreira/midnight/vendor/maplibre-gl.css').is_file(); assert (p/'SimConnect/SimConnect.dll').is_file()"
+        run: python -c "from pathlib import Path; p=Path('dist/FlightSim/_internal'); assert Path('assets/flight_sim_carreira.ico').is_file(), 'Approved icon missing'; assert (p/'aerocarreira/midnight/index.html').is_file(); assert (p/'aerocarreira/midnight/free-map.js').is_file(); assert (p/'aerocarreira/midnight/aircraft-market.js').is_file(); assert (p/'aerocarreira/midnight/flight-operations.js').is_file(); assert (p/'aerocarreira/midnight/pilot-career.js').is_file(); assert (p/'aerocarreira/midnight/finance-center.js').is_file(); assert (p/'aerocarreira/midnight/airline-operations.js').is_file(); assert (p/'aerocarreira/midnight/flight-history.js').is_file(); assert (p/'aerocarreira/midnight/flight-history.css').is_file(); assert all((p/'aerocarreira/midnight'/('market-'+name+'.jpg')).is_file() for name in ('c172','g58','kingair','cj4')); assert (p/'aerocarreira/midnight/vendor/maplibre-gl.js').is_file(); assert (p/'aerocarreira/midnight/vendor/maplibre-gl.css').is_file(); assert (p/'SimConnect/SimConnect.dll').is_file()"
       - name: Executable version smoke test
         run: .\dist\FlightSim\FlightSim.exe --version
       - name: Native pythonnet / WinForms smoke test (real packaged exe)
         run: .\\dist\\FlightSim\\FlightSim.exe --verify-native-webview
       - uses: actions/upload-artifact@v4
         with:
-          name: FlightSim-0.8.5-midnight-alpha2-Windows
+          name: FlightSim-0.8.6-midnight-alpha1-Windows
           path: dist/FlightSim/

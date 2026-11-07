@@ -78,6 +78,57 @@ with tempfile.TemporaryDirectory() as temp:
             page.locator('#refuel-cancel').click()
             assert not page.locator('#refuel-dialog').is_visible()
 
+            # Logbook e relatórios: dados reais do SQLite testados em Python; aqui
+            # exercitamos filtros, paginação, ficha, busca e gráficos no navegador.
+            page.locator('.nav-item[data-action="history"]').click()
+            assert page.locator('#fh-logbook-page').is_visible()
+            assert not page.locator('#module-page').is_visible()
+            assert 'Nenhum voo registrado' in page.locator('#fh-list').inner_text()
+            history_checks=page.evaluate("""() => {
+              const start=1790000000;
+              const base={started_utc:start,ended_utc:start+3600,
+                hours:1,duration_seconds:3600,from_lat:-8.1,from_lon:-34.9,
+                to_lat:-8.3,to_lon:-35.0,direct_nm:15.5,departure_icao:null,
+                arrival_icao:null,stalls:0,reward_recorded:1000};
+              const entries=[
+                {...base,id:7,mission_id:'REG-QA',kind:'regional',aircraft:'Cessna 152',
+                 touchdown_fpm:-135,xp:45,personal_net:1100,business_net:null,note:'Primeiro registro'},
+                {...base,id:8,started_utc:start+86400,ended_utc:start+90000,
+                 mission_id:'OWN-QA',kind:'empresa',aircraft:'Boeing 737',
+                 touchdown_fpm:-260,xp:0,personal_net:null,business_net:3500,note:''}
+              ];
+              const original=state;
+              const mock={...state,flight_history:{flights:entries,count:entries.length,notes_revision:[0,0]}};
+              FSCFlightHistory.render(mock,true);
+              const loaded=document.querySelectorAll('#fh-list .fh-entry').length;
+              document.getElementById('fh-kind').value='empresa';
+              document.getElementById('fh-kind').dispatchEvent(new Event('change'));
+              const companyFilter=document.querySelectorAll('#fh-list .fh-entry').length;
+              document.getElementById('fh-kind').value='all';
+              document.getElementById('fh-kind').dispatchEvent(new Event('change'));
+              FSCFlightHistory.openDetail(7);
+              const detail=document.getElementById('fh-detail-data').textContent;
+              const note=document.getElementById('fh-note').value;
+              document.getElementById('fh-detail').close();
+              navigate('reports');
+              const analytics=document.getElementById('fa-metrics').textContent;
+              const bars=document.querySelectorAll('#fa-month-chart svg rect').length;
+              document.getElementById('fa-kind').value='empresa';
+              document.getElementById('fa-kind').dispatchEvent(new Event('change'));
+              const filtered=document.getElementById('fa-metrics').textContent;
+              navigate('dashboard');
+              FSCFlightHistory.render(original,true);
+              return {loaded,companyFilter,detail,note,analytics,bars,filtered};
+            }""")
+            assert history_checks['loaded']==2,history_checks
+            assert history_checks['companyFilter']==1,history_checks
+            assert 'SBRF' not in history_checks['detail'],history_checks
+            assert '15,5 NM' in history_checks['detail'],history_checks
+            assert history_checks['note']=='Primeiro registro',history_checks
+            assert '2' in history_checks['analytics'],history_checks
+            assert history_checks['bars']==1,history_checks  # Ambos os voos pertencem ao mesmo mês
+            assert '3.500' in history_checks['filtered'],history_checks
+
             # Sidebar persistente: os mercados são páginas separadas, não diálogos.
             page.locator('.nav-item[data-action="regional"]').click()
             assert page.locator('#market-page').is_visible()
@@ -270,7 +321,9 @@ with tempfile.TemporaryDirectory() as temp:
             page.locator('[data-pc-tab="graphs"]').click()
             # Gráficos são derivados de histórico real; sem voos não há barras.
             # Alimentar SOMENTE o DOM do teste com dados sintéticos (sem SQLite).
-            page.evaluate("""() => {
+            chart_checks=page.evaluate("""() => {
+              // A fixture sintética deve ser renderizada e validada na mesma
+              // tarefa do browser: o polling real pode redesenhar o piloto.
               const demo=structuredClone(state);
               demo.pilot_career.flights=(demo.pilot_career.flights||0)+100;
               demo.pilot_career.graphs={
@@ -279,13 +332,22 @@ with tempfile.TemporaryDirectory() as temp:
                 hours_by_aircraft:[['Cessna 152',3.5],['Baron G58',1.7]]
               };
               FSCPilotCareer.render(demo);
+              const count=selector=>document.querySelectorAll(selector).length;
+              return {
+                cards:count('#pc-graphs .pc-chart-card'),
+                units:count('#pc-graphs .pc-chart-unit'),
+                legends:count('#pc-graphs .pc-chart-legend'),
+                axis_labels:count('#pc-graphs .pc-chart-card:first-child svg text'),
+                summaries:count('#pc-graphs .pc-chart-summary'),
+                breakdowns:count('#pc-graphs .pc-chart-breakdown')
+              };
             }""")
-            assert page.locator('#pc-graphs .pc-chart-card').count()==3
-            assert page.locator('#pc-graphs .pc-chart-unit').count()==3
-            assert page.locator('#pc-graphs .pc-chart-legend').count()==3
-            assert page.locator('#pc-graphs .pc-chart-card').first.locator('svg text').count()>=5
-            assert page.locator('#pc-graphs .pc-chart-summary').count()==3
-            assert page.locator('#pc-graphs .pc-chart-breakdown').count()>=1
+            assert chart_checks['cards']==3,chart_checks
+            assert chart_checks['units']==3,chart_checks
+            assert chart_checks['legends']==3,chart_checks
+            assert chart_checks['axis_labels']>=5,chart_checks
+            assert chart_checks['summaries']==3,chart_checks
+            assert chart_checks['breakdowns']>=1,chart_checks
             page.locator('[data-pc-tab="timeline"]').click()
             assert page.locator('#pc-timeline-list').is_visible()
             page.locator('#pc-manage-profiles').click()

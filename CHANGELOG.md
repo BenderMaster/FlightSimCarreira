@@ -1,3 +1,16 @@
+## v0.8.6 Midnight Ops Alpha.1 — Logbook + Análises e Relatórios
+
+- Duas telas nativas Midnight Ops, acessíveis pelo menu lateral, sem abrir a interface Tk clássica.
+- **Logbook:** histórico SQLite do piloto ativo, data local/UTC, coordenadas registradas, modelo, modalidade, contrato, duração, taxa de pouso, alertas, XP e resultados pessoais/empresariais (sem misturar patrimônios).
+- Busca por aeronave/contrato/anotação, filtros 7/30/90 dias/toda a carreira, modalidade/modelo, ordenação e paginação de 12 voos por página.
+- Ficha de voo com dados imutáveis e anotações editáveis em nova tabela `flight_notes`. POST autenticado, limite de 1.200 caracteres, sem mutação das tabelas de voo, XP ou finance.
+- Exportação CSV compatível com Excel brasileiro (UTF-8 BOM, separador ;), respeitando os filtros; escape preventivo de fórmulas em células de texto.
+- **Análises:** voos/horas, média dos pousos, XP dos voos, resultados pessoais/empresariais, salários semanalmente liquidados, despesas operacionais, horas por modelo, modalidades, categorias de pouso, atividade mensal e comparação entre aeronaves.
+- Sem inferir ICAO de coordenadas antigas e sem apresentar distância em linha reta como distância efetivamente percorrida. Informações ausentes aparecem como ausentes.
+- Caching de snapshot baseado nos registros de voos, notas, XP e ledgers; sem recalcular tudo a cada polling de 500ms, e sem adicionar escrita automática.
+- Testes unitários de histórico e integridade do SQLite; testes de API com autenticação; Playwright em estado vazio e com amostras de voos; executável Windows PyInstaller com os dois novos assets.
+- Regras de frota/qualificações de Azul, GOL e LATAM documentadas no escopo da mesma branch, **ainda não implementadas nesta Alpha.1**; não alterar as regras de contratação sem o mecanismo de habilitação por modelo.
+
 ## v0.8.5 Midnight Ops Alpha.2 — Planner VFR interativo
 
 - Companhias AeroNordeste, Azul, GOL e LATAM exibidas sem os sufixos “fictícia” ou “simulação”, mantendo códigos, critérios de admissão, salários, contratos e regras inalterados.

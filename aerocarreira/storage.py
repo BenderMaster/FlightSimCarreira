@@ -133,6 +133,8 @@ class Storage:
                     self.conn.backup(target)
                 finally:
                     target.close()
+        from . import flight_history
+        flight_history.init(self.conn)
         airline.init(self.conn)
         airline.migrate_legacy_company(self)
         init_fleet(self.conn)

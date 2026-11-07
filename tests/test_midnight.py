@@ -169,6 +169,24 @@ class TransportTests(unittest.TestCase):
         try:
             with urllib.request.urlopen(req,timeout=3) as r:return r.status,r.read()
         except urllib.error.HTTPError as e:return e.code,e.read()
+    def test_logbook_and_analytics_are_authenticated_and_notes_are_bounded(self):
+        self.assertEqual(self.request('/flight-history.js')[0],200)
+        self.assertEqual(self.request('/flight-history.css')[0],200)
+        status,body=self.request('/')
+        self.assertEqual(status,200)
+        self.assertIn(b'id="fh-logbook-page"',body)
+        self.assertIn(b'id="fh-analytics-page"',body)
+        note={'action':'flight_note','payload':{'flight_id':42,'note':'Voo realizado em VFR'}}
+        self.assertEqual(self.request('/command',note)[0],202)
+        self.assertEqual(self.server.commands.get_nowait(),note)
+        self.assertEqual(self.request('/command',note,auth=False)[0],403)
+        self.assertEqual(self.request('/command',note,origin=False)[0],403)
+        self.assertEqual(self.request('/command',{**note,'extra':1})[0],400)
+        self.assertEqual(self.request('/command',{'action':'flight_note','payload':{'flight_id':True,'note':'ok'}})[0],400)
+        self.assertEqual(self.request('/command',{'action':'flight_note','payload':{'flight_id':42,'note':'x'*1201}})[0],400)
+        self.assertEqual(self.request('/command',{'action':'flight_note','payload':{'flight_id':42,'note':'invalid'+chr(1)}})[0],400)
+        self.assertEqual(self.request('/flight_history.py')[0],404)
+
     def test_loopback_and_authenticated_read(self):
         self.assertEqual(self.server.server.server_address[0],'127.0.0.1');self.assertEqual(self.request()[0],200);self.assertEqual(self.request(auth=False)[0],403)
     def test_foreign_origin_missing_token_and_dns_rebinding_blocked(self):

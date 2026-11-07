@@ -1,4 +1,4 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FlightSim • Midnight Ops</title><link rel="stylesheet" href="/vendor/maplibre-gl.css"><link rel="stylesheet" href="/style.css"><link rel="icon" type="image/png" href="/brand-icon.png"></head><body>
+<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FlightSim • Midnight Ops</title><link rel="stylesheet" href="/vendor/maplibre-gl.css"><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/flight-history.css"><link rel="icon" type="image/png" href="/brand-icon.png"></head><body>
 <svg class="sprites" xmlns="http://www.w3.org/2000/svg"><defs>
 <symbol id="i-takeoff" viewBox="0 0 48 48"><g transform="translate(3 0) scale(1.75)"><path d="M12 1.1C10.6 1.1 10.4 3.1 10.4 6.1V9.6L2.1 14.1C1.4 14.5 1.1 15 1.1 15.7V16.8L10.25 14.9L10.45 19.3L6.55 21V22.2L11.1 21.2L12 23.4L12.9 21.2L17.45 22.2V21L13.55 19.3L13.75 14.9L22.9 16.8V15.7C22.9 15 22.6 14.5 21.9 14.1L13.6 9.6V6.1C13.6 3.1 13.4 1.1 12 1.1Z" fill="currentColor" stroke="none"/></g><path d="M4 45h40" stroke="currentColor" stroke-width="3"/></symbol>
 <symbol id="i-new-tag" viewBox="0 0 64 64"><path d="M10 15 38 9 57 30 35 56 7 35Z" stroke="currentColor" stroke-width="4" fill="none"/><circle cx="37" cy="20" r="5" stroke="currentColor" stroke-width="3" fill="none"/><path d="M39 16C43-2 64 3 59 23" stroke="currentColor" stroke-width="3.5" fill="none"/><text x="31" y="40" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="900" fill="currentColor" stroke="none" transform="rotate(11 31 40)">NEW</text></symbol>
@@ -379,6 +379,54 @@
   <footer><button type="button" id="airline-confirm-cancel" class="button">Cancelar</button>
    <button type="button" id="airline-confirm-yes" class="button primary">Confirmar</button></footer>
  </dialog>
+ <section id="fh-logbook-page" class="page-shell fh-page card" hidden aria-labelledby="fh-title">
+  <header class="page-head fh-head"><div><small class="eyebrow">MIDNIGHT OPS • FLIGHTSIM FLIGHT RECORDS</small>
+    <h1 id="fh-title">LOGBOOK</h1><p>Seu diário permanente. Cada registro vem do SQLite do piloto ativo.</p></div>
+    <div class="fh-head-data"><small>VOOS REGISTRADOS</small><strong id="fh-total">0</strong></div>
+  </header>
+  <div class="fh-toolbar">
+   <label>PERÍODO<select id="fh-period"><option value="all">Toda a carreira</option><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></label>
+   <label>MODALIDADE<select id="fh-kind"><option value="all">Todas</option><option value="particular">Voo particular</option><option value="regional">Regional</option><option value="freelancer">Freelancer</option><option value="emprego">Empregadora</option><option value="empresa">Companhia própria</option><option value="outro">Legado / outros</option></select></label>
+   <label>AERONAVE<select id="fh-aircraft"><option value="all">Todas as aeronaves</option></select></label>
+   <label class="fh-search">BUSCA<input id="fh-search" type="search" maxlength="100" placeholder="Modelo, contrato ou observação..."></label>
+   <label>ORDEM<select id="fh-sort"><option value="new">Mais recentes</option><option value="old">Mais antigos</option></select></label>
+   <button type="button" id="fh-export" class="button">Exportar CSV</button>
+  </div>
+  <div class="fh-scroll">
+   <div class="fh-table-head"><span>DATA / HORA</span><span>AERONAVE / CONTRATO</span><span>MODALIDADE</span><span>DURAÇÃO</span><span>POUSO</span><span>XP / RESULTADO</span></div>
+   <div id="fh-list" class="fh-list" role="list" aria-label="Voos no Logbook"></div>
+  </div>
+  <footer class="fh-footer"><small id="fh-count">Sem registros.</small><div><button type="button" class="button" id="fh-prev">Anterior</button><strong id="fh-page-number">1 / 1</strong><button type="button" class="button" id="fh-next">Próxima</button></div></footer>
+ </section>
+ <dialog id="fh-detail" class="fh-detail" aria-labelledby="fh-detail-title">
+  <header><div><small class="eyebrow">FLIGHTSIM • REGISTRO DE VOO</small><h2 id="fh-detail-title">FICHA DO VOO</h2></div><button type="button" id="fh-detail-close" class="button" aria-label="Fechar">×</button></header>
+  <div id="fh-detail-data" class="fh-detail-grid"></div>
+  <label class="fh-notes-label">ANOTAÇÕES DO PILOTO<textarea id="fh-note" rows="4" maxlength="1200" placeholder="Registre observações pessoais deste voo. O histórico técnico e financeiro não será alterado."></textarea></label>
+  <footer><small id="fh-note-hint">Anotações guardadas exclusivamente neste perfil.</small><button type="button" id="fh-note-save" class="button primary">Salvar anotação</button></footer>
+ </dialog>
+ <section id="fh-analytics-page" class="page-shell fh-page card" hidden aria-labelledby="fa-title">
+  <header class="page-head fh-head"><div><small class="eyebrow">MIDNIGHT OPS • FLIGHTSIM CAREER INTELLIGENCE</small><h1 id="fa-title">ANÁLISES E RELATÓRIOS</h1>
+    <p>Indicadores calculados dos voos e lançamentos existentes — sem telemetria inventada.</p></div>
+    <button type="button" class="button" data-action="history">Abrir Logbook</button></header>
+  <div class="fh-toolbar">
+   <label>PERÍODO<select id="fa-period"><option value="all">Toda a carreira</option><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></label>
+   <label>MODALIDADE<select id="fa-kind"><option value="all">Todas</option><option value="particular">Voo particular</option><option value="regional">Regional</option><option value="freelancer">Freelancer</option><option value="emprego">Empregadora</option><option value="empresa">Companhia própria</option><option value="outro">Legado / outros</option></select></label>
+   <label>AERONAVE<select id="fa-aircraft"><option value="all">Todas as aeronaves</option></select></label>
+   <span class="fh-toolbar-note">Os filtros afetam todos os gráficos e indicadores dos voos.</span>
+  </div>
+  <div class="fa-scroll">
+   <div id="fa-metrics" class="fa-metrics"></div>
+   <div class="fa-graphs">
+    <section class="card fa-panel"><div class="fa-panel-head"><h2>ATIVIDADE DE VOO</h2><small>Voos e horas por mês</small></div><div id="fa-month-chart" class="fa-chart"></div></section>
+    <section class="card fa-panel"><div class="fa-panel-head"><h2>HORAS POR AERONAVE</h2><small>Tempo registrado</small></div><div id="fa-aircraft-chart" class="fa-bars"></div></section>
+    <section class="card fa-panel"><div class="fa-panel-head"><h2>TIPOS DE OPERAÇÃO</h2><small>Quantidade de voos</small></div><div id="fa-kind-chart" class="fa-bars"></div></section>
+    <section class="card fa-panel"><div class="fa-panel-head"><h2>PERFIL DE POUSOS</h2><small>Taxa de descida em ft/min</small></div><div id="fa-landing-chart" class="fa-bars"></div></section>
+    <section class="card fa-panel"><div class="fa-panel-head"><h2>DESTINO DAS DESPESAS</h2><small>Custos efetivamente lançados</small></div><div id="fa-cost-chart" class="fa-bars"></div></section>
+    <section class="card fa-panel"><div class="fa-panel-head"><h2>COMPARAR AERONAVES</h2><small>Voos, horas, pousos e resultado</small></div><div id="fa-model-comparison" class="fa-compare"></div></section>
+   </div>
+   <p class="fa-footnote">Distâncias exibidas no Logbook são apenas estimativas em linha reta entre coordenadas registradas. Receita empresarial não é receita pessoal. Horas e pousos ausentes em voos antigos não são preenchidos artificialmente.</p>
+  </div>
+ </section>
  <section id="module-page" class="page-shell module-page card" hidden aria-labelledby="module-title">
   <header class="page-head"><div><small class="eyebrow">FLIGHTSIM • PAINEL INTEGRADO</small><h1 id="module-title">MÓDULO</h1><p id="module-description"></p></div></header>
   <div id="module-context" class="module-context" aria-live="polite"></div>
@@ -470,4 +518,4 @@
   <p class="aircraft-checkout-note">Esta operação altera de verdade o saldo e o patrimônio virtual. Nenhum avião será carregado automaticamente no MSFS.</p>
   <footer><button type="button" class="button" id="am-cancel">Cancelar</button><button type="button" class="button primary" id="am-commit">Confirmar operação</button></footer>
  </dialog>
- <div id="toast" role="status"></div><script src="/free-map.js"></script><script src="/app.js"></script><script src="/aircraft-market.js"></script><script src="/flight-operations.js"></script><script src="/pilot-career.js"></script><script src="/finance-center.js"></script><script src="/airline-operations.js"></script></body></html>
+ <div id="toast" role="status"></div><script src="/free-map.js"></script><script src="/app.js"></script><script src="/aircraft-market.js"></script><script src="/flight-operations.js"></script><script src="/pilot-career.js"></script><script src="/finance-center.js"></script><script src="/airline-operations.js"></script><script src="/flight-history.js"></script></body></html>

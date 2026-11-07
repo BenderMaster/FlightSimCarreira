@@ -8,6 +8,7 @@ from time import time
 from .contracts import AirportCatalog, generate_offers, eligibility, TYPE_BY_CODE, next_level_xp, aircraft_model, PLANE_BY_CODE
 from .employment import generate_employer_routes, vacancies, weekly_period, EMPLOYER_BY_CODE, employment_eligibility, OWN_INVESTMENT
 from . import airline_operations as airline
+from . import flight_history
 from .pilot import level_progress
 from . import pilot_career, financial_center
 from .domain import AIRPORTS, Phase, distance_nm
@@ -63,6 +64,9 @@ class DashboardPresenter:
         self.center=None
         self.market_key=None
         self.finance_cache=None
+        self.history_cache=None
+        self.history_stamp=None
+        self.history_cache_at=0
         self.finance_cache_at=0.0
         self.finance_stamp=None
         self.pilot_career_cache=None
@@ -298,6 +302,17 @@ class DashboardPresenter:
             self.finance_cache_at=now
         finances=dict(self.finance_cache)
         finances['notice']=getattr(app,'finance_notice',None)
+        history_stamp=(db.conn.execute("SELECT COALESCE(MAX(id),0),COUNT(*) FROM flights").fetchone(),
+            db.conn.execute("SELECT COUNT(*),COALESCE(MAX(updated_utc),0) FROM flight_notes").fetchone(),
+            db.conn.execute("SELECT COALESCE(MAX(id),0) FROM finance_ledger").fetchone(),
+            db.conn.execute("SELECT COUNT(*) FROM airline_company_ledger").fetchone(),
+            db.conn.execute("SELECT COUNT(*) FROM pilot_xp_ledger").fetchone())
+        if (self.history_cache is None or history_stamp!=self.history_stamp or
+                now-self.history_cache_at>15):
+            self.history_cache=flight_history.snapshot(db)
+            self.history_stamp=history_stamp
+            self.history_cache_at=now
+        history_data=self.history_cache
         state=db.employment_state()
         jobdata=db.airline_employment(now) if state['mode']=='empregado' else {'active':False}
         region=self.center.icao if self.center else (pilot['home_icao'] if pilot else 'SBRF')
@@ -324,7 +339,7 @@ class DashboardPresenter:
                         if m.company_code and m.company_code!='OWN'],
                  investment=OWN_INVESTMENT,notice=getattr(app,'airline_notice',None),
                  active_mission=m.id if m else None)
-        return dict(airline_operations=ops,financial_center=finances,pilot=pilot,pilot_career=pc,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
+        return dict(flight_history=history_data,airline_operations=ops,financial_center=finances,pilot=pilot,pilot_career=pc,country=self.country(pilot['home_icao']) if pilot else None,avatar=self.avatar,
             employment=db.employment_state()['mode'],progress=progress,balance=int(db.get_setting('balance') or 0),
             connection='connected' if app.connected else ('reconnecting' if app.mode=='MSFS' else 'disconnected'),
             status=app.status_var.get(),mode=app.mode,weather=weather,summary=summary,
