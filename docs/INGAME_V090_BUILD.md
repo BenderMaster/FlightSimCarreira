@@ -11,6 +11,19 @@ Na execução da branch `feature/v0.9.0-ingame-foundation`, baixe **dois artifac
 
 Não coloque o ZIP do SDK, o diretório `PackageSources` ou os arquivos `.py` diretamente na Community. O artefato de source não substitui o pacote final do MSFS.
 
+## Atualização da Alpha.1 para a Alpha.2 (Midnight Tablet)
+
+O primeiro teste físico da Alpha.1 já confirmou que **ícone, iframe e SimConnect funcionam**. A Alpha.2 corrige o desenho de tablet e tenta estabilizar a moldura/resize do MSFS.
+
+1. **Feche o FlightSim Windows anterior** para liberar a porta `8769`; descompacte a Alpha.2 Windows em uma pasta nova e execute esse novo `FlightSim.exe`.
+2. **Extraia o projeto SDK Alpha.2 em uma pasta nova**; não reutilize a mesma pasta `Packages` compilada da Alpha.1 sem limpá-la.
+3. No Project Editor, abra o novo `package.xml`; mantenha Creator/Company/Content-Type configurados e execute **Build All**.
+4. **Feche o simulador** e substitua na Community somente o pacote FlightSim antigo pelo pacote compilado da Alpha.2. Não deixe duas versões do mesmo package instaladas simultaneamente.
+5. Reabra o MSFS, carregue o voo e use a engrenagem da toolbar > **Reset Panels** se a janela ainda abrir pequena/presa na posição antiga.
+6. **Arraste pela barra de título do painel do MSFS** (fora da área do tablet/iframe) e redimensione pelas bordas. Teste Painel, Mapa, Aeronave e Carreira.
+
+O tamanho/posição externo é controlado pelo **MSFS**, enquanto o HTML adapta somente o conteúdo. A correção física da movimentação não pode ser declarada aprovada antes desse reteste.
+
 ## Compilar no PC Windows com MSFS 2020 Steam
 
 1. Faça backup de `%APPDATA%\AeroCarreira-Lab\carreira.db` e, se usar múltiplos pilotos, dos bancos de perfis. **Não é necessário apagar o banco atual.**
