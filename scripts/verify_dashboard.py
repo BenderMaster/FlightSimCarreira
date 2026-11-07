@@ -126,7 +126,7 @@ with tempfile.TemporaryDirectory() as temp:
             assert '15,5 NM' in history_checks['detail'],history_checks
             assert history_checks['note']=='Primeiro registro',history_checks
             assert '2' in history_checks['analytics'],history_checks
-            assert history_checks['bars']==2,history_checks
+            assert history_checks['bars']==1,history_checks  # Ambos os voos pertencem ao mesmo mês
             assert '3.500' in history_checks['filtered'],history_checks
 
             # Sidebar persistente: os mercados são páginas separadas, não diálogos.
