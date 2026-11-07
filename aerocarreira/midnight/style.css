@@ -907,3 +907,7 @@
 .fsc-airport-marker.fsc-waypoint-marker:active{cursor:grabbing;border-color:#ffd285}
 #route-map [data-waypoint-index]{cursor:grab;touch-action:none}
 #route-map [data-waypoint-index]:active{cursor:grabbing}
+
+/* Waypoints sempre visíveis: painel rola verticalmente, nunca esmaga a lista. */
+.flightops-waypoints{flex:0 0 auto;min-height:2em}
+.flightops-plan-row,.flightops-waypoint-hint{flex-shrink:0}
