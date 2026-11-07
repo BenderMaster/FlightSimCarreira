@@ -26,9 +26,9 @@ class Employer:
 
 EMPLOYERS = (
     Employer('nordeste', 'AeroNordeste', 'NORDESTE', 'SBRF', 2, 0.4, ('PPA',), 'c172', 650),
-    Employer('azul', 'Azul', 'AZUL', 'SBRF', 7, 3.0, ('PCA','IFR'), 'kingair', 2200, True),
-    Employer('gol', 'GOL', 'GLO', 'SBRF', 9, 5.0, ('PCA','IFR','MLTE'), 'cj4', 2900, True),
-    Employer('latam', 'LATAM', 'TAM', 'SBGR', 11, 8.0, ('PCA','IFR','MLTE'), 'cj4', 3600, True),
+    Employer('azul', 'Azul', 'AZUL', 'SBRF', 7, 3.0, ('PCA','IFR'), 'a320neo', 2200, True),
+    Employer('gol', 'GOL', 'GLO', 'SBRF', 9, 5.0, ('PCA','IFR','MLTE'), 'a320neo', 2900, True),
+    Employer('latam', 'LATAM', 'TAM', 'SBGR', 11, 8.0, ('PCA','IFR','MLTE'), 'a320neo', 3600, True),
 )
 EMPLOYER_BY_CODE = {c.code: c for c in EMPLOYERS}
 
@@ -72,7 +72,8 @@ def vacancies(period: int, region_icao: str = 'SBRF') -> list[Vacancy]:
     return result
 
 
-def employment_eligibility(v: Vacancy, stats: dict, qualifications: set[str]) -> tuple[bool, str]:
+def employment_eligibility(v: Vacancy, stats: dict, qualifications: set[str],
+                           ratings: set[str] | None = None) -> tuple[bool, str]:
     why = []
     if int(stats.get('level', 1)) < v.min_level:
         why.append(f'nível {v.min_level}')
@@ -81,6 +82,10 @@ def employment_eligibility(v: Vacancy, stats: dict, qualifications: set[str]) ->
     missing = set(v.qualifications) - set(qualifications)
     if missing:
         why.append('habilitações ' + ', '.join(sorted(missing)))
+    if ratings is not None and v.company != 'nordeste':
+        from .type_ratings import FLEETS
+        if not set(FLEETS.get(v.company, ())).intersection(ratings):
+            why.append('habilitação de modelo da frota (treinamento MSFS)')
     return (not why, 'Elegível' if not why else 'Requisitos: ' + '; '.join(why))
 
 
@@ -108,7 +113,9 @@ OWN_INVESTMENT = 400000
 
 
 def generate_employer_routes(company_code: str, origin, catalog, stats: dict,
-                             qualifications: set[str], family_flights: dict[str,int], period: int):
+                             qualifications: set[str], family_flights: dict[str,int],
+                             period: int, ratings: set[str] | None = None,
+                             available: set[str] | None = None):
     """Tarefas de voo locais para empregado contratado, máx. 2 por dia.
 
     Aeronave virtual fornecida pela companhia, não adquirida pelo usuário.
@@ -118,6 +125,14 @@ def generate_employer_routes(company_code: str, origin, catalog, stats: dict,
     company=EMPLOYER_BY_CODE.get(company_code)
     if company is None:
         return []
+    from .type_ratings import valid_for_company
+    if available is not None:
+        permitted=sorted(code for code in available
+                         if valid_for_company(company_code,code,ratings or set()))
+        if not permitted:
+            return []
+    else:
+        permitted=[company.plane]  # Preserve old headless callers.
     choices=[(a,d) for a,d in catalog.around(origin,180) if 10<=d<=160]
     if not choices:
         return []
@@ -129,9 +144,10 @@ def generate_employer_routes(company_code: str, origin, catalog, stats: dict,
         reward=market_reward(distance, max(1.0,company.min_level*.15), freelance=True,
                              level=int(stats.get('level', 1)),
                              reputation=float(stats.get('reputation', 50)))
+        chosen=permitted[i % len(permitted)]
         m=Mission(f'EMP-{company.code}-{origin.icao}-{period}-{i:02}',origin.icao,destination.icao,
                   f'{company.name} • trecho contratado',reward,
-                  category='cargo',freelance=True,employer_plane=company.plane,
+                  category='cargo',freelance=True,employer_plane=chosen,
                   origin_lat=origin.latitude,origin_lon=origin.longitude,
                   destination_lat=destination.latitude,destination_lon=destination.longitude,
                   company_code=company.code)
