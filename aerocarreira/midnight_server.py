@@ -18,7 +18,9 @@ ACTIONS={'pilot','market','fleet','planning','finance','employment','history','r
          'pilot_profile_create','pilot_profile_update','pilot_profile_switch',
          'pilot_profile_reset','pilot_showcase','pilot_medal_equip','pilot_license_claim',
          'finance_loan','finance_repay','finance_tax','finance_export',
-         'airline_apply','airline_review','airline_resign','airline_found','airline_buy_plane','flight_note'}
+         'airline_apply','airline_review','airline_resign','airline_found','airline_buy_plane','flight_note',
+         'pilot_event_ack','settings_set','settings_scan','settings_backup','settings_restore',
+         'settings_export_log','settings_open_data'}
 ASSETS=Path(__file__).with_name('midnight')
 class DashboardServer:
     def __init__(self):
@@ -56,7 +58,7 @@ class DashboardServer:
                         jpeg=owner.photos.get(match.group(1))
                     self.reply(200,jpeg,'image/jpeg') if jpeg else self.reply(404,b'{}')
                     return
-                paths={'/brand-icon.png':('brand-icon.png','image/png'),'/scenery.jpg':('scenery.jpg','image/jpeg'),'/c152.jpg':('c152.jpg','image/jpeg'),'/market-c172.jpg':('market-c172.jpg','image/jpeg'),'/market-g58.jpg':('market-g58.jpg','image/jpeg'),'/market-kingair.jpg':('market-kingair.jpg','image/jpeg'),'/market-cj4.jpg':('market-cj4.jpg','image/jpeg'),'/':('index.html','text/html; charset=utf-8'),'/style.css':('style.css','text/css'),'/app.js':('app.js','text/javascript'),'/aircraft-market.js':('aircraft-market.js','text/javascript'),'/flight-operations.js':('flight-operations.js','text/javascript'),'/pilot-career.js':('pilot-career.js','text/javascript'),'/finance-center.js':('finance-center.js','text/javascript'),'/airline-operations.js':('airline-operations.js','text/javascript'),'/flight-history.js':('flight-history.js','text/javascript'),'/flight-history.css':('flight-history.css','text/css'),'/achievement-unlock.mp3':('achievement-unlock.mp3','audio/mpeg'),'/free-map.js':('free-map.js','text/javascript'),'/vendor/maplibre-gl.js':('vendor/maplibre-gl.js','text/javascript'),'/vendor/maplibre-gl.css':('vendor/maplibre-gl.css','text/css'),'/scenery.svg':('scenery.svg','image/svg+xml'),'/fonts/BarlowSemiCondensed-Regular.ttf':('fonts/BarlowSemiCondensed-Regular.ttf','font/ttf'),'/fonts/BarlowSemiCondensed-SemiBold.ttf':('fonts/BarlowSemiCondensed-SemiBold.ttf','font/ttf')}
+                paths={'/brand-icon.png':('brand-icon.png','image/png'),'/scenery.jpg':('scenery.jpg','image/jpeg'),'/c152.jpg':('c152.jpg','image/jpeg'),'/market-c172.jpg':('market-c172.jpg','image/jpeg'),'/market-g58.jpg':('market-g58.jpg','image/jpeg'),'/market-kingair.jpg':('market-kingair.jpg','image/jpeg'),'/market-cj4.jpg':('market-cj4.jpg','image/jpeg'),'/':('index.html','text/html; charset=utf-8'),'/style.css':('style.css','text/css'),'/app.js':('app.js','text/javascript'),'/aircraft-market.js':('aircraft-market.js','text/javascript'),'/flight-operations.js':('flight-operations.js','text/javascript'),'/pilot-career.js':('pilot-career.js','text/javascript'),'/finance-center.js':('finance-center.js','text/javascript'),'/airline-operations.js':('airline-operations.js','text/javascript'),'/flight-history.js':('flight-history.js','text/javascript'),'/flight-history.css':('flight-history.css','text/css'),'/settings-center.js':('settings-center.js','text/javascript'),'/settings-center.css':('settings-center.css','text/css'),'/achievement-unlock.mp3':('achievement-unlock.mp3','audio/mpeg'),'/free-map.js':('free-map.js','text/javascript'),'/vendor/maplibre-gl.js':('vendor/maplibre-gl.js','text/javascript'),'/vendor/maplibre-gl.css':('vendor/maplibre-gl.css','text/css'),'/scenery.svg':('scenery.svg','image/svg+xml'),'/fonts/BarlowSemiCondensed-Regular.ttf':('fonts/BarlowSemiCondensed-Regular.ttf','font/ttf'),'/fonts/BarlowSemiCondensed-SemiBold.ttf':('fonts/BarlowSemiCondensed-SemiBold.ttf','font/ttf')}
                 if self.path not in paths:self.reply(404,b'{}');return
                 name,mime=paths[self.path];asset=ASSETS/name
                 if self.path=='/achievement-unlock.mp3' and not asset.is_file():
@@ -82,6 +84,20 @@ class DashboardServer:
                         if set(data) != {'action','payload'} or not isinstance(data['payload'],dict):
                             raise ValueError()
                         if len(json.dumps(data['payload'],ensure_ascii=False))>3000:
+                            raise ValueError()
+                    elif data['action']=='settings_set':
+                        if set(data) != {'action','payload'} or not isinstance(data['payload'],dict):
+                            raise ValueError()
+                        p=data['payload']
+                        if set(p)!={'key','value'} or not isinstance(p['key'],str):
+                            raise ValueError()
+                        if p['key']=='interface_scale':
+                            if type(p['value']) is not int or p['value'] not in (80,90,100,110,125,150):
+                                raise ValueError()
+                        elif (p['key'] not in (
+                            'autoconnect','reconnect','reduced_motion','satellite_default',
+                            'notifications','redact_diagnostics','fuel','tax','failures')
+                              or type(p['value']) is not bool):
                             raise ValueError()
                     elif data['action']=='flight_note':
                         if set(data)!={'action','payload'} or not isinstance(data['payload'],dict):
