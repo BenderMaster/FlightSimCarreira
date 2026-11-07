@@ -1,6 +1,6 @@
-/* FlightSim InGame Alpha.3 — native MSFS 2020 toolbar lifecycle.
- * Only Coherent owns the outer titlebar. Never synthesize a drag by touching
- * mouse events inside the localhost iframe; it would move only its content.
+/* FlightSim InGame Alpha.4 — MSFS 2020 native ingame-ui panel lifecycle.
+ * Do not add .draggable or remove .panelInvisible manually in FS2020;
+ * the Coherent ingame-ui template and toolbar own visibility and move/resize.
  */
 class FlightCareToolbar extends TemplateElement {
   constructor() {
@@ -9,7 +9,6 @@ class FlightCareToolbar extends TemplateElement {
     this.panelActive = false;
     this.eventsBound = false;
   }
-
   connectedCallback() {
     super.connectedCallback();
     this.ingameUi = this.querySelector('ingame-ui');
@@ -17,41 +16,46 @@ class FlightCareToolbar extends TemplateElement {
       this.eventsBound = true;
       this.ingameUi.addEventListener('panelActive', () => {
         this.panelActive = true;
-        this.restoreNativeHeader();
+        this.reportPanelGeometry('active');
       });
       this.ingameUi.addEventListener('panelInactive', () => {
         this.panelActive = false;
       });
       this.ingameUi.addEventListener('panelReady', () => {
-        if (this.panelActive) this.restoreNativeHeader();
+        this.reportPanelGeometry('ready');
+      });
+      this.ingameUi.addEventListener('onResizeElement', () => {
+        this.reportPanelGeometry('resize');
       });
     }
     this.initialize();
   }
-
   initialize() {
-    // MSFS applies its draggable panel classes asynchronously. Avoid
-    // removing panelInvisible from a closed 2020 panel.
-    window.setTimeout(() => this.restoreNativeHeader(), 900);
+    // FS2024-only workaround: 2020 deliberately preserves panelInvisible.
+    // Do not touch 2020 frame classes or override native header hit testing.
+    window.setTimeout(() => {
+      const panel = this.ingameUi || document.getElementById('FlightSimCarreira');
+      if (panel && panel.classList.contains('hide')) {
+        panel.classList.remove('hide');
+        panel.classList.remove('panelInvisible');
+        panel.setAttribute('title', 'FlightSim');
+      }
+    }, 900);
   }
-
-  restoreNativeHeader() {
-    const panel = this.ingameUi || document.getElementById('FlightSimCarreira');
+  reportPanelGeometry(source) {
+    // Debug diagnostics when requested, no tokens, careers or private data.
+    const panel = this.ingameUi;
     if (!panel) return;
-
-    // 2024 compatibility workaround, only if the SDK inserted "hide".
-    if (panel.classList.contains('hide')) {
-      panel.classList.remove('hide');
-      panel.classList.remove('panelInvisible');
-    }
-    if (this.panelActive) {
-      // The 2020 ingameUiFrame is made moveable through its own titlebar
-      // when active, not through the frame's web page.
-      panel.classList.remove('panelInvisible');
-      panel.classList.add('draggable');
-      panel.setAttribute('title', 'FlightSim');
-    }
+    const iframe = document.getElementById('flightSimFrame');
+    const content = panel.querySelector('.ingameUiContent');
+    console.info('[FlightSim-InGame] ' + source, {
+      frame: Math.round(panel.getBoundingClientRect().height),
+      content: content ? Math.round(content.getBoundingClientRect().height) : -1,
+      iframe: iframe ? Math.round(iframe.getBoundingClientRect().height) : -1,
+      classes: panel.className,
+      title: panel.getAttribute('title')
+    });
   }
 }
-customElements.define('ingamepanel-flightcare', FlightCareToolbar);
+window.customElements.define('ingamepanel-flightcare', FlightCareToolbar);
 checkAutoload();

@@ -11,14 +11,14 @@ iframe com o Coherent. **A `main` permanece a v0.8.7 homologada.**
 - Os artifacts da branch ficam em GitHub Actions; source SDK e Windows são downloads diferentes.
 
 
-Atualização **Alpha.3**: build Windows sem CMD, fonte explícita Barlow PT-BR na ponte InGame e correção candidata para arrastar a barra nativa do MSFS.
+Atualização **Alpha.4**: build Windows sem CMD, fonte explícita Barlow PT-BR na ponte InGame e correção candidata para arrastar a barra nativa do MSFS.
 
 ---
 
-## v0.8.3 Midnight Ops Alpha.3 — FlightSim: nome, insígnias e patrimônio pago
+## v0.8.3 Midnight Ops Alpha.4 — FlightSim: nome, insígnias e patrimônio pago
 
 - Marca visual do aplicativo, certificados, janelas e nomes de exportação: **FlightSim**. Repositório, pacote Python `aerocarreira`, identificadores internos do painel SDK e banco original permanecem iguais para não quebrar integrações nem saves.
-- Executável e distribuição Windows passam a se chamar `FlightSim.exe` e `FlightSim-0.8.3-midnight-alpha3-Windows`.
+- Executável e distribuição Windows passam a se chamar `FlightSim.exe` e `FlightSim-0.8.3-midnight-alpha4-Windows`.
 - Silhueta padrão de aeronave redesenhada a partir da referência enviada pelo piloto: vista superior, limpa, sem inclinação ou isometria. Ícones e marcadores de avião passam a usar o mesmo símbolo, inclusive no mapa (proa 0 = nariz para cima).
 - Medalha **Primeira Aeronave** agora apresenta aeronave centralizada em pista e número **1º** legível. Ajustados **Primeiro Voo**, **100 Horas** e os números **70%/90%** para não ficarem encobertos.
 - Selos de licença PPA → PLA substituem a estrela deformada por silhueta aeronáutica simétrica, mantendo acabamentos progressivos já homologados.
@@ -52,7 +52,7 @@ Detalhes em [Bloco Mercado de Aeronaves](docs/BLOCO_2_MERCADO_AERONAVES.md).
 
 # FlightSimCarreira v0.8.0 Midnight Ops Alpha.1 — Bloco 1: Frota / Hangar
 
-**Base:** v0.7.8.2 Alpha.3 homologada pelo piloto em MSFS 2020 (37.209 aeroportos do catálogo nativo confirmados); commit de integração: `5f8995d`. Nenhuma mudança na classificação de voo, importação de aeroportos, carga ou combustível.
+**Base:** v0.7.8.2 Alpha.4 homologada pelo piloto em MSFS 2020 (37.209 aeroportos do catálogo nativo confirmados); commit de integração: `5f8995d`. Nenhuma mudança na classificação de voo, importação de aeroportos, carga ou combustível.
 
 ## Nova interface Frota
 - Página Midnight própria, menu lateral sempre presente, **sem abrir Tk popup como tela principal**. Somente aeronaves efetivamente adquiridas: inicial (legacy/starter), outras compradas na carreira antiga e novas/usadas `unit:<id>`. **Não exibe aluguéis `rent:<id>` nem aeronaves freelancer `contract:<id>`**.
@@ -71,7 +71,7 @@ Ver [especificação Bloco 1](docs/BLOCO1_FROTA_MIDNIGHT.md).
 
 ---
 
-# FlightSimCarreira v0.7.8.2 Midnight Ops Alpha.3 — aeroportos MSFS e desempenho
+# FlightSimCarreira v0.7.8.2 Midnight Ops Alpha.4 — aeroportos MSFS e desempenho
 
 Corrige o erro REAL da v0.7.8.1: `pacote=20587 bytes, registros=622`. O MSFS 2020 pode incluir um registro fixo extra de 33 bytes (`rgData[1]`) no comprimento da mensagem, além dos `dwArraySize` registros informados. A validação aceita **apenas um** bloco final de tamanho conhecido e decodifica os registros declarados; nunca adiciona dados do campo extra à base.
 

@@ -1,4 +1,4 @@
-# FlightSim InGame v0.9.0 Alpha.2 — projeto SDK MSFS 2020
+# FlightSim InGame v0.9.0 Alpha.4 — projeto SDK MSFS 2020
 
 Este diretório é o **source** compilável do package Community, ainda **não**
 um package com SPB, manifest.json e layout.json prontos. A compilação e a

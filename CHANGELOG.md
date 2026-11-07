@@ -1,3 +1,12 @@
+## v0.9.0 InGame Alpha.4 — altura do iframe e ciclo nativo MSFS2020
+
+- **Correção física pendente de confirmação:** restaura `height:100% !important` e `flex:1 1 auto` nos wrappers Coherent, reverte regras de viewport globais causadoras de área cinza na Alpha.3; viewport do iframe acompanha conteúdo do painel.
+- **Barra nativa:** remove adição manual de `draggable`/remoção de `panelInvisible` no MSFS 2020; mantém o comportamento controlado pelo SDK e instrumenta eventos `panelActive`, `panelReady` e `onResizeElement` para diagnosticar o arraste.
+- Preserva fontes Barlow/UTF-8 da Alpha.3 e Windows PyInstaller GUI sem CMD. `main` v0.8.7 permanece homologada; PR #23 ainda em draft.
+- CI simula `.ingameUiContent`/`.ingameUiWrapper` com layout vertical e mede altura real do iframe no Chromium, além de manter 6 jobs de regressão.
+
+---
+
 ## v0.9.0 InGame Alpha.3 — executável sem CMD, fonte PT-BR e arraste nativo
 
 - **Windows GUI:** PyInstaller `--windowed` para iniciar o FlightSim sem a janela CMD; validação do subsistema PE GUI no CI e smoke tests preservados.

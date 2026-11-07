@@ -154,7 +154,13 @@ class InGameFoundationTests(unittest.TestCase):
         self.assertIn('id="flightSimFrame"', wrapper)
         wrapper_js = (root/'PackageSources/html_ui/InGamePanels/FlightCare/FlightCare.js').read_text(encoding='utf-8')
         self.assertIn("addEventListener('panelActive'", wrapper_js)
-        self.assertIn("classList.add('draggable')", wrapper_js)
+        self.assertNotIn("classList.add('draggable')", wrapper_js)
+        self.assertIn("addEventListener('panelReady'", wrapper_js)
+        self.assertIn("addEventListener('onResizeElement'", wrapper_js)
+        self.assertIn("reportPanelGeometry('active')", wrapper_js)
+        self.assertNotIn('html,body,ingamepanel-flightcare', wrapper)
+        self.assertIn('height:100% !important', wrapper)
+        self.assertIn('flex:1 1 auto !important', wrapper)
         self.assertTrue((root/'PackageSources'/panel.attrib['url']).exists())
         for folder in ('icons/toolbar','Textures/Menu/toolbar'):
             path = root / 'PackageSources/html_ui' / folder / (
