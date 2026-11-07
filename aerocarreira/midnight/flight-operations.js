@@ -237,27 +237,31 @@ function proposeWaypoint(lat,lon){
  if(document.querySelector('.workspace')?.dataset.view!=='planning')return false;
  if(fixes.length>=8){text('fo-message','Limite de oito waypoints atingido.');return false;}
  if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)return false;
- const dialog=el('fo-map-point-dialog');
  let i=1;while(fixes.some(w=>w.label==='FSC'+String(i).padStart(2,'0')))i++;
- el('fo-map-label').value='FSC'+String(i).padStart(2,'0');
- el('fo-map-lat').value=lat.toFixed(6);
- el('fo-map-lon').value=lon.toFixed(6);
- if(!dialog.open)dialog.showModal();
- return true;
+ fixes.push({label:'FSC'+String(i).padStart(2,'0'),lat:+lat.toFixed(7),lon:+lon.toFixed(7)});
+ renderFixes();markDirty();return true;
 }
-function fromSvgEvent(e){
- if(!projection||document.querySelector('.workspace')?.dataset.view!=='planning')return false;
+function moveWaypoint(index,lat,lon){
+ if(document.querySelector('.workspace')?.dataset.view!=='planning'||!Number.isInteger(index)||
+    index<0||index>=fixes.length||!Number.isFinite(lat)||!Number.isFinite(lon)||
+    Math.abs(lat)>90||Math.abs(lon)>180)return false;
+ fixes[index]={...fixes[index],lat:+lat.toFixed(7),lon:+lon.toFixed(7)};
+ renderFixes();markDirty();return true;
+}
+function fallbackCoords(e){
+ if(!projection||document.querySelector('.workspace')?.dataset.view!=='planning')return null;
  const svg=el('route-map');
  let x,y;
  try{
   const point=svg.createSVGPoint();point.x=e.clientX;point.y=e.clientY;
-  const transformed=point.matrixTransform(svg.getScreenCTM().inverse());
-  x=transformed.x;y=transformed.y;
- }catch{return false;}
+  const transformed=point.matrixTransform(svg.getScreenCTM().inverse());x=transformed.x;y=transformed.y;
+ }catch{return null;}
  const p=projection;
- const lon=p.lon0+(x-450-p.panX)/(p.cos*p.scale);
- const lat=p.lat0-(y-170-p.panY)/p.scale;
- return proposeWaypoint(lat,lon);
+ return {lon:p.lon0+(x-450-p.panX)/(p.cos*p.scale),lat:p.lat0-(y-170-p.panY)/p.scale};
+}
+function fromSvgEvent(e){
+ const p=fallbackCoords(e);
+ return p?proposeWaypoint(p.lat,p.lon):false;
 }
 function registerMapGestures(){
  const svg=el('route-map');
@@ -277,17 +281,11 @@ function registerMapGestures(){
  for(const eventName of ['pointerup','pointercancel','pointerleave'])
   svg.addEventListener(eventName,()=>{clearTimeout(touchTimer);touchTimer=null;started=null;});
 }
-el('fo-map-confirm').onclick=()=>{
- const label=el('fo-map-label').value.trim().toUpperCase();
- if(!/^[A-Z0-9_-]{1,12}$/.test(label)||fixes.some(w=>w.label===label)){
-  text('fo-message','Nome de waypoint inválido ou duplicado.');return;
- }
- fixes.push({label,lat:Number(el('fo-map-lat').value),lon:Number(el('fo-map-lon').value)});
- renderFixes();markDirty();el('fo-map-point-dialog').close();
-};
-for(const id of ['fo-map-cancel','fo-map-cancel-top'])el(id).onclick=()=>el('fo-map-point-dialog').close();
+// Clique direito/Shift+clique adicionam diretamente, sem diálogo de confirmação.
+for(const id of ['fo-map-cancel','fo-map-cancel-top'])
+ if(el(id))el(id).onclick=()=>el('fo-map-point-dialog').close();
 registerMapGestures();
-window.FSCFlightOps={render,show,mapState,proposeWaypoint,
+window.FSCFlightOps={render,show,mapState,proposeWaypoint,moveWaypoint,fallbackCoords,
   setFallbackProjection:p=>{projection=p;}};
 
 })();
