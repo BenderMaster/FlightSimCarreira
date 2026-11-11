@@ -18,7 +18,7 @@ state.update(status='connected', mode='MSFS', phase='solo',
     mission={'origin':'SBRF','destination':'SIPE','title':'Entrega expressa',
              'reward':1500,'origin_lat':-8.126,'origin_lon':-34.924,
              'destination_lat':-7.97,'destination_lon':-34.96})
-bridge = LocalPanelServer(state, port=0)
+bridge = LocalPanelServer(state, port=0, allow_commands=True)
 bridge.start()
 url = 'http://127.0.0.1:' + str(bridge.port) + '/'
 try:
@@ -41,6 +41,8 @@ try:
         assert computed_px('nav.side button span') >= 14
         assert computed_px('.metric span') >= 12
         assert computed_px('.pair') >= 13
+        assert page.locator('.logo img').get_attribute('src') == '/brand-icon.png'
+        assert page.locator('.logo img').evaluate('(el) => el.complete && el.naturalWidth > 0')
         assert 'Visão geral' in page.locator('#page-title').inner_text()
         expect(page.locator('#aircraft')).to_have_text('Cessna 152', timeout=8000)
         assert page.locator('#balance').inner_text() == 'R$ 12.345', page.locator('#balance').inner_text()
@@ -62,6 +64,25 @@ try:
         assert page.locator('[data-page="career"]').is_visible()
         page.locator('[data-view="dashboard"]').click()
         assert page.locator('[data-page="dashboard"]').is_visible()
+        # Exercise a real button-to-HTTP-to-Tk-queue flow without changing any
+        # career database, then verify the pending receipt updates in the tablet.
+        state.update(offers=[{'id':'QA-OFFER','origin':'SBRF','destination':'SIPE',
+            'title':'Voo de teste','category':'Regional','reward':1200,
+            'freelance':False,'distance':42,'minutes':27,'allowed':True,
+            'reason':'','manifest_label':'Carga leve'}],
+            market_ready=True, mission=None,
+            telemetry={'ias_kt':0,'gs_kt':0,'altitude_ft':31,'on_ground':True})
+        page.locator('#refresh').click()
+        page.locator('[data-view="market"]').click()
+        expect(page.locator('.offer-row')).to_have_count(1,timeout=8000)
+        page.locator('.offer-row button').click()
+        expect(page.locator('#confirm-shade')).to_be_visible()
+        page.locator('#confirm-yes').click()
+        request_id, action, value = bridge.commands.get(timeout=5)
+        assert action == 'offer_accept' and value == 'QA-OFFER'
+        bridge.finish_command(request_id, True, 'Contrato aceito no motor')
+        expect(page.locator('#action-feedback')).to_contain_text('Contrato aceito no motor',timeout=8000)
+        page.locator('[data-view="dashboard"]').click()
         state.update(status='reconnecting', aircraft=None, telemetry=None)
         page.locator('#refresh').click()
         expect(page.locator('#status')).to_have_text('RECONECTANDO', timeout=8000)
