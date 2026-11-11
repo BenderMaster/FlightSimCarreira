@@ -162,12 +162,12 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 <div class="navfoot">FlightSim InGame<br>0.9.1 Alpha • Comandos</div>
 </nav>
 <div class="workspace">
-<div class="pagehead"><div><div class="eyebrow">Flight Operations</div><strong id="page-title">Visão geral</strong></div><small>MSFS 2020 • Companion Windows conectado</small></div>
+<div class="pagehead"><div><div class="eyebrow">Flight Operations</div><strong id="page-title">Visão geral</strong></div><small id="companion-label">MSFS 2020 • Aguardando FlightSim Windows</small></div>
 <div class="pages">
 <section class="page" data-page="dashboard" aria-label="Visão geral do voo">
 <div class="card hero">
 <div><div class="eyebrow">VOO ATUAL <span class="phase" id="phase">—</span></div><div class="plane" id="aircraft">Aguardando telemetria</div><p class="subtext">Monitor de operação em tempo real</p></div>
-<div class="badge">SIMCONNECT • LIVE</div></div>
+<div class="badge" id="connection-badge">AGUARDANDO SIMCONNECT</div></div>
 <div class="metrics">
 <div class="metric"><span>VELOCIDADE INDICADA</span><strong class="value" id="ias">—</strong></div>
 <div class="metric"><span>VELOCIDADE SOLO</span><strong id="gs">—</strong></div>
@@ -344,7 +344,10 @@ function map(data){
  });
 }
 function renderMarket(d){
- var list=element('market-list');list.replaceChildren();
+ var list=element('market-list');
+ // MSFS 2020 Coherent GT may not implement modern ParentNode.replaceChildren.
+ // Explicit removal works on Chromium and older Coherent versions.
+ while(list.firstChild)list.removeChild(list.firstChild);
  var offers=Array.isArray(d.offers)?d.offers:[];
  offers=offers.filter(function(x){return (!!x.freelance)===(marketMode==='freelance');});
  if(!offers.length){
@@ -379,6 +382,8 @@ function render(d){
  var connected=d.status==='connected',waiting=d.status==='reconnecting';
  element('led').className='led'+(connected?' on':waiting?' wait':'');
  write('status',connected?'SIMCONNECT ATIVO':waiting?'RECONECTANDO':'SIM DESCONECTADO');
+ write('connection-badge',connected?'SIMCONNECT • LIVE':waiting?'RECONECTANDO':'SIM DESCONECTADO');
+ write('companion-label','MSFS 2020 • FlightSim Windows respondendo');
  write('aircraft',d.aircraft||'Aguardando aeronave');
  write('phase',(d.phase||'aguardando').toUpperCase());
  write('balance',money(d.balance));
@@ -410,10 +415,24 @@ function render(d){
  var stamp=typeof d.updated==='number'?new Date(d.updated*1000).toLocaleTimeString('pt-BR'):'—';
  write('diagnostic','Bridge v2 • última leitura '+stamp+' • modo '+(d.mode||'—'));
 }
-function offline(){
+function panelError(err){
+ // A good HTTP response followed by a JS error is NOT a network outage.
+ // Never tell the pilot to restart the companion for a rendering regression.
+ active=false;
+ console.error('[FlightSim-InGame] falha ao atualizar tablet',err);
+ element('led').className='led wait';
+ write('status','ERRO NA INTERFACE');
+ write('connection-badge','DADOS RECEBIDOS');
+ write('companion-label','MSFS 2020 • Falha ao exibir dados');
+ write('diagnostic','A ponte respondeu, mas o tablet não terminou de desenhar. Consulte log Coherent.');
+}
+function offline(err){
  active=false;failures++;
  element('led').className='led';
  write('status','MOTOR INDISPONÍVEL');
+ write('connection-badge','SEM COMUNICAÇÃO');
+ write('companion-label','MSFS 2020 • Ponte local indisponível');
+ console.warn('[FlightSim-InGame] leitura da ponte indisponível',err);
  write('diagnostic','Sem resposta do FlightSim Windows • tentativa '+failures+
   ' • confira o executável e a porta 8769');
  if(failures>=2){
@@ -426,7 +445,11 @@ function poll(){
  fetching=true;
  fetch('/api/v1/status',{headers:{'X-Flight-Panel-Key':key},cache:'no-store'})
  .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
- .then(render).catch(function(){offline();})
+ .then(function(d){
+  try {render(d);}
+  catch(err){panelError(err);}
+ })
+ .catch(function(err){offline(err);})
  .then(function(){fetching=false;});
 }
 var pageButtons=document.querySelectorAll('[data-view]');
