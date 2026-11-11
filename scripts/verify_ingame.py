@@ -27,7 +27,11 @@ try:
         page = browser.new_page(viewport={'width':780,'height':620})
         errors=[]
         page.on('pageerror', lambda e: errors.append(str(e)))
+        # Emulate the older MSFS2020 Coherent GT DOM: replaceChildren may be
+        # absent even though it works in the modern CI Chromium.
+        page.add_init_script("Object.defineProperty(Element.prototype, 'replaceChildren', {value: undefined, configurable: true})")
         page.goto(url)
+        assert page.evaluate("typeof document.getElementById('market-list').replaceChildren") == 'undefined'
         # The actual app font must be downloadable by same-origin Coherent iframe.
         assert 'FlightSimBarlow' in page.locator('body').evaluate("(el) => getComputedStyle(el).fontFamily")
         page.evaluate("Promise.all([document.fonts.load('400 16px FlightSimBarlow'),document.fonts.load('700 16px FlightSimBarlow')])")
@@ -47,6 +51,8 @@ try:
         expect(page.locator('#aircraft')).to_have_text('Cessna 152', timeout=8000)
         assert page.locator('#balance').inner_text() == 'R$ 12.345', page.locator('#balance').inner_text()
         assert 'SIMCONNECT ATIVO' in page.locator('#status').inner_text()
+        assert 'SIMCONNECT • LIVE' in page.locator('#connection-badge').inner_text()
+        assert 'FlightSim Windows respondendo' in page.locator('#companion-label').inner_text()
         assert 'SBRF' in page.locator('#origin').inner_text()
         assert page.locator('.route .arrow svg path').count() == 1
         assert page.locator('[data-page="dashboard"]').is_visible()
@@ -98,6 +104,17 @@ try:
             assert computed_px('nav.side button span') >= 11, (width, 'navigation font too small')
         page.screenshot(path=str(OUTPUT/'ingame-tablet-responsivo.png'),full_page=True)
         assert not errors,errors
+        # Frontend JS/render regressions are not motor/network outages.
+        # The error must be classified distinctly instead of clearing telemetry.
+        broken = browser.new_page(viewport={'width':780,'height':620})
+        broken.goto(url)
+        expect(broken.locator('#aircraft')).to_have_text('Cessna 172',timeout=8000)
+        broken.evaluate("document.getElementById('market-list').remove()")
+        broken.locator('#refresh').click()
+        expect(broken.locator('#status')).to_have_text('ERRO NA INTERFACE',timeout=8000)
+        assert 'DADOS RECEBIDOS' in broken.locator('#connection-badge').inner_text()
+        assert 'motor indisponível' not in broken.locator('#status').inner_text().lower()
+        broken.close()
         # Simulate the dynamic Coherent wrapper nodes that the simulator inserts.
         # An earlier Alpha silently collapsed the iframe to a 120px strip even
         # though the server/browser tests had all passed.
