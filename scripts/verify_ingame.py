@@ -33,6 +33,14 @@ try:
         page.evaluate("Promise.all([document.fonts.load('400 16px FlightSimBarlow'),document.fonts.load('700 16px FlightSimBarlow')])")
         assert page.evaluate("document.fonts.check('400 16px FlightSimBarlow')")
         assert page.evaluate("document.fonts.check('700 16px FlightSimBarlow')")
+        # The Win11/Coherent 8-11px labels were too small in the MSFS toolbar.
+        # Keep typography readable at the approved floating-tablet width.
+        computed_px = lambda selector: page.locator(selector).first.evaluate(
+            "(el) => parseFloat(getComputedStyle(el).fontSize)")
+        assert computed_px('body') >= 15
+        assert computed_px('nav.side button span') >= 14
+        assert computed_px('.metric span') >= 12
+        assert computed_px('.pair') >= 13
         assert 'Visão geral' in page.locator('#page-title').inner_text()
         expect(page.locator('#aircraft')).to_have_text('Cessna 152', timeout=8000)
         assert page.locator('#balance').inner_text() == 'R$ 12.345', page.locator('#balance').inner_text()
@@ -65,6 +73,7 @@ try:
             page.wait_for_timeout(50)
             overflow=page.evaluate('document.documentElement.scrollWidth - window.innerWidth')
             assert overflow<=2,(width,overflow)
+            assert computed_px('nav.side button span') >= 11, (width, 'navigation font too small')
         page.screenshot(path=str(OUTPUT/'ingame-tablet-responsivo.png'),full_page=True)
         assert not errors,errors
         # Simulate the dynamic Coherent wrapper nodes that the simulator inserts.
