@@ -187,8 +187,11 @@ class ApplicationCommandTests(unittest.TestCase):
         app=self.app
         app.mode='Desconectado'
         app.storage.get_pilot.return_value=None
+        app.airport_catalog=None
+        app.msfs_airports_ready=False
         app._ingame_last_error=None
-        with patch('aerocarreira.app.messagebox.showwarning') as warning:
+        with patch('aerocarreira.app.strict_mission', return_value=MISSIONS[0]), \
+             patch('aerocarreira.app.messagebox.showwarning') as warning:
             ok=app._accept_specific(MISSIONS[0],interactive=False)
             self.assertFalse(ok)
             warning.assert_not_called()
