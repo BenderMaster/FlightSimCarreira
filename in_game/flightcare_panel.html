@@ -241,6 +241,59 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 (function(){
 'use strict';
 var key=document.querySelector('meta[name="flight-panel-key"]').content;
+var actionKey=document.querySelector('meta[name="flight-action-key"]').content;
+var writable=document.querySelector('meta[name="flight-writable"]').content==='true';
+var lastState={},marketMode='regional',commandBusy=false,confirmation=null,feedbackHandle=null;
+function feedback(message,error){
+ var el=element('action-feedback');el.textContent=message;el.dataset.error=error?'true':'false';el.hidden=false;
+ if(feedbackHandle)clearTimeout(feedbackHandle);
+ feedbackHandle=setTimeout(function(){el.hidden=true;},6500);
+}
+function requestId(){
+ var uuid=(window.crypto&&window.crypto.randomUUID)?window.crypto.randomUUID():null;
+ return uuid||('flight-'+Date.now()+'-'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2));
+}
+function receiptPoll(id,attempt){
+ return fetch('/api/v2/commands/'+encodeURIComponent(id),
+  {headers:{'X-Flight-Action-Key':actionKey},cache:'no-store'})
+  .then(function(r){if(!r.ok)throw Error('Consulta de confirmação indisponível');return r.json();})
+  .then(function(r){
+   if(r.status==='pending'){
+    if(attempt>30)throw Error('Ação ainda pendente: consulte o estado antes de repetir.');
+    return new Promise(function(resolve){setTimeout(resolve,350);}).then(function(){return receiptPoll(id,attempt+1);});
+   }
+   feedback(r.message||'Resposta do motor indisponível',r.status!=='accepted');
+   if(r.status==='accepted')poll();
+   return r;
+  });
+}
+function sendAction(action,value){
+ if(!writable){feedback('Este companion está em modo somente leitura.',true);return;}
+ if(commandBusy){feedback('Há uma operação pendente. Aguarde sua confirmação.',true);return;}
+ commandBusy=true;
+ var id=requestId();
+ feedback('Enviando comando ao motor FlightSim...',false);
+ fetch('/api/v2/commands',{method:'POST',
+  headers:{'Content-Type':'application/json','X-Flight-Action-Key':actionKey},
+  body:JSON.stringify({request_id:id,action:action,value:value})})
+ .then(function(r){if(!r.ok)throw Error('Comando recusado pela ponte (HTTP '+r.status+')');return r.json();})
+ .then(function(){return receiptPoll(id,0);})
+ .catch(function(e){feedback(String(e.message||e),true);})
+ .then(function(){commandBusy=false;});
+}
+function askAction(action,value,title,detail){
+ if(!writable)return feedback('Controle InGame indisponível nesta sessão.',true);
+ confirmation={action:action,value:value};
+ write('confirm-title',title);write('confirm-detail',detail);
+ element('confirm-shade').hidden=false;
+ element('confirm-yes').focus();
+}
+element('confirm-no').addEventListener('click',function(){element('confirm-shade').hidden=true;confirmation=null;});
+element('confirm-yes').addEventListener('click',function(){
+ var cmd=confirmation;element('confirm-shade').hidden=true;confirmation=null;
+ if(cmd)sendAction(cmd.action,cmd.value);
+});
+
 var element=function(id){return document.getElementById(id);};
 var failures=0, active=false, fetching=false;
 var ns='http://www.w3.org/2000/svg', started=Date.now();
@@ -290,6 +343,36 @@ function map(data){
   group.appendChild(line('text',{x:a.x+12,y:a.y-8},a.label));
  });
 }
+function renderMarket(d){
+ var list=element('market-list');list.replaceChildren();
+ var offers=Array.isArray(d.offers)?d.offers:[];
+ offers=offers.filter(function(x){return (!!x.freelance)===(marketMode==='freelance');});
+ if(!offers.length){
+  var empty=document.createElement('p');
+  empty.textContent=!d.market_ready?'Aguardando catálogo oficial de aeroportos do MSFS.':
+   'Nenhum contrato disponível nesta modalidade. Confira a região, habilitações e atualize.';
+  list.appendChild(empty);return;
+ }
+ offers.slice(0,20).forEach(function(o){
+  var row=document.createElement('div');row.className='offer-row';
+  var text=document.createElement('div');text.className='offer-text';
+  var title=document.createElement('strong');title.textContent=(o.category||o.title||'Contrato')+' • '+(o.origin||'—')+' → '+(o.destination||'—');
+  var detail=document.createElement('small');
+  detail.textContent=(o.manifest_label||'')+' • '+(typeof o.distance==='number'?value(o.distance,1)+' NM':'Distância indisponível')+
+   ' • '+(o.allowed?'Elegível':(o.reason||'Requisitos não atendidos'));
+  var price=document.createElement('div');price.className='offer-price';price.textContent=money(o.reward);
+  text.appendChild(title);text.appendChild(detail);text.appendChild(price);
+  var button=document.createElement('button');button.textContent='Aceitar missão';
+  var active=d.mission&&d.mission.id;
+  button.disabled=!writable||!o.allowed||!!active||d.status!=='connected'||!(d.telemetry&&d.telemetry.on_ground);
+  button.addEventListener('click',function(){
+   askAction('offer_accept',o.id,'Aceitar contrato?',
+     (o.origin||'—')+' → '+(o.destination||'—')+
+     ' • Pagamento bruto '+money(o.reward)+'. O motor verificará aeroporto, requisitos, modelo e solo.');
+  });
+  row.appendChild(text);row.appendChild(button);list.appendChild(row);
+ });
+}
 function render(d){
  if(!d||d.version!==2)throw new Error('Protocolo incompatível: esperado 2');
  failures=0;active=true;
@@ -309,6 +392,20 @@ function render(d){
  write('origin',m.origin||'—');write('destination',m.destination||'—');
  write('mission',m.title||'Nenhum contrato ativo.');
  write('reward',m.title?money(m.reward):'—');
+ lastState=d;
+ var grounded=writable&&connected&&t.on_ground===true;
+ element('mission-prepare').disabled=!grounded||!m.id;
+ element('mission-cancel').disabled=!grounded||!m.id;
+ element('market-refresh').disabled=!writable;
+ var inventory=d.fuel_inventory||null;
+ write('fuel-aircraft',inventory?inventory.aircraft:'Nenhuma aeronave selecionada');
+ write('fuel-inventory',inventory?value(inventory.current_liters,1)+' / '+value(inventory.capacity_liters,1)+' L':'Aguardando calibração dos tanques');
+ var canFuel=grounded&&!!inventory;
+ element('fuel-toggle').disabled=!grounded;
+ write('fuel-toggle',d.fuel_control_enabled?'Desativar controle (-30% R$/XP)':'Ativar controle de combustível');
+ element('fuel-refuel').disabled=!canFuel||!d.fuel_control_enabled;
+ if(inventory)element('fuel-liters').max=inventory.capacity_liters;
+ renderMarket(d);
  map(d);
  var stamp=typeof d.updated==='number'?new Date(d.updated*1000).toLocaleTimeString('pt-BR'):'—';
  write('diagnostic','Bridge v2 • última leitura '+stamp+' • modo '+(d.mode||'—'));
@@ -343,11 +440,43 @@ function navigate(view){
  Array.prototype.forEach.call(pages,function(p){
    p.hidden=p.getAttribute('data-page')!==view;
  });
- var titles={dashboard:'Visão geral',route:'Mapa de navegação',aircraft:'Aeronave e telemetria',career:'Carreira e contrato'};
+ var titles={dashboard:'Visão geral',market:'Mercado de contratos',route:'Mapa de navegação',aircraft:'Aeronave e telemetria',career:'Carreira e contrato'};
  write('page-title',titles[view]||'FlightSim');
 }
 Array.prototype.forEach.call(pageButtons,function(b){
  b.addEventListener('click',function(){navigate(b.getAttribute('data-view'));});
+});
+Array.prototype.forEach.call(document.querySelectorAll('[data-market-mode]'),function(button){
+ button.addEventListener('click',function(){
+  marketMode=button.getAttribute('data-market-mode');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-market-mode]'),function(x){
+   x.setAttribute('aria-pressed',x===button?'true':'false');
+  });
+  renderMarket(lastState);
+ });
+});
+element('market-refresh').addEventListener('click',function(){sendAction('market_refresh',null);});
+element('mission-prepare').addEventListener('click',function(){
+ var m=lastState.mission;if(m&&m.id)askAction('dispatch_prepare',m.id,'Preparar voo?',
+  'O FlightSim vai exportar/enviar o plano e solicitar a carga, apenas se as validações do MSFS permitirem.');
+});
+element('mission-cancel').addEventListener('click',function(){
+ var m=lastState.mission;if(m&&m.id)askAction('mission_cancel',m.id,'Cancelar contrato?',
+  'A missão atual será cancelada sem pagamento. Esta ação exige aeronave em solo.');
+});
+element('fuel-toggle').addEventListener('click',function(){
+ var enabling=!lastState.fuel_control_enabled;
+ askAction('fuel_toggle',enabling,enabling?'Ativar controle?':'Desativar controle?',
+   enabling?'O FlightSim voltará a controlar o combustível.':
+   'Desativar aplica penalidade de 30% em dinheiro e XP nos próximos voos.');
+});
+element('fuel-refuel').addEventListener('click',function(){
+ var raw=element('fuel-liters').value.trim(),target=Number(raw);
+ if(!raw||!isFinite(target)||target<0)return feedback('Informe uma quantidade válida em litros.',true);
+ var inventory=lastState.fuel_inventory;
+ if(!inventory||target>inventory.capacity_liters)return feedback('Quantidade acima da capacidade do avião.',true);
+ askAction('fuel_refuel',target,'Confirmar abastecimento?',
+   'Aplicar '+value(target,1)+' L totais no avião selecionado. Pode alterar o saldo e exige solo/MTOW válidos.');
 });
 navigate('dashboard');
 element('refresh').addEventListener('click',poll);
