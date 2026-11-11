@@ -138,7 +138,7 @@ class ApplicationCommandTests(unittest.TestCase):
         with patch('aerocarreira.app.eligibility',return_value=(True,'')):
             ok,msg=self.app._execute_ingame_command('offer_accept','offer-001')
             self.assertTrue(ok,msg)
-            self.app._accept_specific.assert_called_once_with(offer)
+            self.app._accept_specific.assert_called_once_with(offer, interactive=False)
             self.app.connected=False
             ok,_=self.app._execute_ingame_command('offer_accept','offer-001')
             self.assertFalse(ok)
@@ -181,3 +181,15 @@ class ApplicationCommandTests(unittest.TestCase):
         ok,_=self.app._execute_ingame_command('fuel_refuel',80)
         self.assertFalse(ok)
         self.app.fuel_manager.change_liters.assert_called_once()
+
+    def test_rejected_ingame_contract_does_not_open_tk_dialog(self):
+        from aerocarreira.domain import MISSIONS
+        app=self.app
+        app.mode='Desconectado'
+        app.storage.get_pilot.return_value=None
+        app._ingame_last_error=None
+        with patch('aerocarreira.app.messagebox.showwarning') as warning:
+            ok=app._accept_specific(MISSIONS[0],interactive=False)
+            self.assertFalse(ok)
+            warning.assert_not_called()
+            self.assertTrue(app._ingame_last_error)
