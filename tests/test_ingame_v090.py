@@ -176,7 +176,10 @@ class InGameFoundationTests(unittest.TestCase):
             self.assertIn('data-view="' + page_name + '"', html)
         self.assertIn('grid-template-columns:154px', html)
         self.assertIn('nav.side', html)
-        self.assertNotIn('/command', html)
+        self.assertNotIn("fetch('/command'", html)
+        self.assertIn('/api/v2/commands', html)
+        self.assertIn('__FLIGHTSIM_ACTION_KEY__', html)
+        self.assertIn('data-view="market"', html)
         self.assertNotIn('MapLibre', html)
 
 
