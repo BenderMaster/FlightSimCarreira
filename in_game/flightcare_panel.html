@@ -59,7 +59,8 @@ nav.side button.selected{background:#164054;border-color:#2a6071;color:var(--cya
 .quick{grid-column:span 5}
 .route{display:flex;gap:12px;align-items:center;justify-content:space-between}
 .route strong{font-size:25px;letter-spacing:.06em}
-.route .arrow{color:var(--cyan);font-size:22px}
+.route .arrow{color:var(--cyan);width:26px;height:26px;flex:0 0 26px;display:inline-flex;align-items:center;justify-content:center}
+.route .arrow svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .pair{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #254053;padding:7px 0;font-size:13px}
 .pair:last-child{border:0}
 .pair span:first-child{color:var(--muted)}
@@ -147,7 +148,7 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 <div class="metric"><span>COMBUSTÍVEL</span><strong id="fuel">—</strong></div>
 </div>
 <div class="card mission"><h2>Missão em andamento</h2>
-<div class="route"><strong id="origin">—</strong><span class="arrow">→</span><strong id="destination">—</strong></div>
+<div class="route"><strong id="origin">—</strong><span class="arrow" aria-label="para"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h16m-7-7 7 7-7 7"/></svg></span><strong id="destination">—</strong></div>
 <p id="mission">Nenhum contrato ativo.</p>
 <div class="pair"><span>Recompensa prevista</span><b id="reward">—</b></div>
 <div class="pair"><span>Distância restante</span><b id="remaining">—</b></div>
