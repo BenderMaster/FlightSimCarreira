@@ -241,6 +241,7 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 (function(){
 'use strict';
 var key=document.querySelector('meta[name="flight-panel-key"]').content;
+var element=function(id){return document.getElementById(id);};
 var actionKey=document.querySelector('meta[name="flight-action-key"]').content;
 var writable=document.querySelector('meta[name="flight-writable"]').content==='true';
 var lastState={},marketMode='regional',commandBusy=false,confirmation=null,feedbackHandle=null;
@@ -294,7 +295,6 @@ element('confirm-yes').addEventListener('click',function(){
  if(cmd)sendAction(cmd.action,cmd.value);
 });
 
-var element=function(id){return document.getElementById(id);};
 var failures=0, active=false, fetching=false;
 var ns='http://www.w3.org/2000/svg', started=Date.now();
 var money=function(v){return typeof v==='number' && isFinite(v)?'R$ '+v.toLocaleString('pt-BR'):'—';};
