@@ -2,6 +2,8 @@
 <html lang="pt-BR"><head>
 <meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="flight-panel-key" content="__FLIGHTSIM_PANEL_KEY__">
+<meta name="flight-action-key" content="__FLIGHTSIM_ACTION_KEY__">
+<meta name="flight-writable" content="__FLIGHTSIM_WRITABLE__">
 <title>FlightSim InGame • Midnight Tablet</title>
 <style>
 /* Explicitly load PT-BR glyphs in Coherent GT: OS fonts are not always available. */
@@ -16,6 +18,7 @@ header.top{height:62px;flex-shrink:0;display:flex;align-items:center;gap:12px;ba
 .mark{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
 .logo{width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:1px solid #337084;background:#113442;border-radius:10px;color:var(--cyan);flex-shrink:0}
 .logo svg{width:23px;height:23px}
+.logo img{display:block;width:31px;height:31px;object-fit:contain;border-radius:6px}
 .brand b{display:block;font-size:22px;line-height:1;letter-spacing:.02em}
 .brand b span{color:var(--cyan)}
 .brand small{font-size:11px;color:var(--muted);letter-spacing:.15em}
@@ -114,12 +117,35 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
  .pagehead strong{font-size:17px}
  footer{height:23px}
 }
+
+/* InGame command surfaces: touch targets remain legible at narrow widths. */
+.op-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}
+.op-actions button,.market-tools button,.offer-row button{min-height:38px;border:1px solid #37617b;border-radius:8px;padding:8px 13px;background:#164054;color:#eaf4fb;font-weight:700}
+.op-actions button:disabled,.market-tools button:disabled,.offer-row button:disabled{opacity:.45;cursor:not-allowed}
+.op-actions button.warning{background:#3c292d;border-color:#83535b}
+.offer-row{background:#12263a;border:1px solid var(--line);padding:13px;margin-bottom:9px;border-radius:10px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+.offer-row .offer-text{min-width:0;flex:1}
+.offer-row strong{font-size:16px;display:block}
+.offer-row small{display:block;color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.offer-row .offer-price{font-size:15px;color:var(--green)}
+.market-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.market-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.market-tabs button[aria-pressed="true"]{border-color:var(--cyan);background:#15506a;color:var(--cyan)}
+.control-grid{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.control-grid input{background:#0a1927;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px;min-width:100px;max-width:190px;font:inherit}
+#action-feedback{position:fixed;z-index:10;right:15px;top:67px;max-width:min(440px,calc(100% - 30px));background:#153346;border:1px solid #43899c;color:#f0f9fd;padding:12px 16px;border-radius:8px;box-shadow:0 9px 20px #0009;font-size:14px}
+#action-feedback[data-error="true"]{background:#39252b;border-color:#ae636d}
+#action-feedback[hidden],#confirm-shade[hidden]{display:none}
+#confirm-shade{position:fixed;z-index:25;inset:0;background:#02060bd9;display:flex;align-items:center;justify-content:center;padding:16px}
+.confirm-box{width:min(460px,100%);background:#102335;border:1px solid #35647e;border-radius:14px;padding:22px;box-shadow:0 14px 40px #000a}
+.confirm-box strong{font-size:19px}.confirm-box p{font-size:14px;color:var(--muted)}
+@media (max-width:620px){.offer-row{flex-direction:column;align-items:stretch}.offer-row button{width:100%}.control-grid input{max-width:140px}#action-feedback{top:54px}}
 </style>
 </head>
 <body>
 <header class="top">
 <div class="mark">
-<div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 1.1C10.6 1.1 10.4 3.1 10.4 6.1V9.6L2.1 14.1C1.4 14.5 1.1 15 1.1 15.7V16.8L10.25 14.9L10.45 19.3L6.55 21V22.2L11.1 21.2L12 23.4L12.9 21.2L17.45 22.2V21L13.55 19.3L13.75 14.9L22.9 16.8V15.7C22.9 15 22.6 14.5 21.9 14.1L13.6 9.6V6.1C13.6 3.1 13.4 1.1 12 1.1Z"/></svg></div>
+<div class="logo" aria-hidden="true"><img src="/brand-icon.png" alt=""></div>
 <div class="brand"><b>Flight<span>Sim</span></b><small>MIDNIGHT OPS • INGAME</small></div>
 </div>
 <div class="live" role="status"><i id="led" class="led"></i><span id="status">AGUARDANDO MOTOR</span></div>
@@ -129,10 +155,11 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 <nav class="side" aria-label="Navegação FlightSim">
 <div class="caption">OPERAÇÕES</div>
 <button type="button" data-view="dashboard" class="selected" aria-current="page" title="Visão geral"><svg viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z"/></svg><span>Painel</span></button>
+<button type="button" data-view="market" title="Ofertas e contratos"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM6 9h12M6 13h9M6 17h6"/></svg><span>Mercado</span></button>
 <button type="button" data-view="route" title="Rota geográfica"><svg viewBox="0 0 24 24"><path d="M2 5l7-3 7 3 6-3v17l-6 3-7-3-7 3zM9 2v17M16 5v17"/></svg><span>Mapa</span></button>
 <button type="button" data-view="aircraft" title="Dados da aeronave"><svg viewBox="0 0 24 24"><path d="M12 2L9 12 2 15v3l9-2 1 5 1-5 9 2v-3l-7-3z"/></svg><span>Aeronave</span></button>
 <button type="button" data-view="career" title="Dados da carreira"><svg viewBox="0 0 24 24"><path d="M5 21h14V6H5zM9 6V3h6v3M8 11h8M8 15h8"/></svg><span>Carreira</span></button>
-<div class="navfoot">FlightSim InGame<br>0.9.0 Alpha • Leitura</div>
+<div class="navfoot">FlightSim InGame<br>0.9.1 Alpha • Comandos</div>
 </nav>
 <div class="workspace">
 <div class="pagehead"><div><div class="eyebrow">Flight Operations</div><strong id="page-title">Visão geral</strong></div><small>MSFS 2020 • Companion Windows conectado</small></div>
@@ -152,6 +179,7 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 <p id="mission">Nenhum contrato ativo.</p>
 <div class="pair"><span>Recompensa prevista</span><b id="reward">—</b></div>
 <div class="pair"><span>Distância restante</span><b id="remaining">—</b></div>
+<div class="op-actions"><button id="mission-prepare" disabled>Preparar voo e carga</button><button id="mission-cancel" class="warning" disabled>Cancelar contrato</button></div>
 </div>
 <div class="card quick"><h2>Resumo da carreira</h2>
 <div class="pair"><span>Saldo disponível</span><b id="balance">—</b></div>
@@ -159,6 +187,17 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 <div class="pair"><span>Operação</span><b>Somente leitura</b></div>
 <p>Utilize as outras páginas para acompanhar a rota e consultar os instrumentos sem sair do simulador.</p>
 </div>
+</section>
+<section class="page" data-page="market" aria-label="Mercado de contratos" hidden>
+ <div class="card full">
+  <h2>Mercado de contratos • aeroportos do MSFS</h2>
+  <div class="market-tools">
+   <div class="market-tabs"><button class="btn" data-market-mode="regional" aria-pressed="true">Regional</button><button class="btn" data-market-mode="freelance" aria-pressed="false">Freelancer</button></div>
+   <button class="btn" id="market-refresh">Atualizar ofertas</button>
+  </div>
+  <div id="market-list" aria-live="polite"></div>
+  <p>Requisitos e aeroportos são revalidados no momento do aceite; nenhuma oferta é garantida.</p>
+ </div>
 </section>
 <section class="page" data-page="route" aria-label="Mapa do voo" hidden>
 <div class="card full"><h2>Mapa de rota • posições confirmadas</h2>
@@ -176,6 +215,13 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 <div class="metric"><span>LATITUDE</span><strong id="lat">—</strong></div>
 <div class="metric"><span>LONGITUDE</span><strong id="lon">—</strong></div>
 </div>
+<div class="card full"><h2>Combustível • operações em solo</h2>
+ <div class="pair"><span>Aeronave do hangar</span><b id="fuel-aircraft">—</b></div>
+ <div class="pair"><span>Inventário</span><b id="fuel-inventory">—</b></div>
+ <div class="op-actions"><button id="fuel-toggle" disabled>Controle de combustível</button></div>
+ <div class="control-grid" style="margin-top:12px"><label for="fuel-liters">Quantidade total (litros):</label><input id="fuel-liters" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Ex.: 60"><button id="fuel-refuel" class="btn" disabled>Aplicar abastecimento</button></div>
+ <p>Requer MSFS conectado, aeronave correta em solo e confirmação posterior dos tanques. Abastecer altera o saldo da carreira.</p>
+</div>
 </section>
 <section class="page" data-page="career" aria-label="Informações da carreira" hidden>
 <div class="card full"><h2>Carreira FlightSim</h2><p>Os dados financeiros e os contratos continuam sendo administrados exclusivamente pelo motor Python. Esta versão InGame é somente leitura.</p></div>
@@ -185,7 +231,12 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 </div>
 </div>
 </div>
-<footer><span>FLIGHTSIM INGAME • V0.9.0</span><span id="diagnostic">Aguardando ponte local</span></footer>
+<div id="action-feedback" role="status" aria-live="polite" hidden></div>
+<div id="confirm-shade" hidden role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="confirm-box"><strong id="confirm-title">Confirmar operação</strong><p id="confirm-detail">—</p>
+  <div class="op-actions"><button id="confirm-yes">Confirmar</button><button id="confirm-no" class="warning">Voltar</button></div></div>
+</div>
+<footer><span>FLIGHTSIM INGAME • V0.9.1 ALPHA</span><span id="diagnostic">Aguardando ponte local</span></footer>
 <script>
 (function(){
 'use strict';
