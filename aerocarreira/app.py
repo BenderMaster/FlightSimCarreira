@@ -572,7 +572,13 @@ class Application:
             return
         self._accept_specific(m)
 
-    def _accept_specific(self, m):
+    def _accept_specific(self, m, interactive=True):
+        def warn(title, message):
+            if interactive:
+                messagebox.showwarning(title, message)
+            else:
+                self._ingame_last_error = str(message)
+                self._log('INGAME • ' + title + ': ' + str(message))
         m=mission_manifest(m)
         # Em jogo real, catálogo vivo do MSFS é a ÚNICA fonte de aeroportos.
         # Mesmo uma oferta antiga no SQLite NÃO comprova aeroporto instalado.
@@ -585,34 +591,34 @@ class Application:
             m=validated
         offline = self.mode == "Desconectado"
         if not offline and (self.mode not in ("MSFS", "Demo") or self.last_sample is None):
-            messagebox.showwarning("Contrato", "Conecte ao MSFS e aguarde telemetria em solo.")
+            warn("Contrato", "Conecte ao MSFS e aguarde telemetria em solo.")
             return False
         if offline:
             profile=self.storage.get_pilot()
             if profile is None or m.origin != profile['home_icao']:
-                messagebox.showwarning('Mercado', 'No modo offline só é possível aceitar na base cadastral do piloto.')
+                warn('Mercado', 'No modo offline só é possível aceitar na base cadastral do piloto.')
                 return False
         if self.mode == "Demo" and m.id != "REC-ITA":
-            messagebox.showwarning("Demo", "A demo fixa simula somente SBRF → SIPE.")
+            warn("Demo", "A demo fixa simula somente SBRF → SIPE.")
             return False
         if self.mode == "MSFS" and (not self.connected or not self.last_sample.on_ground
                                    or time() - self.last_sample.timestamp > 10):
-            messagebox.showwarning("Contrato", "Aceite no solo com telemetria atualizada.")
+            warn("Contrato", "Aceite no solo com telemetria atualizada.")
             return False
         if m.category != "legacy":
             if self.storage.get_pilot() is None:
-                messagebox.showwarning("Contrato", "Cadastre seu piloto primeiro.")
+                warn("Contrato", "Cadastre seu piloto primeiro.")
                 return False
             allowed, reason = eligibility(m, self.storage.pilot_stats(),
                                           self.storage.owned_qualifications(),
                                           self.storage.family_experience())
             if not allowed:
-                messagebox.showwarning("Contrato bloqueado", reason)
+                warn("Contrato bloqueado", reason)
                 return False
             if m.company_code=='OWN':
                 from .airline_operations import business_planes
                 if self.storage.employment_state()['mode']!='empresario':
-                    messagebox.showwarning('Contrato','Somente o proprietário pode aceitar rota empresarial.')
+                    warn('Contrato','Somente o proprietário pode aceitar rota empresarial.')
                     return False
                 # Só uma aeronave empresarial real, na origem, pode executar
                 # esse contrato; nenhuma aeronave particular é transferida.
@@ -621,36 +627,36 @@ class Application:
                     and p['code']==m.employer_plane and p['airport']==m.origin
                     and p['condition']>=15]
                 if not eligible_planes:
-                    messagebox.showwarning('Contrato','Aeronave empresarial não está disponível nesta origem.')
+                    warn('Contrato','Aeronave empresarial não está disponível nesta origem.')
                     return False
             elif m.company_code and (self.storage.employment_state()['mode']!='empregado' or
                                    self.storage.employment_state()['employer_code']!=m.company_code):
-                messagebox.showwarning('Contrato', 'Trecho exclusivo da companhia empregadora.')
+                warn('Contrato', 'Trecho exclusivo da companhia empregadora.')
                 return False
             if m.company_code and m.company_code!='OWN':
                 if self.mode!='MSFS' or not self.connected or not self.last_sample:
-                    messagebox.showwarning('Contrato da companhia',
+                    warn('Contrato da companhia',
                         'Conecte ao MSFS com a aeronave habilitada antes de aceitar a escala.')
                     return False
                 model=m.employer_plane
                 company=m.company_code
                 ratings=type_ratings.owned(self.storage)
                 if not type_ratings.valid_for_company(company,model,ratings):
-                    messagebox.showwarning('Contrato da companhia',
+                    warn('Contrato da companhia',
                         'Modelo não habilitado para esta empregadora. Consulte Treinamento.')
                     return False
                 if model not in self.airline_available_codes:
-                    messagebox.showwarning('Contrato da companhia',
+                    warn('Contrato da companhia',
                         'Aeronave não verificada no ambiente MSFS. Abra o modelo ou escaneie a instalação.')
                     return False
                 if (self.mode=='MSFS' and self.last_sample and
                         not matches_aircraft(self.last_sample.aircraft_title,model)):
-                    messagebox.showwarning('Contrato da companhia',
+                    warn('Contrato da companhia',
                         'Carregue no MSFS o modelo '+PLANE_BY_CODE[model].name+
                         ' antes de aceitar esta rota.')
                     return False
             if self.storage.contract_completed(m.id):
-                messagebox.showwarning("Contrato", "Este contrato já foi concluído. Aguarde nova oferta.")
+                warn("Contrato", "Este contrato já foi concluído. Aguarde nova oferta.")
                 return False
         try:
             self.career.accept(m, None if offline else self.last_sample)
@@ -675,7 +681,7 @@ class Application:
             self._checkpoint(force=True)
             return True
         except ValueError as exc:
-            messagebox.showwarning("Contrato",str(exc))
+            warn("Contrato",str(exc))
             return False
 
     def _market_window(self):
@@ -1456,11 +1462,12 @@ class Application:
                                           self.storage.family_experience())
             if not allowed:
                 return False, reason
-            ok = self._accept_specific(offer)
+            self._ingame_last_error = None
+            ok = self._accept_specific(offer, interactive=False)
             if ok:
                 self._ingame_offers_next = 0
             return (True, 'Contrato aceito; despacho iniciado pelo motor.') if ok else (
-                False, 'Contrato recusado pelo motor; confira o registro do FlightSim.')
+                False, self._ingame_last_error or 'Contrato recusado pelo motor; confira o registro do FlightSim.')
 
         m = self.career.mission
         if action in ('mission_cancel', 'dispatch_prepare'):
