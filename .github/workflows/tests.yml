@@ -61,7 +61,7 @@ jobs:
         run: .\\dist\\FlightSim\\FlightSim.exe --verify-native-webview
       - uses: actions/upload-artifact@v4
         with:
-          name: FlightSim-0.9.0-ingame-alpha4-Windows
+          name: FlightSim-0.9.1-ingame-alpha1-Windows
           path: dist/FlightSim/
 
       - name: Upload InGame SDK source (uncompiled)
