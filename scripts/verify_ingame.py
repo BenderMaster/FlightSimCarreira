@@ -46,6 +46,7 @@ try:
         assert page.locator('#balance').inner_text() == 'R$ 12.345', page.locator('#balance').inner_text()
         assert 'SIMCONNECT ATIVO' in page.locator('#status').inner_text()
         assert 'SBRF' in page.locator('#origin').inner_text()
+        assert page.locator('.route .arrow svg path').count() == 1
         assert page.locator('[data-page="dashboard"]').is_visible()
         assert not page.locator('[data-page="route"]').is_visible()
         page.screenshot(path=str(OUTPUT/'ingame-tablet-dashboard.png'),full_page=True)
