@@ -1,19 +1,13 @@
-# FlightSim v0.9.0 InGame Alpha.2 — branch em homologação
+# FlightSim v0.9.2 InGame Alpha.1 — operações completas no tablet
 
-Início do suporte à toolbar do MSFS 2020. O Windows conserva o motor Python/SQLite/SimConnect;
-o pacote-fonte do MSFS abre um painel somente leitura via loopback com telemetria e mapa leve.
-Ainda é necessário compilar o package no **SDK do MSFS 2020** e validar a compatibilidade do
-iframe com o Coherent. **A `main` permanece a v0.8.7 homologada.**
-
-- Guia de instalação: [v0.9.0 InGame](docs/INGAME_V090_BUILD.md)
-- Projeto SDK: [in_game/toolbar](in_game/toolbar)
-- API v2: `http://127.0.0.1:8769/api/v1/health` com o FlightSim Windows em execução
-- Os artifacts da branch ficam em GitHub Actions; source SDK e Windows são downloads diferentes.
-
-
-Atualização **Alpha.4**: build Windows sem CMD, fonte explícita Barlow PT-BR na ponte InGame e correção candidata para arrastar a barra nativa do MSFS.
+Branch de homologação `feature/v0.9.2-ingame-complete-operations`, derivada da v0.9.1 Alpha.1,
+com Planejamento, Hangar/Frota, Companhias, Piloto/Carreira, Logbook e Finanças.
+O motor Windows/SQLite/SimConnect permanece o único responsável por pagamentos e estado do voo.
+**A main continua na v0.8.7 aprovada.**
+Documentação de build e teste: [FlightSim InGame v0.9.2](docs/INGAME_V092_OPERATIONS.md).
 
 ---
+
 
 ## v0.8.3 Midnight Ops Alpha.4 — FlightSim: nome, insígnias e patrimônio pago
 
