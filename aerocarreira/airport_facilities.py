@@ -19,7 +19,7 @@ MAX_PACKET=65536
 # The definition is shared across all requests in one SimConnect connection.
 FIELDS=(
  'OPEN AIRPORT','N_RUNWAYS','N_TAXI_PARKINGS',
- 'OPEN RUNWAY','PRIMARY_ILS_ICAO','SECONDARY_ILS_ICAO',
+ 'OPEN RUNWAY','PRIMARY_ILS_ICAO','SECONDARY_ILS_ICAO','EDGE_LIGHTS','CENTER_LIGHTS',
  'OPEN PRIMARY_LEFT_VASI','TYPE','CLOSE PRIMARY_LEFT_VASI',
  'OPEN PRIMARY_RIGHT_VASI','TYPE','CLOSE PRIMARY_RIGHT_VASI',
  'OPEN SECONDARY_LEFT_VASI','TYPE','CLOSE SECONDARY_LEFT_VASI',
@@ -71,6 +71,11 @@ def parse_facility_packet(raw, expected_request):
             value=raw.split(b'\0',1)[0].decode('ascii','ignore').strip().upper()
             return value if value.isalnum() and len(value)<=8 else ''
         parsed['ils']=bool(text8(payload[:8]) or text8(payload[8:16]))
+        # Native INT8 fields follow the two CHAR[8] identifiers. Unknown
+        # packing or unexpected enumerations remain unverified.
+        parsed['runway_lights']=(bool(payload[16] or payload[17])
+             if len(payload)>=18 and payload[16] in (0,1,2,3)
+             and payload[17] in (0,1,2,3) else None)
     else:
         if len(payload)<4:raise ValueError('Campo da instalação incompleto.')
         number=struct.unpack_from('<i',payload)[0]
@@ -93,6 +98,7 @@ class DetailCollector:
         self.icao=icao
         self.header=None
         self.runways={}
+        self.runway_lights={}
         self.parkings={}
         self.papis={}
         self.lights={}
@@ -104,6 +110,7 @@ class DetailCollector:
             self.header=(packet['runways'],packet['parkings'])
         elif ty==RUNWAY:
             self.runways[packet['unique_id']]=packet['ils']
+            self.runway_lights[packet['unique_id']]=packet['runway_lights']
         elif ty==PARKING:
             self.parkings[packet['unique_id']]=packet['number']==12
         elif ty==VASI:
@@ -119,8 +126,11 @@ class DetailCollector:
              len(self.runways)>=nrun and nrun>0 else None)
         fuel_spot=(any(self.parkings.values()) if npark is not None and
                    len(self.parkings)>=npark and npark>0 else None)
+        valid_lights=[v for v in self.runway_lights.values() if v is not None]
+        lights_known=nrun is not None and nrun>0 and len(valid_lights)>=nrun
         return {'icao':self.icao,'source':'MSFS2020_SIMCONNECT_FACILITY',
                 'runways':nrun,'parkings':npark,
+                'runway_lights':any(valid_lights) if lights_known else None,
                 'ils':ils,
                 'papi':any(self.papis.values()) if self.papis else None,
                 'approach_lights':any(self.lights.values()) if self.lights else None,

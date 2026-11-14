@@ -1980,7 +1980,7 @@ class Application:
                 elif kind=='airport_detail_error':
                     icao,reason=item
                     self.airport_details[icao]={'icao':icao,'source':'NAO_VERIFICADO',
-                        'ils':None,'papi':None,'approach_lights':None,
+                        'ils':None,'papi':None,'runway_lights':None,'approach_lights':None,
                         'fuel_spot':None,'fuel_service':None,'reason':str(reason)[:150]}
                 elif kind=='airport_catalog_error':
                     self.airport_details.clear()

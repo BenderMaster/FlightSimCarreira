@@ -213,7 +213,7 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
    <label for="market-service-filter">Instalações no destino</label>
    <select class="btn" id="market-service-filter" aria-label="Filtrar contratos por instalações confirmadas">
     <option value="all">Todas as ofertas</option><option value="ils">Com ILS verificado</option>
-    <option value="papi">Com PAPI verificado</option>
+    <option value="papi">Com PAPI verificado</option><option value="runway_lights">Pistas iluminadas</option>
     <option value="approach_lights">Luzes de aproximação</option>
     <option value="fuel_spot">Ponto de combustível</option>
    </select>
@@ -445,7 +445,7 @@ function renderMarket(d){
   text.appendChild(title);text.appendChild(detail);text.appendChild(price);
   var info=facilities[o.destination]||{};
   var badges=document.createElement('div');badges.className='market-services';
-  [['ils','ILS'],['papi','PAPI'],['approach_lights','Luzes aprox.'],['fuel_spot','Ponto combustível']].forEach(function(spec){
+  [['ils','ILS'],['papi','PAPI'],['runway_lights','Pista iluminada'],['approach_lights','Luzes aprox.'],['fuel_spot','Ponto combustível']].forEach(function(spec){
    var flag=info[spec[0]],chip=document.createElement('span');
    chip.className='market-service-tag '+(flag===true?'yes':flag===false?'':'unknown');
    chip.textContent=spec[1]+': '+(flag===true?'Sim':flag===false?'Não':'Não verificado');
