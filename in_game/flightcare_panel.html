@@ -131,6 +131,17 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 .market-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .market-tabs{display:flex;gap:6px;flex-wrap:wrap}
 .market-tabs button[aria-pressed="true"]{border-color:var(--cyan);background:#15506a;color:var(--cyan)}
+.market-infra-controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0 13px;color:var(--muted);font-size:12px}
+.market-infra-controls select{min-height:40px;color:var(--ink);background:#11293a;border:1px solid #38647b;max-width:250px}
+.market-infra-controls small{flex:1;line-height:1.4}
+.market-ground-status{padding:9px 13px;background:#132c3b;border:1px solid #33556a;border-radius:8px;font-size:12px;color:#c9dde9;margin-bottom:13px}
+.market-ground-status[data-ready="true"]{border-color:#397460;color:#88e8c1}
+.market-services{margin:9px 0;display:flex;gap:5px;flex-wrap:wrap}
+.market-service-tag{font-size:11px;display:inline-block;border:1px solid #34586c;border-radius:6px;padding:4px 7px;color:#b7d0df;background:#0c2334}
+.market-service-tag.yes{border-color:#35785b;color:#83dfb0;background:#102d2b}
+.market-service-tag.unknown{color:#9daebd;border-style:dashed}
+.offer-route-arrow{display:inline-flex;vertical-align:middle;width:21px;height:16px;margin:0 5px}
+.offer-route-arrow path{stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .control-grid{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .control-grid input{background:#0a1927;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px;min-width:100px;max-width:190px;font:inherit}
 #action-feedback{position:fixed;z-index:10;right:15px;top:67px;max-width:min(440px,calc(100% - 30px));background:#153346;border:1px solid #43899c;color:#f0f9fd;padding:12px 16px;border-radius:8px;box-shadow:0 9px 20px #0009;font-size:14px}
@@ -197,6 +208,17 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
    <div class="market-tabs"><button class="btn" data-market-mode="regional" aria-pressed="true">Regional</button><button class="btn" data-market-mode="freelance" aria-pressed="false">Freelancer</button></div>
    <button class="btn" id="market-refresh">Atualizar ofertas</button>
   </div>
+  <div class="market-infra-controls">
+   <label for="market-service-filter">Instalações no destino</label>
+   <select class="btn" id="market-service-filter" aria-label="Filtrar contratos por instalações confirmadas">
+    <option value="all">Todas as ofertas</option><option value="ils">Com ILS verificado</option>
+    <option value="papi">Com PAPI verificado</option>
+    <option value="approach_lights">Luzes de aproximação</option>
+    <option value="fuel_spot">Ponto de combustível</option>
+   </select>
+   <small>Dados consultados no MSFS. Sem confirmação, a instalação aparece como não verificada.</small>
+  </div>
+  <div id="market-ground-status" class="market-ground-status" role="status">Verificando posição de estacionamento.</div>
   <div id="market-list" aria-live="polite"></div>
   <p>Requisitos e aeroportos são revalidados no momento do aceite; nenhuma oferta é garantida.</p>
  </div>
@@ -247,7 +269,7 @@ var key=document.querySelector('meta[name="flight-panel-key"]').content;
 var element=function(id){return document.getElementById(id);};
 var actionKey=document.querySelector('meta[name="flight-action-key"]').content;
 var writable=document.querySelector('meta[name="flight-writable"]').content==='true';
-var lastState={},marketMode='regional',commandBusy=false,confirmation=null,feedbackHandle=null;
+var lastState={},marketMode='regional',serviceFilter='all',commandBusy=false,confirmation=null,feedbackHandle=null;
 function feedback(message,error){
  var el=element('action-feedback');el.textContent=message;el.dataset.error=error?'true':'false';el.hidden=false;
  if(feedbackHandle)clearTimeout(feedbackHandle);
@@ -382,27 +404,55 @@ function renderMarket(d){
  while(list.firstChild)list.removeChild(list.firstChild);
  var offers=Array.isArray(d.offers)?d.offers:[];
  offers=offers.filter(function(x){return (!!x.freelance)===(marketMode==='freelance');});
+ var facilities=d.airport_services||{},ground=d.ground_operations||{};
+ var state=element('market-ground-status');
+ if(state){state.textContent=ground.awaiting_turnaround?
+  'PÓS-VOO: '+(ground.reason||'Complete os procedimentos no estacionamento.') :
+  ground.offer_allowed?'ESTACIONAMENTO CONFIRMADO • contratos podem ser aceitos.' :
+  'ACEITE BLOQUEADO • '+(ground.reason||'Aguardando estacionamento verificado.');
+  state.dataset.ready=ground.offer_allowed?'true':'false';}
+ if(serviceFilter!=='all'){
+  offers=offers.filter(function(x){return facilities[x.destination]&&
+                                        facilities[x.destination][serviceFilter]===true;});
+ }
  if(!offers.length){
   var empty=document.createElement('p');
   empty.textContent=!d.market_ready?'Aguardando catálogo oficial de aeroportos do MSFS.':
+   serviceFilter!=='all'?'Nenhuma oferta tem esta instalação confirmada pelo MSFS até agora.':
    'Nenhum contrato disponível nesta modalidade. Confira a região, habilitações e atualize.';
   list.appendChild(empty);return;
  }
  offers.slice(0,20).forEach(function(o){
   var row=document.createElement('div');row.className='offer-row';
   var text=document.createElement('div');text.className='offer-text';
-  var title=document.createElement('strong');title.textContent=(o.category||o.title||'Contrato')+' • '+(o.origin||'—')+' → '+(o.destination||'—');
+  var title=document.createElement('strong');
+  title.appendChild(document.createTextNode((o.category||o.title||'Contrato')+' • '+(o.origin||'—')));
+  var arrow=document.createElementNS(ns,'svg');
+  arrow.setAttribute('viewBox','0 0 22 16');arrow.setAttribute('class','offer-route-arrow');
+  arrow.setAttribute('role','img');arrow.setAttribute('aria-label','para');
+  arrow.appendChild(line('path',{d:'M2 8H20 M13 2L20 8 13 14'}));
+  title.appendChild(arrow);
+  title.appendChild(document.createTextNode(o.destination||'—'));
   var detail=document.createElement('small');
   detail.textContent=(o.manifest_label||'')+' • '+(typeof o.distance==='number'?value(o.distance,1)+' NM':'Distância indisponível')+
    ' • '+(o.allowed?'Elegível':(o.reason||'Requisitos não atendidos'));
   var price=document.createElement('div');price.className='offer-price';price.textContent=money(o.reward);
   text.appendChild(title);text.appendChild(detail);text.appendChild(price);
+  var info=facilities[o.destination]||{};
+  var badges=document.createElement('div');badges.className='market-services';
+  [['ils','ILS'],['papi','PAPI'],['approach_lights','Luzes aprox.'],['fuel_spot','Ponto combustível']].forEach(function(spec){
+   var flag=info[spec[0]],chip=document.createElement('span');
+   chip.className='market-service-tag '+(flag===true?'yes':flag===false?'':'unknown');
+   chip.textContent=spec[1]+': '+(flag===true?'Sim':flag===false?'Não':'Não verificado');
+   badges.appendChild(chip);
+  });
+  text.appendChild(badges);
   var button=document.createElement('button');button.textContent='Aceitar missão';
   var active=d.mission&&d.mission.id;
-  button.disabled=!writable||!o.allowed||!!active||d.status!=='connected'||!(d.telemetry&&d.telemetry.on_ground);
+  button.disabled=!writable||!o.allowed||!!active||d.status!=='connected'||!ground.offer_allowed;
   button.addEventListener('click',function(){
    askAction('offer_accept',o.id,'Aceitar contrato?',
-     (o.origin||'—')+' → '+(o.destination||'—')+
+     (o.origin||'—')+' até '+(o.destination||'—')+
      ' • Pagamento bruto '+money(o.reward)+'. O motor verificará aeroporto, requisitos, modelo e solo.');
   });
   row.appendChild(text);row.appendChild(button);list.appendChild(row);
@@ -512,6 +562,9 @@ Array.prototype.forEach.call(document.querySelectorAll('[data-market-mode]'),fun
   });
   renderMarket(lastState);
  });
+});
+element('market-service-filter').addEventListener('change',function(){
+ serviceFilter=this.value;renderMarket(lastState);
 });
 element('market-refresh').addEventListener('click',function(){sendAction('market_refresh',null);});
 element('mission-prepare').addEventListener('click',function(){

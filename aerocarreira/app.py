@@ -1866,7 +1866,19 @@ class Application:
             except (ValueError,TypeError,KeyError,AttributeError) as exc:
                 self._ingame_office_next=now+4
                 self._log('INGAME OFFICE: atualização não disponível: '+str(exc))
+        parked,parking_reason=parking_status(s)
         self.bridge_state.update(
+            ground_operations={
+                'offer_allowed':bool(s and parked and not self.turnaround.pending),
+                'reason':self.turnaround.reason if self.turnaround.pending else parking_reason,
+                'awaiting_turnaround':bool(self.turnaround.pending),
+                'confirmed_gate':bool(parked),
+                'runway':s.on_any_runway if s else None,
+                'parking_brake':s.parking_brake_set if s else None,
+                'atc_parking':s.atc_on_parking_spot if s else None,
+                'parking_state':s.plane_in_parking_state if s else None,
+                'engines_running':s.engine_running if s else None,
+            },
             airport_services=services,
             office=getattr(self,'_ingame_office_cache',{}),
             office_updated=getattr(self,'_ingame_office_updated',0),
