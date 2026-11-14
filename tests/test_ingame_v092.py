@@ -54,7 +54,7 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual(len(state['logbook']['flights']),35)
         self.assertEqual(len(state['finances']['transactions']),35)
         self.assertEqual(state['logbook']['landings'][0]['fpm'],-150)
-        self.assertEqual(state['finances']['monthly'][0]['net'],None) if False else self.assertEqual(state['finances']['monthly'][0]['income'],4000)
+        self.assertEqual(state['finances']['monthly'][0]['income'],4000)
 
     def test_empty_projection_is_safe(self):
         s=project({})
@@ -192,9 +192,9 @@ class OwnerThreadTests(unittest.TestCase):
             ok,msg=self.app._execute_ingame_command('fleet_buy_new','c172','client-req-buy')
         self.assertTrue(ok,msg)
         args=execute.call_args.args
-        self.assertEqual(args[3],'aircraft_buy_new')
-        self.assertTrue(args[4].startswith('c172|'))
-        self.assertEqual(len(args[4].split('|')[-1]),36)
+        self.assertEqual(args[2],'aircraft_buy_new')
+        self.assertTrue(args[3].startswith('c172|'))
+        self.assertEqual(len(args[3].split('|')[-1]),36)
         self.app.career.mission=SimpleNamespace(id='active')
         ok,_=self.app._execute_ingame_command('fleet_buy_new','c172','client-req-buy2')
         self.assertFalse(ok)
