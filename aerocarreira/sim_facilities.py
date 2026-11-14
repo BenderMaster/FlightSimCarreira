@@ -156,10 +156,12 @@ def connection_class():
                 rid=self._detail_next
                 self._detail_next+=1
                 collector=detail.DetailCollector(icao)
+                # Register before the asynchronous call can dispatch a packet.
+                self._detail_requests[rid]=collector
                 hr=request(self.hSimConnect,detail.DEFINE_ID,rid,icao.encode('ascii'),b'')
                 if hr!=0:
+                    self._detail_requests.pop(rid,None)
                     raise ValueError('Instalações '+icao+': HRESULT '+str(hr))
-                self._detail_requests[rid]=collector
                 return True
             except (AttributeError,OSError,TypeError,ValueError,RuntimeError) as exc:
                 self.detail_callbacks[1](icao,str(exc))

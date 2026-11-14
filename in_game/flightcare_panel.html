@@ -139,6 +139,9 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 .market-services{margin:9px 0;display:flex;gap:5px;flex-wrap:wrap}
 .market-service-tag{font-size:11px;display:inline-block;border:1px solid #34586c;border-radius:6px;padding:4px 7px;color:#b7d0df;background:#0c2334}
 .market-service-tag.yes{border-color:#35785b;color:#83dfb0;background:#102d2b}
+.market-sensor-details{font-size:11px;color:#9fb9ca;margin:0 0 12px}
+.market-sensor-details summary{cursor:pointer;color:#a6d6ee;margin-bottom:5px}
+#market-sensor-readings{padding:8px;border:1px solid #355770;border-radius:6px;line-height:1.65}
 .market-service-tag.unknown{color:#9daebd;border-style:dashed}
 .offer-route-arrow{display:inline-flex;vertical-align:middle;width:21px;height:16px;margin:0 5px}
 .offer-route-arrow path{stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
@@ -213,15 +216,16 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
    <label for="market-service-filter">Instalações no destino</label>
    <select class="btn" id="market-service-filter" aria-label="Filtrar contratos por instalações confirmadas">
     <option value="all">Todas as ofertas</option><option value="ils">Com ILS verificado</option>
-    <option value="papi">Com PAPI verificado</option><option value="runway_lights">Pistas iluminadas</option>
+    <option value="papi">Com PAPI verificado</option><option value="runway_end_lights">Luzes de cabeceira</option>
     <option value="approach_lights">Luzes de aproximação</option>
     <option value="fuel_spot">Ponto de combustível</option>
    </select>
    <small>Dados consultados no MSFS. Sem confirmação, a instalação aparece como não verificada.</small>
   </div>
   <div id="market-ground-status" class="market-ground-status" role="status">Verificando posição de estacionamento.</div>
+  <details class="market-sensor-details"><summary>Diagnóstico da posição de estacionamento</summary><div id="market-sensor-readings">Aguardando SimConnect.</div></details>
   <div id="market-list" aria-live="polite"></div>
-  <p>Requisitos e aeroportos são revalidados no momento do aceite; nenhuma oferta é garantida.</p>
+  <p>Requisitos e aeroportos são revalidados no momento do aceite; nenhuma oferta é garantida. O campo "Não verificado" significa ausência de dados, não ausência da instalação.</p>
  </div>
 </section>
 <section class="page" data-page="route" aria-label="Mapa do voo" hidden>
@@ -416,6 +420,15 @@ function renderMarket(d){
   ground.offer_allowed?'ESTACIONAMENTO CONFIRMADO • contratos podem ser aceitos.' :
   'ACEITE BLOQUEADO • '+(ground.reason||'Aguardando estacionamento verificado.');
   state.dataset.ready=ground.offer_allowed?'true':'false';}
+ var sensors=element('market-sensor-readings');
+ if(sensors){
+  var signal=function(v){return v===true?'Sim':v===false?'Não':'Indisponível';};
+  sensors.textContent='Na pista: '+signal(ground.runway)+
+   ' • Estado estacionado: '+signal(ground.parking_state)+
+   ' • ATC no portão: '+signal(ground.atc_parking)+
+   ' • Freio: '+signal(ground.parking_brake)+
+   ' • Motores ligados: '+signal(ground.engines_running);
+ }
  if(serviceFilter!=='all'){
   offers=offers.filter(function(x){return facilities[x.destination]&&
                                         facilities[x.destination][serviceFilter]===true;});
@@ -445,13 +458,19 @@ function renderMarket(d){
   text.appendChild(title);text.appendChild(detail);text.appendChild(price);
   var info=facilities[o.destination]||{};
   var badges=document.createElement('div');badges.className='market-services';
-  [['ils','ILS'],['papi','PAPI'],['runway_lights','Pista iluminada'],['approach_lights','Luzes aprox.'],['fuel_spot','Ponto combustível']].forEach(function(spec){
+  [['ils','ILS'],['papi','PAPI'],['runway_end_lights','Luzes cabeceira'],['approach_lights','Luzes aprox.'],['fuel_spot','Ponto combustível']].forEach(function(spec){
    var flag=info[spec[0]],chip=document.createElement('span');
    chip.className='market-service-tag '+(flag===true?'yes':flag===false?'':'unknown');
    chip.textContent=spec[1]+': '+(flag===true?'Sim':flag===false?'Não':'Não verificado');
    badges.appendChild(chip);
   });
   text.appendChild(badges);
+  if(info.reason){
+   var error=document.createElement('small');
+   error.className='market-service-diagnostic';
+   error.textContent='Dados MSFS: '+info.reason;
+   text.appendChild(error);
+  }
   var button=document.createElement('button');button.textContent='Aceitar missão';
   var active=d.mission&&d.mission.id;
   button.disabled=!writable||!o.allowed||!!active||d.status!=='connected'||!ground.offer_allowed;

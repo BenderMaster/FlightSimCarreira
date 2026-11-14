@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 from aerocarreira.domain import FlightSample, Career, Mission
 from aerocarreira.app import Application
-from aerocarreira.sim_adapter import SampleReader
+from aerocarreira.sim_adapter import SampleReader, register_parking_simvars, PARKING_SIMVARS
 from aerocarreira.turnaround import TurnaroundGate, parking_status
 from aerocarreira.airport_facilities import (DetailCollector, parse_facility_packet,
     parse_facility_end, DATA_ID, DATA_END_ID, AIRPORT, RUNWAY, PARKING,
@@ -26,6 +26,23 @@ def sample(t=1,**kwargs):
 
 
 class ParkingTests(unittest.TestCase):
+    def test_register_missing_sdk_simvars_on_local_requests_instance(self):
+        class Group:
+            def __init__(self):
+                self.list={'NUMBER_OF_ENGINES': ['Normal',b'NUMBER OF ENGINES',b'Number','N']}
+        legacy=Group()
+        another=Group()
+        requests=SimpleNamespace(list=[legacy])
+        self.assertTrue(register_parking_simvars(requests))
+        for key in PARKING_SIMVARS:
+            self.assertIn(key,legacy.list)
+            self.assertEqual(legacy.list[key][3],'N')
+        self.assertNotIn('ON_ANY_RUNWAY',another.list)
+        self.assertEqual(len(legacy.list),4)
+        self.assertTrue(register_parking_simvars(requests))
+        self.assertEqual(len(legacy.list),4)
+
+
     def test_acceptance_requires_real_stand_not_runway(self):
         ok,_=parking_status(sample(engine_running=True))
         self.assertTrue(ok)
@@ -143,7 +160,7 @@ class FacilityTests(unittest.TestCase):
             packet(PARKING,5,1,struct.pack('<i',12)),
             packet(PARKING,6,1,struct.pack('<i',8)),
             packet(VASI,7,2,struct.pack('<i',8)),
-            packet(APPROACH_LIGHTS,8,2,struct.pack('<i',3))
+            packet(APPROACH_LIGHTS,8,2,struct.pack('<5i',3,1,1,0,1))
         ]
         for value in values:
             col.feed(value,6201)
@@ -151,9 +168,11 @@ class FacilityTests(unittest.TestCase):
         self.assertEqual(result['runways'],2)
         self.assertEqual(result['parkings'],3)
         self.assertTrue(result['ils'])
-        self.assertTrue(result['runway_lights'])
+        self.assertIsNone(result['runway_lights'])
         self.assertTrue(result['papi'])
         self.assertTrue(result['approach_lights'])
+        self.assertTrue(result['runway_end_lights'])
+        self.assertIsNone(result['runway_lights'])
         self.assertTrue(result['fuel_spot'])
         self.assertIsNone(result['fuel_service'])
 
