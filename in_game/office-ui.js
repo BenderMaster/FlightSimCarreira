@@ -245,6 +245,17 @@ function renderAirlines(o){
    },!ground()||!!latest.mission||!v.allowed);
   });
  }else if(mode==='empresario')placeholder(jobs,'Sua companhia está ativa. Consulte os contratos empresariais no Mercado.');
+ var contracts=fresh('airline-contracts');
+ var options=(mode==='empregado'?(a.employer_offers||[]):mode==='empresario'?(a.corporate_offers||[]):[]);
+ if(!options.length)placeholder(contracts,'Nenhum contrato da empresa disponível para este período.');
+ options.slice(0,18).forEach(function(x){
+  var row=entry(contracts,x.title||x.origin+' → '+x.destination,
+   (x.origin||'—')+' → '+(x.destination||'—')+' • '+money(x.reward));
+  button(actions(row),'Aceitar trecho',function(){
+   confirmAction('offer_accept',x.id,'Aceitar trecho da companhia?',
+    (x.origin||'—')+' → '+(x.destination||'—')+'. O motor revalida habilitação, modelo e aeroporto.');
+  },!ground()||!!latest.mission);
+ });
  var rated=fresh('airline-ratings'),types=a.type_ratings||[];
  if(!types.length)placeholder(rated,'Habilitações ainda não disponíveis.');
  types.slice(0,25).forEach(function(t){
