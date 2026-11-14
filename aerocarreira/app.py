@@ -70,6 +70,7 @@ class Application:
         self.tracker = FlightTracker()
         self.post_landing_taxi = PostLandingTaxi()
         self.turnaround = TurnaroundGate()
+        self.pending_taxi_penalty_key=None
         self.profiles=ProfileManager(state_dir())
         self.settings_prefs=settings_center.read_global(state_dir())
         self.airline_available_codes=set()
@@ -100,13 +101,14 @@ class Application:
                 self.tracker = FlightTracker.from_snapshot(checkpoint["tracker"])
                 self.post_landing_taxi=PostLandingTaxi.from_snapshot(checkpoint.get('post_landing_taxi_v2'))
                 self.turnaround=TurnaroundGate.restore(checkpoint.get('turnaround_v093'))
-                if self.tracker.phase == Phase.AIRBORNE and self.career.mission:
+                self.pending_taxi_penalty_key=checkpoint.get('pending_taxi_penalty_v093')
+                if (self.tracker.phase == Phase.AIRBORNE or self.turnaround.pending) and self.career.mission:
                     self.realism_frozen = float(checkpoint.get('realism_frozen',0.0))
                     self.realism_mission = checkpoint.get('realism_mission')
                 self.fuel_company_guard=checkpoint.get('fuel_company_guard')
                 self.dispatch_state=checkpoint.get('dispatch_state') or {}
                 self.weight_bonus_frozen=int(checkpoint.get('weight_bonus_frozen',0))
-                if self.tracker.phase == Phase.AIRBORNE:
+                if self.tracker.phase == Phase.AIRBORNE or self.turnaround.pending:
                     self.fuel_penalty_frozen=float(checkpoint.get('fuel_penalty_frozen',0.0))
                     self.fuel_mode_at_takeoff=bool(checkpoint.get('fuel_mode_at_takeoff',False))
                     self.fuel_ref_frozen=checkpoint.get('fuel_ref_frozen')
@@ -1127,7 +1129,8 @@ class Application:
                 'fuel_company_guard':self.fuel_company_guard,
                 'dispatch_state':self.dispatch_state,
                 'weight_bonus_frozen':self.weight_bonus_frozen,
-                'turnaround_v093':self.turnaround.snapshot()}
+                'turnaround_v093':self.turnaround.snapshot(),
+                'pending_taxi_penalty_v093':self.pending_taxi_penalty_key}
 
     def _checkpoint(self, force=False):
         # Demo mantém o banco de carreira; checkpoint do voo é para modo MSFS.
@@ -1246,7 +1249,14 @@ class Application:
             key=self.post_landing_taxi.observe(s)
             if key:
                 try:
-                    penalty=self.storage.apply_postflight_taxi_penalty(key)
+                    if self.turnaround.pending:
+                        # Flight record is inserted only after destination shutdown.
+                        self.pending_taxi_penalty_key=key
+                        self._log('TÁXI APÓS POUSO: excesso registrado; penalidade de XP pendente.')
+                        self._checkpoint(force=True)
+                        key=None
+                    penalty=(self.storage.apply_postflight_taxi_penalty(key)
+                             if key is not None else 0)
                     if penalty:
                         self._log(f'TÁXI APÓS POUSO: -{penalty} XP neste voo (pista liberada, excesso sustentado).')
                         self._refresh_pilot_summary()
@@ -1351,6 +1361,14 @@ class Application:
                 self._log("MANOBRA BRUSCA: força G extrema sustentada; evento contabilizado.")
         if self.turnaround.pending:
             self._complete_pending_turnaround(s)
+        if self.pending_taxi_penalty_key and not self.turnaround.pending:
+            try:
+                amount=self.storage.apply_postflight_taxi_penalty(self.pending_taxi_penalty_key)
+                if amount:self._log('TÁXI APÓS POUSO: -'+str(amount)+' XP reprocessados.')
+                self.pending_taxi_penalty_key=None
+                self._checkpoint(force=True)
+            except Exception:
+                pass
         if previous_phase != self.tracker.phase or self.career.mission and events:
             self._checkpoint(force=True)
         else:
@@ -1415,6 +1433,7 @@ class Application:
         checkpoint_after['fuel_mode_at_takeoff']=False
         checkpoint_after['fuel_ref_frozen']=None
         checkpoint_after['turnaround_v093']={'pending':None,'since':None,'last':None,'reason':None}
+        checkpoint_after['pending_taxi_penalty_v093']=self.pending_taxi_penalty_key
         realism_fraction=(self.realism_frozen if payment and
                           self.realism_mission==payment['mission'] else 0.0)
         safety_xp=flight_safety_xp(self.tracker,v)
@@ -1449,6 +1468,13 @@ class Application:
             # O checkpoint anterior mantém a fase em voo; ao reiniciar,
             # o app poderá confirmar novamente o pouso em solo.
             return
+        if self.pending_taxi_penalty_key:
+            try:
+                amount=self.storage.apply_postflight_taxi_penalty(self.pending_taxi_penalty_key)
+                if amount:self._log('TÁXI APÓS POUSO: -'+str(amount)+' XP após fechamento do voo.')
+                self.pending_taxi_penalty_key=None
+            except Exception as exc:
+                self._log('ALERTA: penalidade de táxi pendente de reprocessamento: '+str(exc))
         self.tracker = next_tracker
         self.post_landing_taxi=next_post
         self.turnaround=TurnaroundGate()
