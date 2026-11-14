@@ -35,6 +35,14 @@ FONT_FILES = {
     '/fonts/BarlowSemiCondensed-Regular.ttf': 'BarlowSemiCondensed-Regular.ttf',
     '/fonts/BarlowSemiCondensed-SemiBold.ttf': 'BarlowSemiCondensed-SemiBold.ttf',
 }
+# Existing showcase photographs, packaged with the Windows app. Never accept
+# filesystem paths from the iframe or fetch remote content.
+MODEL_IMAGES = {
+    '/media/c172.jpg': 'market-c172.jpg',
+    '/media/g58.jpg': 'market-g58.jpg',
+    '/media/kingair.jpg': 'market-kingair.jpg',
+    '/media/cj4.jpg': 'market-cj4.jpg',
+}
 
 
 def validate_command_value(action, value):
@@ -237,6 +245,12 @@ class LocalPanelServer:
                     with owner.command_lock:
                         receipt = owner.receipts.get(request_id)
                         return self.reply(200, json.dumps(receipt, ensure_ascii=False).encode('utf-8')) if receipt else self.reply(404)
+                if path in MODEL_IMAGES:
+                    image = FONT_ROOT.parent / MODEL_IMAGES[path]
+                    if not image.is_file():
+                        owner.rejected += 1
+                        return self.reply(404)
+                    return self.reply(200,image.read_bytes(),'image/jpeg')
                 if path in FONT_FILES:
                     # Exact-match resource allowlist; no filesystem paths from URLs.
                     f = FONT_ROOT / FONT_FILES[path]

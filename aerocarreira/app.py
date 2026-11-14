@@ -1730,12 +1730,14 @@ class Application:
                 from .ingame_office import project
                 if self.dashboard:
                     self._ingame_office_cache=project(self.dashboard.presenter.snapshot())
+                    self._ingame_office_updated=now
                     self._ingame_office_next=now+4
             except (ValueError,TypeError,KeyError,AttributeError) as exc:
                 self._ingame_office_next=now+4
                 self._log('INGAME OFFICE: atualização não disponível: '+str(exc))
         self.bridge_state.update(
             office=getattr(self,'_ingame_office_cache',{}),
+            office_updated=getattr(self,'_ingame_office_updated',0),
             offers=getattr(self, '_ingame_offers_cache', []),
             market_ready=bool(self.msfs_airports_ready),
             fuel_control_enabled=self.storage.get_setting('fuel_control_enabled') == '1',
