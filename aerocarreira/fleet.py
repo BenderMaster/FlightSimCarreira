@@ -184,6 +184,33 @@ class FleetManager:
                 self.conn.execute("DELETE FROM settings WHERE key='active_aircraft_ref'")
         return price
 
+    def set_insurance(self, ref, enabled, *, request_id=None):
+        """Update a unit's insurance through the same transactional fleet ledger.
+
+        Legacy aircraft retain the established Storage.set_insurance semantics.
+        Rentals do not support policy changes; original rules remain authoritative.
+        """
+        plane=self.get(ref)
+        if plane is None or plane['kind']=='rented':
+            raise ValueError('Seguro permitido somente para aeronaves próprias.')
+        enabled=bool(enabled)
+        if bool(plane['insured'])==enabled:
+            raise ValueError('A apólice já está neste estado.')
+        if ref.startswith('legacy:'):
+            return self.db.set_insurance(plane['code'],enabled)
+        if not ref.startswith('unit:'):
+            raise ValueError('Aeronave não encontrada na frota.')
+        model=AIRCRAFT_ECONOMY.get(plane['code'])
+        if model is None:raise ValueError('Modelo desconhecido para seguro.')
+        with self.conn:
+            self._claim_request(request_id,'insurance')
+            if enabled:
+                self.db._money_movement('fleet-insurance:'+ref+':'+(request_id or str(time_ns())),
+                    'seguro',-model.insurance_price,'Apólice virtual para '+plane['title'])
+            self.conn.execute('UPDATE fleet_units SET insured=? WHERE id=?',
+                (int(enabled),int(ref.split(':',1)[1])))
+        return int(self.db.get_setting('balance') or 0)
+
     def service(self, ref):
         plane=self.get(ref)
         if not plane or not ref.startswith('unit:'):

@@ -1473,13 +1473,17 @@ class Application:
                 return False, str(exc)
 
         if action in ('fleet_select','fleet_service','fleet_buy_new','fleet_buy_used',
-                      'fleet_rent','fleet_sell'):
+                      'fleet_rent','fleet_sell','fleet_insurance'):
             from .aircraft_marketplace import execute_market, market_location
             if self.career.mission:
                 return False,'Finalize ou cancele o contrato antes de alterar a frota.'
             fm=self.storage.fleet_manager()
             ref=value
-            if action in ('fleet_select','fleet_service'):
+            if action in ('fleet_select','fleet_service','fleet_insurance'):
+                if action=='fleet_insurance':
+                    if '|' not in value:return False,'Formato de seguro inválido.'
+                    ref,flag=value.rsplit('|',1)
+                    if flag not in ('0','1'):return False,'Opção de seguro inválida.'
                 plane=fm.get(ref)
                 if not plane:
                     return False,'Aeronave não está no hangar ou aluguel expirou.'
@@ -1490,6 +1494,14 @@ class Application:
                 airport,reason=market_location(self,self.dashboard.presenter.center if self.dashboard else None)
                 if not airport or plane['airport'] != airport:
                     return False,reason or 'Revisão exige o aeroporto de localização do avião.'
+                if action=='fleet_insurance':
+                    import uuid
+                    tx=str(uuid.uuid5(uuid.NAMESPACE_URL,'flightsim-insurance:'+str(request_id)))
+                    fm.set_insurance(ref,flag=='1',request_id=tx)
+                    self.career.balance=int(self.storage.get_setting('balance') or 0)
+                    self.balance_var.set(brl(self.career.balance))
+                    self._ingame_office_next=0
+                    return True,('Seguro ativado.' if flag=='1' else 'Seguro desativado.')+' Saldo '+brl(self.career.balance)
                 if action=='fleet_service':
                     if ref.startswith('legacy:'):
                         self.storage.service_aircraft(plane['code'])

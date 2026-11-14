@@ -173,6 +173,11 @@ function renderHangar(o){
    confirmAction('fleet_service',x.ref,'Revisar aeronave?',x.title+
      ' • A revisão tem custo calculado pelo motor e exige que a aeronave esteja no aeroporto correto.');
   },!allowed||!!latest.mission||x.condition>=99.9);
+  button(bar,x.insured?'Desativar seguro':'Ativar seguro',function(){
+   confirmAction('fleet_insurance',x.ref+'|'+(x.insured?'0':'1'),
+    x.insured?'Desativar apólice?':'Contratar apólice?',
+    x.title+' • '+(x.insured?'Remover cobertura virtual.':'Cobertura e custo serão calculados no motor.'));
+  },!allowed||!!latest.mission||x.kind==='rented');
   add(host,card);
  });
  var rows=[];

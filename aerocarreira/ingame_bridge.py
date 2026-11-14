@@ -26,7 +26,7 @@ ALLOWED_ACTIONS = {'offer_accept', 'mission_cancel', 'dispatch_prepare', 'market
                    'fuel_toggle', 'fuel_refuel',
                    'plan_save','plan_export','plan_send','plan_clear',
                    'fleet_select','fleet_service','fleet_buy_new','fleet_buy_used',
-                   'fleet_rent','fleet_sell',
+                   'fleet_rent','fleet_sell','fleet_insurance',
                    'airline_apply','airline_review','airline_resign','airline_found','airline_buy_plane',
                    'pilot_license_claim','logbook_note',
                    'finance_loan','finance_repay','finance_tax'}
@@ -59,7 +59,7 @@ def validate_command_value(action, value):
             ord(ch) < 32 or ord(ch) == 127 for ch in value)
     if action in ('offer_accept','mission_cancel','dispatch_prepare',
                   'fleet_select','fleet_service','fleet_buy_new','fleet_buy_used',
-                  'fleet_rent','fleet_sell','airline_apply','airline_found',
+                  'fleet_rent','fleet_sell','fleet_insurance','airline_apply','airline_found',
                   'airline_buy_plane','pilot_license_claim'):
         return type(value) is str and 1 <= len(value) <= 110 and all(
             32 <= ord(c) <= 126 for c in value)
