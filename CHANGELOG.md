@@ -5,7 +5,7 @@
 - **Hangar e mercado:** seleção de aeronave, conservação, revisão, seguro, fotos personalizadas do SQLite entregues como miniaturas locais seguras, imagens showroom locais, compra, revenda e aluguel com confirmações. O motor valida aeroporto, saldo, estado de voo e idempotência.
 - **Companhias:** emprego, candidaturas, compromisso semanal, contratos profissionais, habilitações por tipo, demissão, fundação e compras empresariais, respeitando as regras da versão desktop.
 - **Carreira e piloto:** identidade, base, patente, nível, XP, reputação, licenças reivindicáveis com elegibilidade real e conquistas.
-- **Logbook:** voos, duração, distância, pousos, XP, resultado financeiro e notas persistentes; dados autênticos do SQLite, sem criar registros simulados.
+- **Logbook:** voos, duração, distância, pousos, XP, resultado financeiro e notas persistentes, gráficos de horas por aeronave e últimos pousos, com dados autênticos do SQLite.
 - **Finanças:** saldo, receita, despesas, patrimônio, dívida, movimentações, comparação mensal em gráfico local, empréstimo, amortização e imposto virtual.
 - **Integração:** projeção limitada `ingame_office` a cada 4 s na thread Tk, API local versionada, proteção contra CSRF/replay e comandos transacionais. Nada sensível é alterado pelo JavaScript.
 - **UI/compatibilidade:** módulos CSS/JS locais, fontes PT-BR Barlow, cards Midnight, imagens, botões legíveis e navegação adaptativa com barra rolável no painel estreito. Mantidos executável GUI sem CMD e wrapper Community v0.9.1.

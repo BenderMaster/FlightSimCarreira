@@ -322,6 +322,29 @@ function renderLogbook(o){
   fmt(flights[0].touchdown_fpm)+' ft/min':'—');
  metric(m,'HORAS NA CARREIRA',fmt(o.pilot&&o.pilot.hours,1)+' h');
  metric(m,'CONTRATOS',fmt(o.pilot&&o.pilot.contracts));
+ var ahrs=fresh('logbook-aircraft-hours'),land=fresh('logbook-landings');
+ var hours=Array.isArray(data.aircraft_hours)?data.aircraft_hours:[],
+     touchdowns=Array.isArray(data.landings)?data.landings:[];
+ if(!hours.length)placeholder(ahrs,'Nenhuma hora por modelo registrada.');
+ var maxHours=1;
+ hours.forEach(function(x){if(Array.isArray(x))maxHours=Math.max(maxHours,safeNum(x[1]));});
+ hours.forEach(function(x){if(!Array.isArray(x))return;
+  var row=add(ahrs,node('div','office-bar-row'));
+  add(row,node('span','',String(x[0]||'Aeronave')));
+  var bar=add(row,node('div','office-bar-track'));
+  var fill=add(bar,node('i'));fill.style.width=Math.max(2,100*safeNum(x[1])/maxHours)+'%';
+  add(row,node('strong','',fmt(x[1],1)+' h'));
+ });
+ if(!touchdowns.length)placeholder(land,'Nenhum pouso registrado com razão vertical.');
+ touchdowns.slice(-10).reverse().forEach(function(x){
+  if(typeof x.fpm!=='number')return;
+  var row=add(land,node('div','office-bar-row'));
+  add(row,node('span','',date(x.when)));
+  var bar=add(row,node('div','office-bar-track'));
+  var fill=add(bar,node('i',x.fpm< -400?'rough':''));
+  fill.style.width=Math.max(2,Math.min(100,100*Math.abs(x.fpm)/900))+'%';
+  add(row,node('strong','',fmt(x.fpm)+' fpm'));
+ });
  if(!flights.length)placeholder(list,'Nenhum voo registrado.');
  flights.forEach(function(f){
   var row=entry(list,f.aircraft||'Aeronave não identificada',
