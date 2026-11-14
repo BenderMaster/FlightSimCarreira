@@ -248,6 +248,13 @@ class SimConnectWorker:
         self.thread = Thread(target=self._run, name="simconnect-reader", daemon=True)
         self.thread.start()
 
+    def request_airport_detail(self, icao):
+        """Request facility records on the single owner SimConnect worker."""
+        from .airport_facilities import ICAO
+        if not isinstance(icao,str) or not ICAO.fullmatch(icao):
+            raise ValueError('Código de aeroporto inválido.')
+        self.actions.put(('airport_detail',icao))
+
     def request_airports(self, codes=()):
         """Compatibilidade: sempre consulta a lista INTEIRA do MSFS 2020.
 
@@ -296,6 +303,10 @@ class SimConnectWorker:
                 except (AttributeError,OSError,ValueError,RuntimeError) as exc:
                     sm=SimConnect()  # mantém monitor, mas NÃO libera mercado
                     self._send('airport_catalog_error','Listagem MSFS indisponível: '+str(exc))
+                if hasattr(sm,'detail_callbacks'):
+                    sm.detail_callbacks=(
+                        lambda icao,values:self._send('airport_detail',(icao,values)),
+                        lambda icao,error:self._send('airport_detail_error',(icao,error)))
                 aq = AircraftRequests(sm, _time=200)
                 reader = SampleReader(aq)
                 self._send("connected", "SimConnect conectado")
@@ -316,6 +327,10 @@ class SimConnectWorker:
                                 # estiver carregado e a aeronave em solo.
                                 # Nunca pedir múltiplos catálogos mundiais.
                                 pass
+                            if action == 'airport_detail':
+                                if not getattr(sm,'request_airport_detail',lambda code:False)(path):
+                                    self._send('airport_detail_error',
+                                               (path,'Detalhes não disponíveis nesta conexão SimConnect.'))
                             if action == 'fuel_restore':
                                 # Ações de escrita somente pela thread SimConnect.
                                 # Settable: quantidades individuais; total é read-only.

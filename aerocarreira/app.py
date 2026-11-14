@@ -134,6 +134,9 @@ class Application:
         self.planning_dialog = None
         self.airport_catalog = None
         self.msfs_airports_ready=False
+        self.airport_details={}
+        self.airport_details_requested=set()
+        self.airport_details_next=0.0
         self.bridge_state = PanelState()
         self.bridge = LocalPanelServer(self.bridge_state, allow_commands=True)
         self.bridge_error = None
@@ -1801,6 +1804,34 @@ class Application:
                     offers[-1].update(allowed=bool(allowed),reason=str(reason)[:180])
             self._ingame_offers_cache = offers
             self._ingame_offers_next = now + 1.5
+        # Airport facilities are never sourced from a third-party database.
+        # Queue at most one live MSFS facility query every 0.8s; no bulk BGL
+        # extraction and no changes to the official airport catalogue.
+        if (self.mode=='MSFS' and self.connected and self.sim and
+                self.msfs_airports_ready and self.airport_catalog and
+                now>=self.airport_details_next):
+            candidates=[]
+            if self.career.mission:
+                candidates=[self.career.mission.origin,self.career.mission.destination]
+            for offer in getattr(self,'_ingame_offers_cache',[])[:25]:
+                candidates.extend([offer.get('origin'),offer.get('destination')])
+            for code in candidates:
+                if (code in self.airport_catalog.locations and
+                        code not in self.airport_details_requested and
+                        len(self.airport_details_requested)<50):
+                    self.airport_details_requested.add(code)
+                    self.airport_details_next=now+0.8
+                    self.sim.request_airport_detail(code)
+                    break
+        services={}
+        for offer in getattr(self,'_ingame_offers_cache',[])[:30]:
+            code=offer.get('destination')
+            if code and code in self.airport_details:
+                services[code]=self.airport_details[code]
+        if self.career.mission:
+            for code in (self.career.mission.origin,self.career.mission.destination):
+                if code in self.airport_details:services[code]=self.airport_details[code]
+
         fuel_info = None
         selected = self.storage.fleet_manager().selected()
         if selected:
@@ -1836,6 +1867,7 @@ class Application:
                 self._ingame_office_next=now+4
                 self._log('INGAME OFFICE: atualização não disponível: '+str(exc))
         self.bridge_state.update(
+            airport_services=services,
             office=getattr(self,'_ingame_office_cache',{}),
             office_updated=getattr(self,'_ingame_office_updated',0),
             offers=getattr(self, '_ingame_offers_cache', []),
@@ -1903,7 +1935,18 @@ class Application:
                     self._log('Peso enviado ao simulador; aguardando leitura de confirmação.')
                 elif kind=='airport_catalog':
                     self._apply_msfs_catalog(item)
+                elif kind=='airport_detail':
+                    icao,info=item
+                    if self.msfs_airports_ready and self.airport_catalog and icao in self.airport_catalog.locations:
+                        self.airport_details[icao]=info
+                elif kind=='airport_detail_error':
+                    icao,reason=item
+                    self.airport_details[icao]={'icao':icao,'source':'NAO_VERIFICADO',
+                        'ils':None,'papi':None,'approach_lights':None,
+                        'fuel_spot':None,'fuel_service':None,'reason':str(reason)[:150]}
                 elif kind=='airport_catalog_error':
+                    self.airport_details.clear()
+                    self.airport_details_requested.clear()
                     self.msfs_airports_ready=False
                     self.airport_catalog=None
                     if self.dashboard:
@@ -1915,6 +1958,8 @@ class Application:
                         self.dispatch_state.update(payload='error',message=item)
                     self._log('CARGA: '+item)
                 elif kind=="disconnected":
+                    self.airport_details.clear()
+                    self.airport_details_requested.clear()
                     self.connected=False
                     self.msfs_airports_ready=False
                     self.airport_catalog=None
