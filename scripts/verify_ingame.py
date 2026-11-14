@@ -112,6 +112,7 @@ try:
         assert page.locator('#wp-label').input_value()=='FIX01'
         page.locator('[data-view="finances"]').click()
         assert page.locator('.finance-month').count()==1
+        page.locator('[data-view="dashboard"]').click()
 
         assert 'SIMCONNECT ATIVO' in page.locator('#status').inner_text()
         assert 'SIMCONNECT • LIVE' in page.locator('#connection-badge').inner_text()
