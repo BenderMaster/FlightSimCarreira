@@ -137,8 +137,8 @@ class FacilityTests(unittest.TestCase):
         col=DetailCollector('SBRF')
         values=[
             packet(AIRPORT,1,0,struct.pack('<2i',2,3)),
-            packet(RUNWAY,2,1,b'IFRF\x00\x00\x00\x00'+b'\x00'*8),
-            packet(RUNWAY,3,1,b'\x00'*16),
+            packet(RUNWAY,2,1,b'IFRF\x00\x00\x00\x00'+b'\x00'*8+b'\x02\x00'),
+            packet(RUNWAY,3,1,b'\x00'*16+b'\x00\x00'),
             packet(PARKING,4,1,struct.pack('<i',1)),
             packet(PARKING,5,1,struct.pack('<i',12)),
             packet(PARKING,6,1,struct.pack('<i',8)),
@@ -151,6 +151,7 @@ class FacilityTests(unittest.TestCase):
         self.assertEqual(result['runways'],2)
         self.assertEqual(result['parkings'],3)
         self.assertTrue(result['ils'])
+        self.assertTrue(result['runway_lights'])
         self.assertTrue(result['papi'])
         self.assertTrue(result['approach_lights'])
         self.assertTrue(result['fuel_spot'])
