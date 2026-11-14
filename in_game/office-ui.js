@@ -98,6 +98,11 @@ function drawWaypoints(){
  if(!waypoints.length)placeholder(host,'Nenhum ponto intermediário.');
  waypoints.forEach(function(w,index){
   var row=entry(host,w.label,fmt(w.lat,5)+', '+fmt(w.lon,5));
+  button(actions(row),'Editar ponto',function(){
+   E('wp-label').value=w.label;E('wp-lat').value=w.lat;E('wp-lon').value=w.lon;
+   waypoints.splice(index,1);planDirty=true;drawWaypoints();
+   notice('Atualize os campos e clique Adicionar ponto.',false);
+  },false);
   button(actions(row),'Remover ponto',function(){
    waypoints.splice(index,1);planDirty=true;drawWaypoints();
   },false,true);
@@ -372,6 +377,10 @@ function render(o){
 function view(viewName){
  if(viewName==='planning'&&!planLoaded&&office.planning)renderPlanning(office);
 }
+function receipt(r){
+ if(r.action==='plan_save'||r.action==='plan_clear'){planDirty=false;planLoaded=false;}
+ if(r.action==='logbook_note'){noteDirty=false;}
+}
 function hook(){
  // Replace the v0.9.1 placeholder using only static trusted markup.
  var pilotPage=document.querySelector('[data-page="career"]');
@@ -426,5 +435,5 @@ function hook(){
  });
 }
 hook();
-window.FlightSimOfficeUI={render:render,view:view};
+window.FlightSimOfficeUI={render:render,view:view,receipt:receipt};
 })();

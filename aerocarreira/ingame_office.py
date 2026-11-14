@@ -96,6 +96,9 @@ def project(state):
         },
         'logbook':{
             'count':h.get('count',0),
+            'landings':[_fields(x,('when','fpm')) for x in (p.get('graphs') or {}).get('landings',[])[-12:]],
+            'aircraft_hours':[(name,hours) for name,hours in (p.get('graphs') or {}).get('hours_by_aircraft',[])[:10]],
+            'contracts_monthly':[(month,count) for month,count in (p.get('graphs') or {}).get('contracts',[])[:12]],
             'flights':[_fields(x,('id','started_utc','ended_utc','hours','direct_nm','aircraft',
                 'mission_id','touchdown_fpm','stalls','xp','personal_net','note'))
                 for x in (h.get('flights') or [])[:35]],

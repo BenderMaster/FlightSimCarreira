@@ -54,6 +54,9 @@ def validate_command_value(action, value):
 
     Final domain validation always runs later on the Tk owner thread.
     """
+    if action == 'airline_found':
+        return type(value) is str and 3 <= len(value) <= 50 and not any(
+            ord(ch) < 32 or ord(ch) == 127 for ch in value)
     if action in ('offer_accept','mission_cancel','dispatch_prepare',
                   'fleet_select','fleet_service','fleet_buy_new','fleet_buy_used',
                   'fleet_rent','fleet_sell','airline_apply','airline_found',

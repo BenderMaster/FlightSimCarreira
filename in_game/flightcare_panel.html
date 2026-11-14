@@ -267,7 +267,10 @@ function receiptPoll(id,attempt){
     return new Promise(function(resolve){setTimeout(resolve,350);}).then(function(){return receiptPoll(id,attempt+1);});
    }
    feedback(r.message||'Resposta do motor indisponível',r.status!=='accepted');
-   if(r.status==='accepted')poll();
+   if(r.status==='accepted'){
+    if(window.FlightSimOfficeUI&&window.FlightSimOfficeUI.receipt)window.FlightSimOfficeUI.receipt(r);
+    poll();
+   }
    return r;
   });
 }
@@ -334,7 +337,33 @@ function map(data){
  points.forEach(function(a){a.x=330+((a.lon-midlon)*cos/spanlon)*520;a.y=90-((a.lat-midlat)/spanlat)*132;});
  var from=points.filter(function(a){return a.kind==='origin';})[0];
  var to=points.filter(function(a){return a.kind==='destination';})[0];
- if(from&&to)group.appendChild(line('path',{d:'M'+from.x+','+from.y+' L'+to.x+','+to.y,'class':'track'}));
+ var planned=data.office&&data.office.planning&&data.office.planning.route;
+ var coords=planned&&Array.isArray(planned.route)?planned.route:[];
+ var withRoute=coords.length>=2&&coords.every(function(c){return Array.isArray(c)&&
+   typeof c[0]==='number'&&typeof c[1]==='number';});
+ if(withRoute){
+  var newPoints=coords.map(function(c,i){return {lat:c[0],lon:c[1],
+   label:i===0?(planned.origin||'ORIGEM'):i===coords.length-1?(planned.destination||'DESTINO'):'FIX'+i,
+   kind:i===0?'origin':i===coords.length-1?'destination':'waypoint'};});
+  var extLats=points.concat(newPoints).map(function(a){return a.lat;});
+  var extLons=points.concat(newPoints).map(function(a){return a.lon;});
+  var latMin=Math.min.apply(null,extLats),latMax=Math.max.apply(null,extLats);
+  var lonMin=Math.min.apply(null,extLons),lonMax=Math.max.apply(null,extLons);
+  var latMid=(latMin+latMax)/2,lonMid=(lonMin+lonMax)/2;
+  var xCos=Math.max(.18,Math.cos(latMid*Math.PI/180));
+  var latSpan=Math.max(.02,latMax-latMin),lonSpan=Math.max(.02,(lonMax-lonMin)*xCos);
+  points.concat(newPoints).forEach(function(a){a.x=330+((a.lon-lonMid)*xCos/lonSpan)*520;
+    a.y=90-((a.lat-latMid)/latSpan)*132;});
+  group.appendChild(line('path',{d:newPoints.map(function(a,i){
+   return (i?'L':'M')+a.x+','+a.y;
+  }).join(' '),'class':'track'}));
+  newPoints.filter(function(a){return a.kind==='waypoint';}).forEach(function(a){
+   group.appendChild(line('circle',{cx:a.x,cy:a.y,r:4,fill:'#62d5e5'}));
+   group.appendChild(line('text',{x:a.x+8,y:a.y-7},a.label));
+  });
+ } else if(from&&to){
+  group.appendChild(line('path',{d:'M'+from.x+','+from.y+' L'+to.x+','+to.y,'class':'track'}));
+ }
  points.forEach(function(a){
   if(a.kind==='plane'){
    var head=data.telemetry && typeof data.telemetry.heading_deg==='number'?data.telemetry.heading_deg:0;
