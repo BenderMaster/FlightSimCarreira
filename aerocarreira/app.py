@@ -1742,6 +1742,19 @@ class Application:
                 from .ingame_office import project
                 if self.dashboard:
                     self._ingame_office_cache=project(self.dashboard.presenter.snapshot())
+                    # Pilot images stay private to this profile; expose only
+                    # bounded resized thumbnails via unpredictable local URLs.
+                    from .fleet_photos import photo_stamps
+                    stamps=photo_stamps(self.storage)
+                    if stamps != getattr(self,'_ingame_photo_stamps',None):
+                        rows=self.storage.conn.execute(
+                            'SELECT aircraft_ref,jpeg FROM fleet_photos ORDER BY updated_ns DESC LIMIT 30').fetchall()
+                        self._ingame_photo_urls=self.bridge.update_fleet_photos(
+                            {ref:bytes(jpeg) for ref,jpeg in rows})
+                        self._ingame_photo_stamps=stamps
+                    urls=getattr(self,'_ingame_photo_urls',{})
+                    for owned in self._ingame_office_cache['fleet']['owned']:
+                        if owned.get('ref') in urls:owned['photo_url']=urls[owned['ref']]
                     self._ingame_office_updated=now
                     self._ingame_office_next=now+4
             except (ValueError,TypeError,KeyError,AttributeError) as exc:

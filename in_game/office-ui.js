@@ -158,7 +158,9 @@ function renderHangar(o){
  put('hangar-market-reason',m.ready?'Transações no aeroporto '+m.airport+' • confirmadas pelo motor':m.reason||'Mercado indisponível');
  if(!(f.owned||[]).length)placeholder(host,'Nenhuma aeronave no hangar.');
  (f.owned||[]).forEach(function(x){
-  var card=node('article','hangar-card');picture(x.code,card);
+  var card=node('article','hangar-card');
+  if(x.photo_url){var wrap=add(card,node('div','hangar-picture'));var img=add(wrap,node('img'));img.alt=x.title;img.src=x.photo_url;img.onerror=function(){img.style.display='none';};}
+  else picture(x.code,card);
   var info=add(card,node('div','hangar-info'));
   add(info,node('h4','',x.title||x.code));
   add(info,node('small','',(x.airport||'—')+' • '+fmt(x.condition,0)+'% de conservação • '+fmt(x.hours,1)+' h'));

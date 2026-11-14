@@ -7,6 +7,10 @@ This is defense in depth for reads, not authentication for financial actions.
 from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
+from PIL import Image
+import hashlib
+import hmac as hmac_module
 from pathlib import Path
 from threading import RLock, Thread
 from queue import Queue, Full
@@ -135,11 +139,39 @@ class LocalPanelServer:
         self.commands = Queue(maxsize=32)
         self.receipts = {}
         self.command_lock = RLock()
+        self.photo_lock=RLock()
+        self.photo_key=secrets.token_bytes(32)
+        self.photo_cache={}
         self.started_at = time()
         self.requests = 0
         self.rejected = 0
         self.server = None
         self.thread = None
+
+    def update_fleet_photos(self, images):
+        """Publish tiny thumbnails for the current pilot only. Never expose disk paths."""
+        urls={}
+        new={}
+        for ref,raw in list(images.items())[:30]:
+            if (not isinstance(ref,str) or len(ref)>100 or
+                    not isinstance(raw,bytes) or len(raw)>2*1024*1024):
+                continue
+            try:
+                with Image.open(BytesIO(raw)) as src:
+                    pic=src.convert('RGB')
+                    pic.thumbnail((480,300),Image.Resampling.LANCZOS)
+                    output=BytesIO()
+                    pic.save(output,'JPEG',quality=78,optimize=True)
+                    thumbnail=output.getvalue()
+            except (OSError,ValueError):
+                continue
+            key=hmac_module.new(self.photo_key,ref.encode('utf-8'),'sha256').hexdigest()[:40]
+            path='/media/fleet/'+key+'.jpg'
+            new[path]=thumbnail
+            urls[ref]=path
+        with self.photo_lock:
+            self.photo_cache=new
+        return urls
 
     def start(self):
         if self.server is not None:
@@ -254,6 +286,10 @@ class LocalPanelServer:
                     with owner.command_lock:
                         receipt = owner.receipts.get(request_id)
                         return self.reply(200, json.dumps(receipt, ensure_ascii=False).encode('utf-8')) if receipt else self.reply(404)
+                if path.startswith('/media/fleet/'):
+                    with owner.photo_lock:
+                        thumbnail=owner.photo_cache.get(path)
+                    return self.reply(200,thumbnail,'image/jpeg') if thumbnail else self.reply(404)
                 if path in OFFICE_FILES:
                     name,mime=OFFICE_FILES[path]
                     asset=owner.page_path.parent/name
