@@ -10,6 +10,7 @@ import ctypes
 import math
 import re
 import struct
+from . import airport_facilities as detail
 
 ICAO = re.compile(r"^[A-Z0-9]{4}$")
 AIRPORT_LIST_ID = 18   # SIMCONNECT_RECV_ID_AIRPORT_LIST, MSFS2020
@@ -119,6 +120,10 @@ def connection_class():
             self._airport_collector=AirportCatalogCollector()
             self._airport_errors_seen=set()
             self._catalog_requested=False
+            self._detail_defined=False
+            self._detail_requests={}
+            self._detail_next=detail.REQUEST_START
+            self.detail_callbacks=(lambda icao,values:None,lambda icao,error:None)
             super().__init__()
             try:
                 func=self.dll.SimConnect.SimConnect_RequestFacilitiesList
@@ -128,6 +133,37 @@ def connection_class():
             except (AttributeError,OSError) as exc:
                 self._airport_list_function=None
                 self._report_airport_error("DLL SimConnect sem listagem de aeroportos: "+str(exc))
+
+        def request_airport_detail(self,icao):
+            """One trusted ICAO from the live MSFS catalog, never arbitrary URL."""
+            if not isinstance(icao,str) or not detail.ICAO.fullmatch(icao):
+                return False
+            try:
+                add=self.dll.SimConnect.SimConnect_AddToFacilityDefinition
+                request=self.dll.SimConnect.SimConnect_RequestFacilityData
+                add.restype=request.restype=ctypes.c_long
+                add.argtypes=[ctypes.c_void_p,ctypes.c_uint32,ctypes.c_char_p]
+                request.argtypes=[ctypes.c_void_p,ctypes.c_uint32,
+                                 ctypes.c_uint32,ctypes.c_char_p,ctypes.c_char_p]
+                if not self._detail_defined:
+                    for field in detail.FIELDS:
+                        hr=add(self.hSimConnect,detail.DEFINE_ID,field.encode('ascii'))
+                        if hr!=0:
+                            raise ValueError('Definição de instalações rejeitada: '+field)
+                    self._detail_defined=True
+                if self._detail_next>detail.REQUEST_START+1000:
+                    return False
+                rid=self._detail_next
+                self._detail_next+=1
+                collector=detail.DetailCollector(icao)
+                hr=request(self.hSimConnect,detail.DEFINE_ID,rid,icao.encode('ascii'),b'')
+                if hr!=0:
+                    raise ValueError('Instalações '+icao+': HRESULT '+str(hr))
+                self._detail_requests[rid]=collector
+                return True
+            except (AttributeError,OSError,TypeError,ValueError,RuntimeError) as exc:
+                self.detail_callbacks[1](icao,str(exc))
+                return False
 
         def _report_airport_error(self, message):
             if message not in self._airport_errors_seen:
@@ -146,7 +182,29 @@ def connection_class():
             return True
 
         def my_dispatch_proc(self,pData,cbData,pContext):
-            if pData.contents.dwID==AIRPORT_LIST_ID:
+            kind=pData.contents.dwID
+            if kind in (detail.DATA_ID,detail.DATA_END_ID):
+                try:
+                    size=int(pData.contents.dwSize)
+                    if not (16<=size<=detail.MAX_PACKET and size<=int(cbData)):
+                        raise ValueError('Pacote de instalações grande ou incompleto.')
+                    raw=ctypes.string_at(pData,size)
+                    rid=struct.unpack_from('<I',raw,12)[0]
+                    collector=self._detail_requests.get(rid)
+                    if not collector:
+                        return super().my_dispatch_proc(pData,cbData,pContext)
+                    if kind==detail.DATA_ID:
+                        collector.feed(raw,rid)
+                    else:
+                        detail.parse_facility_end(raw,rid)
+                        self._detail_requests.pop(rid,None)
+                        self.detail_callbacks[0](collector.icao,collector.finish())
+                except (ValueError,TypeError,struct.error,ctypes.ArgumentError) as exc:
+                    if 'collector' in locals() and collector is not None:
+                        self._detail_requests.pop(rid,None)
+                        self.detail_callbacks[1](collector.icao,str(exc))
+                return
+            if kind==AIRPORT_LIST_ID:
                 try:
                     length=int(pData.contents.dwSize)
                     if not (28<=length<=4*1024*1024 and length<=int(cbData)):
