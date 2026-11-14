@@ -35,6 +35,7 @@ from .fleet import used_market, resale_price
 from .planning import Preflight, inspect_preflight, aircraft_title_matches
 from .flight_audit import real_clock_verified, assistance_verified, flight_safety_xp
 from .taxi import PostLandingTaxi
+from .turnaround import TurnaroundGate, parking_status
 from .aircraft_catalog import scan_installed_aircraft, detect_package_roots
 from .ingame_bridge import PanelState, LocalPanelServer
 from . import __version__, type_ratings, settings_center
@@ -68,6 +69,7 @@ class Application:
         self.sim = None
         self.tracker = FlightTracker()
         self.post_landing_taxi = PostLandingTaxi()
+        self.turnaround = TurnaroundGate()
         self.profiles=ProfileManager(state_dir())
         self.settings_prefs=settings_center.read_global(state_dir())
         self.airline_available_codes=set()
@@ -97,6 +99,7 @@ class Application:
                 self.career.restore(checkpoint.get("career", {}))
                 self.tracker = FlightTracker.from_snapshot(checkpoint["tracker"])
                 self.post_landing_taxi=PostLandingTaxi.from_snapshot(checkpoint.get('post_landing_taxi_v2'))
+                self.turnaround=TurnaroundGate.restore(checkpoint.get('turnaround_v093'))
                 if self.tracker.phase == Phase.AIRBORNE and self.career.mission:
                     self.realism_frozen = float(checkpoint.get('realism_frozen',0.0))
                     self.realism_mission = checkpoint.get('realism_mission')
@@ -605,6 +608,14 @@ class Application:
                                    or time() - self.last_sample.timestamp > 10):
             warn("Contrato", "Aceite no solo com telemetria atualizada.")
             return False
+        if self.mode == "MSFS":
+            park_ok,reason=parking_status(self.last_sample)
+            if not park_ok:
+                warn("Contrato",reason)
+                return False
+            if self.turnaround.pending:
+                warn("Contrato","Finalize o desembarque anterior antes de aceitar outro contrato.")
+                return False
         if m.category != "legacy":
             if self.storage.get_pilot() is None:
                 warn("Contrato", "Cadastre seu piloto primeiro.")
@@ -1080,6 +1091,9 @@ class Application:
         redraw()
 
     def _cancel(self):
+        if self.turnaround.pending:
+            self._log('CONTRATO: pouso já confirmado; finalize o desembarque no estacionamento antes de encerrar a operação.')
+            return
         self.career.cancel()
         self.storage.set_setting('preflight_v1','')
         self.dispatch_state={}
@@ -1109,7 +1123,8 @@ class Application:
                 'fuel_ref_frozen':self.fuel_ref_frozen,
                 'fuel_company_guard':self.fuel_company_guard,
                 'dispatch_state':self.dispatch_state,
-                'weight_bonus_frozen':self.weight_bonus_frozen}
+                'weight_bonus_frozen':self.weight_bonus_frozen,
+                'turnaround_v093':self.turnaround.snapshot()}
 
     def _checkpoint(self, force=False):
         # Demo mantém o banco de carreira; checkpoint do voo é para modo MSFS.
@@ -1243,7 +1258,8 @@ class Application:
         mission_before=self.career.mission
         old_balance = self.career.balance
         events = self.tracker.update(s)
-        completion_payment = self.career.evaluate(events, s.aircraft_title)
+        completion_payment = self.career.evaluate(events, s.aircraft_title,
+                                                   settle=self.mode!='MSFS')
         self.phase_var.set(self.tracker.phase.value.upper())
         for e in events:
             if e["type"] == "takeoff":
@@ -1311,107 +1327,17 @@ class Application:
                     self._log("ALERTA FREELANCER: modelo não confirmado na decolagem; sem pagamento até próximo voo correto.")
                 self._checkpoint(force=True)
             elif e["type"] == "landing":
-                v=e["touchdown_fpm_est"]
-                self._log(f"POUSO confirmado. Razão vertical aproximada: {v:.0f} ft/min" if v is not None else "POUSO confirmado (razão vertical indisponível).")
-                start = next((item for item in self.tracker.events if item["type"] == "takeoff"), None)
-                if start is None:
-                    self._log("ERRO: decolagem anterior indisponível. Mantendo estado para diagnóstico.")
-                    continue
-                payment = completion_payment
-                next_tracker = FlightTracker()
-                next_tracker.update(s)
-                next_post=PostLandingTaxi.begin(start,s) if self.mode=='MSFS' else PostLandingTaxi()
-                checkpoint_after = self._checkpoint_data(tracker=next_tracker,post_landing=next_post)
-                checkpoint_after['realism_frozen']=0.0
-                checkpoint_after['realism_mission']=None
-                checkpoint_after['weight_bonus_frozen']=0
-                checkpoint_after['dispatch_state']={}
-                checkpoint_after['fuel_penalty_frozen']=0.0
-                checkpoint_after['fuel_mode_at_takeoff']=False
-                checkpoint_after['fuel_ref_frozen']=None
-                realism_fraction=(self.realism_frozen if payment and
-                                  self.realism_mission==payment['mission'] else 0.0)
-                safety_xp=flight_safety_xp(self.tracker,v)
-                if self.mode=='Demo':safety_xp=0  # demo nunca dá bônus/penalidade por procedimento
-                # Detecta aeródromo realmente alcançado mesmo em voo sem contrato.
-                if self.airport_catalog is None:
-                    from .contracts import AirportCatalog
-                    self.airport_catalog=AirportCatalog()
-                located=self.airport_catalog.nearest(s.latitude,s.longitude,3)
-                landing_icao=located.icao if located else (
-                    mission_before.destination if payment and mission_before else None)
-                try:
-                    inserted = self.storage.finalize_flight(start, e, v, self.tracker.stalls,
-                                        payment["mission"] if payment else None,
-                                        payment["reward"] if payment else 0, checkpoint_after,
-                                        aircraft_title=s.aircraft_title,
-                                        fuel_start=(self.tracker.takeoff_sample.fuel_gallons
-                                                    if self.tracker.takeoff_sample else None),
-                                        fuel_end=s.fuel_gallons,
-                                        realism_fraction=realism_fraction,
-                                        destination=landing_icao,
-                                        fuel_penalty_fraction=self.fuel_penalty_frozen,
-                                        fuel_prepaid=self.fuel_mode_at_takeoff,
-                                        flight_xp_extra=safety_xp,
-                                        flight_xp_weight_bonus=(self.weight_bonus_frozen if payment else 0),
-                                        verified_msfs=self.mode=='MSFS' and self.connected)
-                except Exception as exc:
-                    self._log(f"FALHA AO SALVAR pouso: {exc}. Não feche antes de exportar log.")
-                    self.status_var.set("Erro ao salvar voo")
-                    self.career.restore(old_career_state)
-                    self.career.balance = old_balance
-                    # O checkpoint anterior mantém a fase em voo; ao reiniciar,
-                    # o app poderá confirmar novamente o pouso em solo.
-                    return
-                self.tracker = next_tracker
-                self.post_landing_taxi=next_post
-                self.realism_frozen=0.0
-                self.realism_mission=None
-                self.weight_bonus_frozen=0
-                self.dispatch_state={}
-                self.fuel_penalty_frozen=0.0
-                self.fuel_mode_at_takeoff=False
-                self.fuel_ref_frozen=None
-                self.career.balance = int(self.storage.get_setting("balance") or 0)
-                summary = self.storage.flight_finance(start)
-                actual_credit = self.career.balance - old_balance
-                if inserted:
-                    if getattr(self,'dashboard',None):
-                        self.dashboard.presenter.market_key=None
-                        self.dashboard.presenter.pilot_career_cache=None
-                    if self.mode=='MSFS' and self.connected:
-                        self._mark_aircraft_available(s.aircraft_title)
-                if inserted and self.storage.get_pilot() is not None:
-                    base_xp=flight_xp(payment['reward'] if payment else 0)
-                    bonus_xp=round(base_xp*realism_fraction) if payment else 0
-                    # valor congelado antes de limpar o estado
-                    earned=self.storage.conn.execute('SELECT xp FROM pilot_xp_ledger WHERE flight_key=?',
-                        (f"takeoff:{float(start['timestamp']):.6f}:{float(start['lat']):.7f}:{float(start['lon']):.7f}",)).fetchone()
-                    self._log(f"PROGRESSO DO PILOTO: +{earned[0] if earned else 0} XP ({bonus_xp} do despacho, {safety_xp:+d} de segurança).")
-                    if v is not None:self._log(f'Toque estimado: {v:+.0f} ft/min; arremetidas: {e.get("go_arounds",0)}; toque-e-arremetidas: {e.get("touch_and_go",0)}.')
-                    self._refresh_pilot_summary()
-                if not inserted:
-                    self._log("Pouso já salvo anteriormente: pagamento duplicado bloqueado.")
-                    saved = self.storage.get_checkpoint()
-                    if saved:
-                        self.career.restore(saved.get("career", {}))
-                elif payment and payment['mission'].startswith('EMP-'):
-                    self._log('VOO DA EMPREGADORA: não paga R$ nem XP imediato; contabilizado na meta semanal.')
-                elif payment and payment['mission'].startswith('OWN-'):
-                    self._log('VOO EMPRESARIAL: receita e custos lançados somente no caixa da companhia.')
-                elif payment and summary['gross'] > 0:
-                    self._log(f"CONTRATO CONCLUÍDO: {brl(summary['gross'])} bruto; {brl(summary['expenses'])} de custos; líquido {brl(summary['net'])}.")
-                elif payment:
-                    self._log("Contrato já pago anteriormente. Novo crédito bloqueado.")
-                else:
-                    self._log("Voo registrado; contrato não concluído (confira origem e destino).")
-                self.balance_var.set(brl(self.career.balance))
-                if inserted and payment:
-                    self.storage.set_setting('preflight_v1','')
-                self._show_mission()
-                self.phase_var.set(self.tracker.phase.value.upper())
-                self._refresh_history()
-                self.last_checkpoint_time = time()
+                if self.mode=='MSFS' and completion_payment:
+                    start=next((item for item in self.tracker.events
+                                if item['type']=='takeoff'),None)
+                    if start is not None:
+                        self.turnaround.begin(e,s,completion_payment['mission'])
+                        self.post_landing_taxi=PostLandingTaxi.begin(start,s)
+                        self._log('POUSO NO DESTINO: contrato aguarda táxi até portão/pátio, freio acionado e motores desligados. Ainda não houve pagamento.')
+                        self._checkpoint(force=True)
+                        continue
+                self._finalize_landing(s,e,completion_payment,mission_before,
+                                       old_career_state,old_balance)
             elif e["type"] == "stall_warning":
                 self._log("ESTOL: aviso registrado; poderá reduzir XP deste voo após o pouso.")
             elif e["type"] == "go_around":
@@ -1420,11 +1346,156 @@ class Application:
                 self._log("TOQUE E ARREMETIDA detectado: voo continua, sem pagamento ou encerramento antecipado.")
             elif e["type"] == "hard_maneuver":
                 self._log("MANOBRA BRUSCA: força G extrema sustentada; evento contabilizado.")
+        if self.turnaround.pending:
+            self._complete_pending_turnaround(s)
         if previous_phase != self.tracker.phase or self.career.mission and events:
             self._checkpoint(force=True)
         else:
             self._checkpoint()
 
+
+    def _complete_pending_turnaround(self,s):
+        pending=self.turnaround.pending
+        if not pending or self.mode!='MSFS' or not self.connected:
+            return
+        mission=self.career.mission
+        if not mission or mission.id!=pending['mission_id']:
+            self.turnaround.reason='Contrato inconsistente; mantenha os dados para diagnóstico.'
+            return
+        # Prevent teleport-to-parking settlement after landing at another field:
+        # Career.evaluate uses original touchdown coordinates and this check
+        # independently validates the current stand at the same destination.
+        if (mission.destination_lat is None or mission.destination_lon is None or
+              distance_nm(s.latitude,s.longitude,mission.destination_lat,mission.destination_lon)>3):
+            self.turnaround.since=None
+            self.turnaround.reason='Retorne ao pátio do aeroporto de destino.'
+            return
+        if not self.turnaround.observe(s,mission.id):
+            return
+        before=self.career.snapshot()
+        old_balance=self.career.balance
+        payment=self.career.evaluate([pending['event']],s.aircraft_title,settle=True)
+        if not payment:
+            self.turnaround.since=None
+            self.turnaround.reason='Pouso ou origem não confirmados; pagamento bloqueado.'
+            return
+        # The SQLite flight ends at the stand, not at runway touchdown.
+        end=dict(pending['event'])
+        end.update(timestamp=s.timestamp,lat=s.latitude,lon=s.longitude)
+        self._log('PÓS-VOO CONFIRMADO: estacionamento, freio, motores desligados e destino verificados.')
+        self._finalize_landing(s,end,payment,mission,before,old_balance)
+
+    def _finalize_landing(self, s, e, completion_payment, mission_before,
+                          old_career_state, old_balance):
+        """Original atomic flight finalization, called after landing or turnaround.
+
+        For MSFS paid contracts, e has touchdown quality from the real landing
+        and end timestamp/position from the validated shutdown at the stand.
+        """
+        v=e["touchdown_fpm_est"]
+        self._log(f"POUSO confirmado. Razão vertical aproximada: {v:.0f} ft/min" if v is not None else "POUSO confirmado (razão vertical indisponível).")
+        start = next((item for item in self.tracker.events if item["type"] == "takeoff"), None)
+        if start is None:
+            self._log("ERRO: decolagem anterior indisponível. Mantendo estado para diagnóstico.")
+            return
+        payment = completion_payment
+        next_tracker = FlightTracker()
+        next_tracker.update(s)
+        next_post=(self.post_landing_taxi if self.turnaround.pending else
+                   PostLandingTaxi.begin(start,s) if self.mode=='MSFS' else PostLandingTaxi())
+        checkpoint_after = self._checkpoint_data(tracker=next_tracker,post_landing=next_post)
+        checkpoint_after['realism_frozen']=0.0
+        checkpoint_after['realism_mission']=None
+        checkpoint_after['weight_bonus_frozen']=0
+        checkpoint_after['dispatch_state']={}
+        checkpoint_after['fuel_penalty_frozen']=0.0
+        checkpoint_after['fuel_mode_at_takeoff']=False
+        checkpoint_after['fuel_ref_frozen']=None
+        checkpoint_after['turnaround_v093']={'pending':None,'since':None,'last':None,'reason':None}
+        realism_fraction=(self.realism_frozen if payment and
+                          self.realism_mission==payment['mission'] else 0.0)
+        safety_xp=flight_safety_xp(self.tracker,v)
+        if self.mode=='Demo':safety_xp=0  # demo nunca dá bônus/penalidade por procedimento
+        # Detecta aeródromo realmente alcançado mesmo em voo sem contrato.
+        if self.airport_catalog is None:
+            from .contracts import AirportCatalog
+            self.airport_catalog=AirportCatalog()
+        located=self.airport_catalog.nearest(s.latitude,s.longitude,3)
+        landing_icao=located.icao if located else (
+            mission_before.destination if payment and mission_before else None)
+        try:
+            inserted = self.storage.finalize_flight(start, e, v, self.tracker.stalls,
+                                payment["mission"] if payment else None,
+                                payment["reward"] if payment else 0, checkpoint_after,
+                                aircraft_title=s.aircraft_title,
+                                fuel_start=(self.tracker.takeoff_sample.fuel_gallons
+                                            if self.tracker.takeoff_sample else None),
+                                fuel_end=s.fuel_gallons,
+                                realism_fraction=realism_fraction,
+                                destination=landing_icao,
+                                fuel_penalty_fraction=self.fuel_penalty_frozen,
+                                fuel_prepaid=self.fuel_mode_at_takeoff,
+                                flight_xp_extra=safety_xp,
+                                flight_xp_weight_bonus=(self.weight_bonus_frozen if payment else 0),
+                                verified_msfs=self.mode=='MSFS' and self.connected)
+        except Exception as exc:
+            self._log(f"FALHA AO SALVAR pouso: {exc}. Não feche antes de exportar log.")
+            self.status_var.set("Erro ao salvar voo")
+            self.career.restore(old_career_state)
+            self.career.balance = old_balance
+            # O checkpoint anterior mantém a fase em voo; ao reiniciar,
+            # o app poderá confirmar novamente o pouso em solo.
+            return
+        self.tracker = next_tracker
+        self.post_landing_taxi=next_post
+        self.turnaround=TurnaroundGate()
+        self.realism_frozen=0.0
+        self.realism_mission=None
+        self.weight_bonus_frozen=0
+        self.dispatch_state={}
+        self.fuel_penalty_frozen=0.0
+        self.fuel_mode_at_takeoff=False
+        self.fuel_ref_frozen=None
+        self.career.balance = int(self.storage.get_setting("balance") or 0)
+        summary = self.storage.flight_finance(start)
+        actual_credit = self.career.balance - old_balance
+        if inserted:
+            if getattr(self,'dashboard',None):
+                self.dashboard.presenter.market_key=None
+                self.dashboard.presenter.pilot_career_cache=None
+            if self.mode=='MSFS' and self.connected:
+                self._mark_aircraft_available(s.aircraft_title)
+        if inserted and self.storage.get_pilot() is not None:
+            base_xp=flight_xp(payment['reward'] if payment else 0)
+            bonus_xp=round(base_xp*realism_fraction) if payment else 0
+            # valor congelado antes de limpar o estado
+            earned=self.storage.conn.execute('SELECT xp FROM pilot_xp_ledger WHERE flight_key=?',
+                (f"takeoff:{float(start['timestamp']):.6f}:{float(start['lat']):.7f}:{float(start['lon']):.7f}",)).fetchone()
+            self._log(f"PROGRESSO DO PILOTO: +{earned[0] if earned else 0} XP ({bonus_xp} do despacho, {safety_xp:+d} de segurança).")
+            if v is not None:self._log(f'Toque estimado: {v:+.0f} ft/min; arremetidas: {e.get("go_arounds",0)}; toque-e-arremetidas: {e.get("touch_and_go",0)}.')
+            self._refresh_pilot_summary()
+        if not inserted:
+            self._log("Pouso já salvo anteriormente: pagamento duplicado bloqueado.")
+            saved = self.storage.get_checkpoint()
+            if saved:
+                self.career.restore(saved.get("career", {}))
+        elif payment and payment['mission'].startswith('EMP-'):
+            self._log('VOO DA EMPREGADORA: não paga R$ nem XP imediato; contabilizado na meta semanal.')
+        elif payment and payment['mission'].startswith('OWN-'):
+            self._log('VOO EMPRESARIAL: receita e custos lançados somente no caixa da companhia.')
+        elif payment and summary['gross'] > 0:
+            self._log(f"CONTRATO CONCLUÍDO: {brl(summary['gross'])} bruto; {brl(summary['expenses'])} de custos; líquido {brl(summary['net'])}.")
+        elif payment:
+            self._log("Contrato já pago anteriormente. Novo crédito bloqueado.")
+        else:
+            self._log("Voo registrado; contrato não concluído (confira origem e destino).")
+        self.balance_var.set(brl(self.career.balance))
+        if inserted and payment:
+            self.storage.set_setting('preflight_v1','')
+        self._show_mission()
+        self.phase_var.set(self.tracker.phase.value.upper())
+        self._refresh_history()
+        self.last_checkpoint_time = time()
     def _execute_ingame_command(self, action, value, request_id=None):
         """Run the toolbar request on the existing Tk/SQLite/SimConnect owner thread.
 
@@ -1588,6 +1659,8 @@ class Application:
             return True,msg
 
         if action == 'offer_accept':
+            accepted,reason=parking_status(s)
+            if not accepted:return False,reason
             if self.career.mission:
                 return False, 'Finalize ou cancele o contrato atual antes de aceitar outro.'
             if not self.dashboard or not self.msfs_airports_ready:
@@ -1613,6 +1686,8 @@ class Application:
 
         m = self.career.mission
         if action in ('mission_cancel', 'dispatch_prepare'):
+            if action=='mission_cancel' and self.turnaround.pending:
+                return False,'Pouso já confirmado. Complete o desembarque no estacionamento.'
             if not m or value != m.id:
                 return False, 'Missão alterada ou inexistente. Atualize o painel.'
             if action == 'mission_cancel':
