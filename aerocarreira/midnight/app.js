@@ -138,7 +138,8 @@ for(const o of offers){const b=node('button','offer'+(s.mission?.id===o.id?' act
 function openMarket(filter='regional'){navigate(filter==='freelance'?'freelance':'regional')}
 function renderMarketView(s,force=false){
  if(!s?.offers||(view!=='regional'&&view!=='freelance'))return;
- const key=JSON.stringify([s.offers,s.mission?.id,view,$('market-search').value.trim()]);
+ const services=s.airport_services||{}, facilityFilter=$('market-facility-filter')?.value||'all';
+ const key=JSON.stringify([s.offers,s.mission?.id,view,$('market-search').value.trim(),facilityFilter,services]);
  if(!force&&key===marketLastKey)return;
  marketLastKey=key;
  const freelance=view==='freelance',search=$('market-search').value.trim().toLocaleLowerCase('pt-BR');
@@ -152,12 +153,14 @@ function renderMarketView(s,force=false){
  text('market-dialog-base',base+'  |  '+inventory+' | Piloto '+(s.pilot?.callsign||'não cadastrado'));
  text('market-view-hint',freelance?'Aeronave fornecida pelo contratante. Sem custos de compra ou aluguel para este serviço.':'Serviços para o piloto autônomo com aeronave própria. Regras de nível, habilitação e local são verificadas no aceite.');
  const items=s.offers.filter(o=>!o.company_code&&Boolean(o.freelance)===freelance&&
-  (!search||[o.title,o.category,o.origin,o.destination].join(' ').toLocaleLowerCase('pt-BR').includes(search)));
+  (!search||[o.title,o.category,o.origin,o.destination].join(' ').toLocaleLowerCase('pt-BR').includes(search))&&
+  (facilityFilter==='all'||services[o.destination]?.[facilityFilter]===true));
  text('market-count',items.length+' oferta'+(items.length===1?'':'s'));
  $('market-list').replaceChildren();
  if(!items.length){
   $('market-list').append(node('p','market-empty',
    (s.mode!=='Demo'&&!s.airports?.ready)?'Aguardando lista oficial do MSFS 2020. Nenhum aeroporto externo será usado.':
+   facilityFilter!=='all'?'Nenhuma oferta com a instalação confirmada pelo MSFS neste momento.':
    search?'Nenhum contrato corresponde à busca.':
    freelance?'Nenhuma oferta freelancer nesta região e nível.':
    'Nenhuma missão disponível nos aeroportos confirmados pelo MSFS.'));
@@ -171,6 +174,17 @@ function renderMarketView(s,force=false){
   const chip=node('div','type-chip'+(freelance?' freelance':''),o.category+(freelance?' • FREELANCER':' • AERONAVE PARTICULAR'));
   item.append(title,chip,node('small','',o.title||'Missão regional'),
     node('small','manifest-preview',(o.manifest_label||'Manifesto pendente')+' • '+number(o.payload_kg||0,1)+' kg'));
+  const airport=services[o.destination]||{};
+  const facts=node('div','airport-facility-pills');
+  for(const [field,label] of [
+     ['ils','ILS'],['papi','PAPI'],['approach_lights','Luzes aproximação'],
+     ['runway_end_lights','Luzes cabeceira'],['fuel_spot','Ponto FUEL']]){
+    const flag=airport[field];
+    facts.append(node('span','airport-facility-pill '+(flag===true?'confirmed':flag===false?'absent':'unverified'),
+       label+': '+(flag===true?'Sim':flag===false?'Não':'Não verificado')));
+  }
+  item.append(facts);
+  if(airport.reason)item.append(node('small','airport-service-error','Consulta de instalações: '+airport.reason));
   const plane=freelance?(' • Aeronave do contratante: '+(o.employer_plane||'conforme contrato')):'';
   const duration=o.minutes!=null?' • ~'+Math.floor(o.minutes/60)+'h'+String(o.minutes%60).padStart(2,'0'):'';
   item.append(node('small','',duration+plane));
@@ -186,6 +200,7 @@ function renderMarketView(s,force=false){
 }
 $('market-refresh').onclick=()=>command('refresh');
 $('market-search').addEventListener('input',()=>renderMarketView(state,true));
+$('market-facility-filter').addEventListener('change',()=>renderMarketView(state,true));
 document.querySelectorAll('[data-market-view]').forEach(button=>button.onclick=()=>navigate(button.dataset.marketView));
 
 const moduleTitles={

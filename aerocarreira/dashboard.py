@@ -354,6 +354,11 @@ class DashboardPresenter:
             mission=mission_data(restricted_mission(m,app.airport_catalog) if app.mode!='Demo' else m,
                                  plane['code'] if plane else None) if m else None,
             market=dict(icao=self.center.icao,name=self.center.name,lat=self.center.latitude,lon=self.center.longitude) if self.center else None,offers=offers,
+            airport_services={icao:info for icao,info in getattr(app,'airport_details',{}).items()
+                if icao in {code for o in offers for code in (o['origin'],o['destination'])}
+                or (self.center and icao==self.center.icao)},
+            airport_services_pending=list(getattr(app,'airport_details_requested',set())
+                                          -set(getattr(app,'airport_details',{}))),
             plane=plane,aircraft_market=market_state(app,self.center),fleet=dict(owned=fleet_owned,
                 active_ref=active_plane['ref'] if active_plane else None,
                 count=len(fleet_owned)),

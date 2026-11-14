@@ -1979,6 +1979,7 @@ class Application:
                         self.airport_details[icao]=info
                 elif kind=='airport_detail_error':
                     icao,reason=item
+                    self._log('INSTALAÇÕES MSFS '+str(icao)+': '+str(reason)[:150])
                     self.airport_details[icao]={'icao':icao,'source':'NAO_VERIFICADO',
                         'ils':None,'papi':None,'runway_lights':None,'approach_lights':None,
                         'fuel_spot':None,'fuel_service':None,'reason':str(reason)[:150]}
