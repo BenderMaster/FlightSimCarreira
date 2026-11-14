@@ -53,7 +53,7 @@ class FlightAuditTests(unittest.TestCase):
              'GROUND_VELOCITY':0,'VERTICAL_SPEED':0,
              'ASSISTANCE_LANDING_ENABLED':0,'ASSISTANCE_TAKEOFF_ENABLED':0,
              'AI_CONTROLS':0,'UNLIMITED_FUEL':0,'LIGHT_LANDING':1,
-             'GENERAL_ENG_COMBUSTION:1':1,'G_FORCE':1.4,'ZULU_TIME':1000}
+             'NUMBER_OF_ENGINES':1,'GENERAL_ENG_COMBUSTION:1':1,'G_FORCE':1.4,'ZULU_TIME':1000}
         s,_=SampleReader(raw,clock=lambda:1).read()
         self.assertTrue(assistance_verified(s))
         self.assertTrue(s.light_landing)

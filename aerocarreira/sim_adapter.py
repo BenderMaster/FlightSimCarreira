@@ -32,6 +32,9 @@ OPTIONAL = {"stall_warning": "STALL_WARNING", "fuel_gallons": "FUEL_TOTAL_QUANTI
             "heading_true_rad":"PLANE_HEADING_DEGREES_TRUE",
             "heading_magnetic_rad":"PLANE_HEADING_DEGREES_MAGNETIC",
             "on_any_runway":"ON_ANY_RUNWAY",
+            "atc_on_parking_spot":"ATC_ON_PARKING_SPOT",
+            "plane_in_parking_state":"PLANE_IN_PARKING_STATE",
+            "parking_brake_set":"BRAKE_PARKING_POSITION",
             "assistance_landing":"ASSISTANCE_LANDING_ENABLED",
             "assistance_takeoff":"ASSISTANCE_TAKEOFF_ENABLED",
             "ai_controls":"AI_CONTROLS",
@@ -58,6 +61,35 @@ def true_heading_degrees(radians):
     except (ValueError,TypeError,OverflowError):
         return None
     return degrees(value)%360.0 if isfinite(value) else None
+
+
+# The upstream Python-SimConnect RequestList is older than the 2020 SDK:
+# AircraftRequests.get() returns None for variables absent from its registry.
+# Register only known SDK Bool SimVars, on this instance, before sampling.
+PARKING_SIMVARS = {
+    'ON_ANY_RUNWAY': (b'ON ANY RUNWAY', b'Bool'),
+    'PLANE_IN_PARKING_STATE': (b'PLANE IN PARKING STATE', b'Bool'),
+    'ATC_ON_PARKING_SPOT': (b'ATC ON PARKING SPOT', b'Bool'),
+}
+
+
+def register_parking_simvars(requests):
+    """Expand Python-SimConnect without editing site-packages or changing its classes."""
+    groups=getattr(requests,'list',None)
+    if not isinstance(groups,list) or not groups:
+        return False
+    group=next((g for g in groups if getattr(g,'list',None) is not None
+                and isinstance(g.list,dict)),None)
+    if group is None:return False
+    # Do not mutate class-wide RequestList, shared by future connections.
+    existing={key for g in groups if isinstance(getattr(g,'list',None),dict)
+                    for key in g.list}
+    missing={key:vars for key,vars in PARKING_SIMVARS.items() if key not in existing}
+    if missing:
+        group.list=dict(group.list)
+        for key,(name,unit) in missing.items():
+            group.list[key]=['FlightSim v0.9.3 parking verification',name,unit,'N']
+    return True
 
 
 class SampleReader:
@@ -133,6 +165,24 @@ class SampleReader:
         value=self._get(OPTIONAL[key])
         return None if value is None or not isfinite(value) else value>=0.5
 
+    def _engines_running(self, title):
+        """All installed engines must be verified off before payout.
+
+        If engine count is missing, use a proven fixed count for known
+        economy models; unknown models remain unverified rather than
+        treating engine #1 as all engines.
+        """
+        count=self._get('NUMBER_OF_ENGINES')
+        if count is None or not isfinite(count) or not 1<=count<=4 or int(count)!=count:
+            count={'c152':1,'c172':1,'g58':2,'kingair':2,'cj4':2}.get(aircraft_model(title))
+        if count is None:return None
+        flags=[]
+        for index in range(1,int(count)+1):
+            value=self._get('GENERAL_ENG_COMBUSTION:'+str(index))
+            if value is None or not isfinite(value):return None
+            flags.append(value>=0.5)
+        return any(flags)
+
     def read(self):
         values = {key: self._get(var) for key, var in REQUIRED.items()}
         missing = [REQUIRED[key] for key, val in values.items() if val is None]
@@ -180,10 +230,13 @@ class SampleReader:
             heading_true_deg=true_heading_degrees(self._get(OPTIONAL['heading_true_rad'])),
             heading_magnetic_deg=true_heading_degrees(self._get(OPTIONAL['heading_magnetic_rad'])),
             on_any_runway=self._optional_bool('on_any_runway'),
+            atc_on_parking_spot=self._optional_bool('atc_on_parking_spot'),
+            plane_in_parking_state=self._optional_bool('plane_in_parking_state'),
+            parking_brake_set=self._optional_bool('parking_brake_set'),
             sim_rate=self._get(OPTIONAL['sim_rate']),
             fuel_tanks=tanks, fuel_tank_capacities=cap,
             unlimited_fuel=self._optional_bool('unlimited_fuel'),
-            engine_running=self._optional_bool('engine_running'),
+            engine_running=self._engines_running(title),
             assistance_landing=self._optional_bool('assistance_landing'),
             assistance_takeoff=self._optional_bool('assistance_takeoff'),
             ai_controls=self._optional_bool('ai_controls'),
@@ -223,6 +276,13 @@ class SimConnectWorker:
         self.stop_event.clear()
         self.thread = Thread(target=self._run, name="simconnect-reader", daemon=True)
         self.thread.start()
+
+    def request_airport_detail(self, icao):
+        """Request facility records on the single owner SimConnect worker."""
+        from .airport_facilities import ICAO
+        if not isinstance(icao,str) or not ICAO.fullmatch(icao):
+            raise ValueError('Código de aeroporto inválido.')
+        self.actions.put(('airport_detail',icao))
 
     def request_airports(self, codes=()):
         """Compatibilidade: sempre consulta a lista INTEIRA do MSFS 2020.
@@ -272,7 +332,13 @@ class SimConnectWorker:
                 except (AttributeError,OSError,ValueError,RuntimeError) as exc:
                     sm=SimConnect()  # mantém monitor, mas NÃO libera mercado
                     self._send('airport_catalog_error','Listagem MSFS indisponível: '+str(exc))
+                if hasattr(sm,'detail_callbacks'):
+                    sm.detail_callbacks=(
+                        lambda icao,values:self._send('airport_detail',(icao,values)),
+                        lambda icao,error:self._send('airport_detail_error',(icao,error)))
                 aq = AircraftRequests(sm, _time=200)
+                if not register_parking_simvars(aq):
+                    self._send('warning','SimConnect: extensão de SimVars de estacionamento não registrada; o aceite poderá ser bloqueado.')
                 reader = SampleReader(aq)
                 self._send("connected", "SimConnect conectado")
                 # Consulta mundial de aeroportos é potencialmente custosa.
@@ -292,6 +358,10 @@ class SimConnectWorker:
                                 # estiver carregado e a aeronave em solo.
                                 # Nunca pedir múltiplos catálogos mundiais.
                                 pass
+                            if action == 'airport_detail':
+                                if not getattr(sm,'request_airport_detail',lambda code:False)(path):
+                                    self._send('airport_detail_error',
+                                               (path,'Detalhes não disponíveis nesta conexão SimConnect.'))
                             if action == 'fuel_restore':
                                 # Ações de escrita somente pela thread SimConnect.
                                 # Settable: quantidades individuais; total é read-only.
