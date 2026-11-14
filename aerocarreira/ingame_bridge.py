@@ -7,6 +7,10 @@ This is defense in depth for reads, not authentication for financial actions.
 from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
+from PIL import Image
+import hashlib
+import hmac as hmac_module
 from pathlib import Path
 from threading import RLock, Thread
 from queue import Queue, Full
@@ -23,12 +27,79 @@ PROTOCOL_VERSION = 2
 FONT_ROOT = Path(__file__).resolve().parent / 'midnight' / 'fonts'
 BRAND_ICON = FONT_ROOT.parent / 'brand-icon.png'
 ALLOWED_ACTIONS = {'offer_accept', 'mission_cancel', 'dispatch_prepare', 'market_refresh',
-                   'fuel_toggle', 'fuel_refuel'}
+                   'fuel_toggle', 'fuel_refuel',
+                   'plan_save','plan_export','plan_send','plan_clear',
+                   'fleet_select','fleet_service','fleet_buy_new','fleet_buy_used',
+                   'fleet_rent','fleet_sell','fleet_insurance',
+                   'airline_apply','airline_review','airline_resign','airline_found','airline_buy_plane',
+                   'pilot_license_claim','logbook_note',
+                   'finance_loan','finance_repay','finance_tax'}
 REQUEST_ID = re.compile(r'^[A-Za-z0-9_-]{16,64}$')
 FONT_FILES = {
     '/fonts/BarlowSemiCondensed-Regular.ttf': 'BarlowSemiCondensed-Regular.ttf',
     '/fonts/BarlowSemiCondensed-SemiBold.ttf': 'BarlowSemiCondensed-SemiBold.ttf',
 }
+# Existing showcase photographs, packaged with the Windows app. Never accept
+# filesystem paths from the iframe or fetch remote content.
+OFFICE_FILES = {
+ '/office-ui.js':('office-ui.js','application/javascript; charset=utf-8'),
+ '/office-ui.css':('office-ui.css','text/css; charset=utf-8')
+}
+MODEL_IMAGES = {
+    '/media/c172.jpg': 'market-c172.jpg',
+    '/media/g58.jpg': 'market-g58.jpg',
+    '/media/kingair.jpg': 'market-kingair.jpg',
+    '/media/cj4.jpg': 'market-cj4.jpg',
+}
+
+
+def validate_command_value(action, value):
+    """Closed per-command schema: browser may express intent, never price or XP.
+
+    Final domain validation always runs later on the Tk owner thread.
+    """
+    if action == 'airline_found':
+        return type(value) is str and 3 <= len(value) <= 50 and not any(
+            ord(ch) < 32 or ord(ch) == 127 for ch in value)
+    if action in ('offer_accept','mission_cancel','dispatch_prepare',
+                  'fleet_select','fleet_service','fleet_buy_new','fleet_buy_used',
+                  'fleet_rent','fleet_sell','fleet_insurance','airline_apply','airline_found',
+                  'airline_buy_plane','pilot_license_claim'):
+        return type(value) is str and 1 <= len(value) <= 110 and all(
+            32 <= ord(c) <= 126 for c in value)
+    if action in ('fuel_toggle','finance_tax'):
+        return type(value) is bool
+    if action == 'fuel_refuel':
+        return type(value) in (float,int) and 0 <= value <= 2000 and value == value
+    if action in ('finance_loan','finance_repay'):
+        return type(value) is int and 1 <= value <= 500000
+    if action == 'logbook_note':
+        return type(value) is dict and set(value) == {'flight_id','note'} and (
+            type(value['flight_id']) is int and 1 <= value['flight_id'] <= 10000000 and
+            type(value['note']) is str and len(value['note']) <= 700)
+    if action == 'plan_save':
+        if type(value) is not dict or set(value) != {
+                'mode','origin','destination','altitude_ft','waypoints','checks'}:
+            return False
+        if (value['mode'] not in ('free','contract') or
+                type(value['origin']) is not str or type(value['destination']) is not str or
+                not all(re.fullmatch('[A-Z0-9]{4}',v or '') for v in (
+                    value['origin'], value['destination'])) or
+                type(value['altitude_ft']) is not int or not 500 <= value['altitude_ft'] <= 45000 or
+                type(value['waypoints']) is not list or len(value['waypoints']) > 8 or
+                type(value['checks']) is not dict):
+            return False
+        if set(value['checks']) != {'runway_checked','route_checked','fuel_checked','payload_checked'} or not all(
+                type(x) is bool for x in value['checks'].values()):
+            return False
+        for waypoint in value['waypoints']:
+            if (type(waypoint) is not dict or set(waypoint) != {'label','lat','lon'} or
+                    type(waypoint['label']) is not str or not re.fullmatch('[A-Z0-9_-]{1,12}',waypoint['label']) or
+                    type(waypoint['lat']) not in (int,float) or type(waypoint['lon']) not in (int,float) or
+                    not -90 <= waypoint['lat'] <= 90 or not -180 <= waypoint['lon'] <= 180):
+                return False
+        return True
+    return value is None
 
 
 class PanelState:
@@ -68,11 +139,39 @@ class LocalPanelServer:
         self.commands = Queue(maxsize=32)
         self.receipts = {}
         self.command_lock = RLock()
+        self.photo_lock=RLock()
+        self.photo_key=secrets.token_bytes(32)
+        self.photo_cache={}
         self.started_at = time()
         self.requests = 0
         self.rejected = 0
         self.server = None
         self.thread = None
+
+    def update_fleet_photos(self, images):
+        """Publish tiny thumbnails for the current pilot only. Never expose disk paths."""
+        urls={}
+        new={}
+        for ref,raw in list(images.items())[:30]:
+            if (not isinstance(ref,str) or len(ref)>100 or
+                    not isinstance(raw,bytes) or len(raw)>2*1024*1024):
+                continue
+            try:
+                with Image.open(BytesIO(raw)) as src:
+                    pic=src.convert('RGB')
+                    pic.thumbnail((480,300),Image.Resampling.LANCZOS)
+                    output=BytesIO()
+                    pic.save(output,'JPEG',quality=78,optimize=True)
+                    thumbnail=output.getvalue()
+            except (OSError,ValueError):
+                continue
+            key=hmac_module.new(self.photo_key,ref.encode('utf-8'),'sha256').hexdigest()[:40]
+            path='/media/fleet/'+key+'.jpg'
+            new[path]=thumbnail
+            urls[ref]=path
+        with self.photo_lock:
+            self.photo_cache=new
+        return urls
 
     def start(self):
         if self.server is not None:
@@ -82,6 +181,8 @@ class LocalPanelServer:
                 .replace('__FLIGHTSIM_PANEL_KEY__', self.read_key)
                 .replace('__FLIGHTSIM_ACTION_KEY__', self.action_key)
                 .replace('__FLIGHTSIM_WRITABLE__', 'true' if self.allow_commands else 'false')
+                .replace('<!--OFFICE_NAV-->',(self.page_path.parent/'office-nav.html').read_text(encoding='utf-8') if (self.page_path.parent/'office-nav.html').is_file() else '')
+                .replace('<!--OFFICE_PAGES-->',(self.page_path.parent/'office-pages.html').read_text(encoding='utf-8') if (self.page_path.parent/'office-pages.html').is_file() else '')
                 ).encode('utf-8')
         owner = self
 
@@ -122,7 +223,7 @@ class LocalPanelServer:
                     return self.reply(403)
                 try:
                     length = int(self.headers.get('Content-Length', '0'))
-                    if not 0 < length <= 1024:
+                    if not 0 < length <= 4096:
                         raise ValueError('Tamanho inválido')
                     raw = self.rfile.read(length)
                     payload = json.loads(raw, parse_constant=lambda x: (_ for _ in ()).throw(ValueError(x)))
@@ -132,17 +233,8 @@ class LocalPanelServer:
                     if (type(request_id) is not str or not REQUEST_ID.fullmatch(request_id) or
                             type(action) is not str or action not in ALLOWED_ACTIONS):
                         raise ValueError('Comando desconhecido')
-                    if action in ('offer_accept', 'mission_cancel', 'dispatch_prepare'):
-                        if type(value) is not str or not 1 <= len(value) <= 100:
-                            raise ValueError('Identificador inválido')
-                    elif action == 'fuel_toggle':
-                        if type(value) is not bool:
-                            raise ValueError('Opção inválida')
-                    elif action == 'fuel_refuel':
-                        if type(value) not in (float, int) or not 0 <= value <= 2000:
-                            raise ValueError('Litros inválidos')
-                    elif value is not None:
-                        raise ValueError('Campo inesperado')
+                    if not validate_command_value(action,value):
+                        raise ValueError('Parâmetros inválidos')
                 except (ValueError, TypeError, UnicodeDecodeError):
                     owner.rejected += 1
                     return self.reply(400)
@@ -194,6 +286,21 @@ class LocalPanelServer:
                     with owner.command_lock:
                         receipt = owner.receipts.get(request_id)
                         return self.reply(200, json.dumps(receipt, ensure_ascii=False).encode('utf-8')) if receipt else self.reply(404)
+                if path.startswith('/media/fleet/'):
+                    with owner.photo_lock:
+                        thumbnail=owner.photo_cache.get(path)
+                    return self.reply(200,thumbnail,'image/jpeg') if thumbnail else self.reply(404)
+                if path in OFFICE_FILES:
+                    name,mime=OFFICE_FILES[path]
+                    asset=owner.page_path.parent/name
+                    if not asset.is_file():return self.reply(404)
+                    return self.reply(200,asset.read_bytes(),mime)
+                if path in MODEL_IMAGES:
+                    image = FONT_ROOT.parent / MODEL_IMAGES[path]
+                    if not image.is_file():
+                        owner.rejected += 1
+                        return self.reply(404)
+                    return self.reply(200,image.read_bytes(),'image/jpeg')
                 if path in FONT_FILES:
                     # Exact-match resource allowlist; no filesystem paths from URLs.
                     f = FONT_ROOT / FONT_FILES[path]

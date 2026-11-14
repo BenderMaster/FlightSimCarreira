@@ -1425,7 +1425,7 @@ class Application:
         else:
             self._checkpoint()
 
-    def _execute_ingame_command(self, action, value):
+    def _execute_ingame_command(self, action, value, request_id=None):
         """Run the toolbar request on the existing Tk/SQLite/SimConnect owner thread.
 
         The browser is never trusted to supply a price, a reward or a flight
@@ -1439,11 +1439,153 @@ class Application:
             self._ingame_offers_next = 0
             return True, 'Ofertas atualizadas pelo motor.'
 
+        # Six operational pages all reuse the original Tk thread, database and
+        # domain rules. No money, runway or XP values are trusted from the iframe.
+        # Read-only/exports and note editing do not require an aircraft on ground.
+        if action == 'logbook_note':
+            from . import flight_history
+            flight_history.save_note(self.storage,value['flight_id'],value['note'])
+            if self.dashboard:self.dashboard.presenter.history_cache=None
+            self._ingame_office_next=0
+            return True, 'Anotação salva no Logbook.'
+
+        if action in ('plan_export','plan_send'):
+            try:
+                message=self._flightops_export(send=action=='plan_send')
+                self._ingame_office_next=0
+                return True, message if action=='plan_send' else 'Plano .PLN exportado para a pasta da carreira.'
+            except (ValueError,TypeError,KeyError,OSError) as exc:
+                return False, str(exc)
+
         s = self.last_sample
         if not (self.mode == 'MSFS' and self.connected and self.sim and s
                 and time() - s.timestamp < 10 and s.on_ground
                 and self.tracker.phase != Phase.AIRBORNE):
             return False, 'Ação disponível somente com MSFS conectado e aeronave em solo.'
+
+        if action in ('plan_save','plan_clear'):
+            try:
+                message=(self._flightops_save(value) if action=='plan_save'
+                         else self._flightops_clear())
+                self._ingame_office_next=0
+                return True,message
+            except (ValueError,TypeError,KeyError,OSError) as exc:
+                return False, str(exc)
+
+        if action in ('fleet_select','fleet_service','fleet_buy_new','fleet_buy_used',
+                      'fleet_rent','fleet_sell','fleet_insurance'):
+            from .aircraft_marketplace import execute_market, market_location
+            if self.career.mission:
+                return False,'Finalize ou cancele o contrato antes de alterar a frota.'
+            fm=self.storage.fleet_manager()
+            ref=value
+            if action in ('fleet_select','fleet_service','fleet_insurance'):
+                if action=='fleet_insurance':
+                    if '|' not in value:return False,'Formato de seguro inválido.'
+                    ref,flag=value.rsplit('|',1)
+                    if flag not in ('0','1'):return False,'Opção de seguro inválida.'
+                plane=fm.get(ref)
+                if not plane:
+                    return False,'Aeronave não está no hangar ou aluguel expirou.'
+                if action=='fleet_select':
+                    fm.select(ref)
+                    self._ingame_office_next=0
+                    return True,'Aeronave selecionada: '+plane['title']+'. A troca no MSFS continua manual.'
+                airport,reason=market_location(self,self.dashboard.presenter.center if self.dashboard else None)
+                if not airport or plane['airport'] != airport:
+                    return False,reason or 'Revisão exige o aeroporto de localização do avião.'
+                if action=='fleet_insurance':
+                    import uuid
+                    tx=str(uuid.uuid5(uuid.NAMESPACE_URL,'flightsim-insurance:'+str(request_id)))
+                    fm.set_insurance(ref,flag=='1',request_id=tx)
+                    self.career.balance=int(self.storage.get_setting('balance') or 0)
+                    self.balance_var.set(brl(self.career.balance))
+                    self._ingame_office_next=0
+                    return True,('Seguro ativado.' if flag=='1' else 'Seguro desativado.')+' Saldo '+brl(self.career.balance)
+                if action=='fleet_service':
+                    if ref.startswith('legacy:'):
+                        self.storage.service_aircraft(plane['code'])
+                        cost='Revisão legada concluída.'
+                    else:
+                        cost='Revisão concluída por '+brl(fm.service(ref))+'.'
+                    self.career.balance=int(self.storage.get_setting('balance') or 0)
+                    self.balance_var.set(brl(self.career.balance))
+                    self._ingame_office_next=0
+                    return True,cost
+            mapping={'fleet_buy_new':'aircraft_buy_new','fleet_buy_used':'aircraft_buy_used',
+                     'fleet_rent':'aircraft_rent','fleet_sell':'aircraft_sell'}
+            # The persisted fleet_requests row prevents double charges even
+            # if an identical operation reaches a new bridge session.
+            import uuid
+            financial_id=str(uuid.uuid5(uuid.NAMESPACE_URL,'flightsim-ingame:'+str(request_id)))
+            payload=value+'|'+financial_id
+            msg=execute_market(self,self.dashboard.presenter.center if self.dashboard else None,
+                               mapping[action],payload)
+            self._ingame_office_next=0
+            return True,msg
+
+        if action in ('finance_loan','finance_repay','finance_tax'):
+            if action=='finance_tax':
+                self.storage.set_setting('income_tax_enabled','1' if value else '0')
+                msg='Imposto virtual de 4% '+('ativado.' if value else 'desativado.')
+            else:
+                import uuid
+                financial_id=str(uuid.uuid5(uuid.NAMESPACE_URL,
+                                             'flightsim-ingame-finance:'+str(request_id)))
+                if action=='finance_loan':
+                    self.storage.take_loan(value,request_id=financial_id)
+                    msg='Empréstimo contratado com sucesso.'
+                else:
+                    self.storage.repay_loan(value,request_id=financial_id)
+                    msg='Parcela quitada com sucesso.'
+            self.career.balance=int(self.storage.get_setting('balance') or 0)
+            self.balance_var.set(brl(self.career.balance))
+            self._ingame_office_next=0
+            return True,msg+' Saldo '+brl(self.career.balance)+'.'
+
+        if action=='pilot_license_claim':
+            granted=self.storage.earn_qualification(value)
+            self._ingame_office_next=0
+            return True,('Licença '+value+' conquistada.' if granted else 'Licença já registrada.')
+
+        if action.startswith('airline_'):
+            if self.career.mission:
+                return False,'Finalize ou cancele o contrato antes de alterar a companhia.'
+            pilot=self.storage.get_pilot()
+            if not pilot:
+                return False,'Cadastre primeiro seu piloto.'
+            if action=='airline_apply':
+                if '|' not in value:return False,'Escolha a vaga e o compromisso.'
+                vacancy_id,tier=value.rsplit('|',1)
+                if tier not in ('0','10','20'):
+                    return False,'Compromisso semanal inválido.'
+                region=(self.dashboard.presenter.center.icao
+                        if self.dashboard and self.dashboard.presenter.center else pilot['home_icao'])
+                vacancy=next((v for v in vacancies(weekly_period(time()),region)
+                              if v.id==vacancy_id),None)
+                if not vacancy:return False,'Vaga expirada ou não encontrada.'
+                self.storage.apply_vacancy(vacancy,time(),int(tier))
+                msg='Candidatura enviada; a seleção é semanal.'
+            elif action=='airline_review':
+                results=self.storage.review_applications(time())
+                paid=self.storage.airline_payroll(time())
+                msg='Seleção: '+str(len(results))+' resultado(s); folha: '+str(len(paid))+' pagamento(s).'
+            elif action=='airline_resign':
+                self.storage.resign_employment(time())
+                msg='Vínculo encerrado. Histórico preservado.'
+            elif action=='airline_found':
+                result=self.storage.found_company(value,time())
+                msg='Companhia '+result['owner_company']+' fundada.'
+            elif action=='airline_buy_plane':
+                self.storage.company_buy_plane(value)
+                msg='Aeronave incorporada à companhia.'
+            else:
+                return False,'Comando de companhia não suportado.'
+            self.career.balance=int(self.storage.get_setting('balance') or 0)
+            self.balance_var.set(brl(self.career.balance))
+            if self.dashboard:self.dashboard.presenter.refresh_market(force=True)
+            self._ingame_office_next=0
+            return True,msg
 
         if action == 'offer_accept':
             if self.career.mission:
@@ -1593,7 +1735,34 @@ class Application:
                 fuel_info = {'aircraft': selected['title'],
                     'current_liters': number(sum(inventory['tanks'].values()) * LITERS_PER_GALLON),
                     'capacity_liters': number(sum(inventory['capacities'].values()) * LITERS_PER_GALLON)}
+        # Office data updates slowly compared with telemetry. Reuse the
+        # already tested desktop presenter; never query SQLite in HTTP threads.
+        if now >= getattr(self,'_ingame_office_next',0):
+            try:
+                from .ingame_office import project
+                if self.dashboard:
+                    self._ingame_office_cache=project(self.dashboard.presenter.snapshot())
+                    # Pilot images stay private to this profile; expose only
+                    # bounded resized thumbnails via unpredictable local URLs.
+                    from .fleet_photos import photo_stamps
+                    stamps=photo_stamps(self.storage)
+                    if stamps != getattr(self,'_ingame_photo_stamps',None):
+                        rows=self.storage.conn.execute(
+                            'SELECT aircraft_ref,jpeg FROM fleet_photos ORDER BY updated_ns DESC LIMIT 30').fetchall()
+                        self._ingame_photo_urls=self.bridge.update_fleet_photos(
+                            {ref:bytes(jpeg) for ref,jpeg in rows})
+                        self._ingame_photo_stamps=stamps
+                    urls=getattr(self,'_ingame_photo_urls',{})
+                    for owned in self._ingame_office_cache['fleet']['owned']:
+                        if owned.get('ref') in urls:owned['photo_url']=urls[owned['ref']]
+                    self._ingame_office_updated=now
+                    self._ingame_office_next=now+4
+            except (ValueError,TypeError,KeyError,AttributeError) as exc:
+                self._ingame_office_next=now+4
+                self._log('INGAME OFFICE: atualização não disponível: '+str(exc))
         self.bridge_state.update(
+            office=getattr(self,'_ingame_office_cache',{}),
+            office_updated=getattr(self,'_ingame_office_updated',0),
             offers=getattr(self, '_ingame_offers_cache', []),
             market_ready=bool(self.msfs_airports_ready),
             fuel_control_enabled=self.storage.get_setting('fuel_control_enabled') == '1',
@@ -1686,7 +1855,7 @@ class Application:
             try: request_id, action, value = self.bridge.commands.get_nowait()
             except Empty: break
             try:
-                ok, message = self._execute_ingame_command(action, value)
+                ok, message = self._execute_ingame_command(action, value, request_id)
             except Exception as exc:
                 self._log('INGAME: falha no comando ' + action + ': ' + str(exc))
                 ok, message = False, 'Operação falhou no motor. Consulte o registro.'

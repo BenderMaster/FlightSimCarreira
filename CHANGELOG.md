@@ -1,3 +1,19 @@
+## v0.9.2 InGame Alpha.1 — escritório completo do piloto no Midnight Tablet
+
+- **Branch independente:** `feature/v0.9.2-ingame-complete-operations`, baseada no último commit da v0.9.1, sem modificar a `main` homologada.
+- **Planejamento e mapa:** origem/destino, altitude, até oito waypoints com edição, checklist, análise de rota/distância/combustível/MTOW, salvar, limpar, exportar .PLN e enviar por SimConnect. Todos os aeroportos são verificados pelo motor MSFS; o mapa SVG leve mostra a rota salva por trechos.
+- **Hangar e mercado:** seleção de aeronave, conservação, revisão, seguro, fotos personalizadas do SQLite entregues como miniaturas locais seguras, imagens showroom locais, compra, revenda e aluguel com confirmações. O motor valida aeroporto, saldo, estado de voo e idempotência.
+- **Companhias:** emprego, candidaturas, compromisso semanal, contratos profissionais, habilitações por tipo, demissão, fundação e compras empresariais, respeitando as regras da versão desktop.
+- **Carreira e piloto:** identidade, base, patente, nível, XP, reputação, licenças reivindicáveis com elegibilidade real e conquistas.
+- **Logbook:** voos, duração, distância, pousos, XP, resultado financeiro e notas persistentes, gráficos de horas por aeronave e últimos pousos, com dados autênticos do SQLite.
+- **Finanças:** saldo, receita, despesas, patrimônio, dívida, movimentações, comparação mensal em gráfico local, empréstimo, amortização e imposto virtual.
+- **Integração:** projeção limitada `ingame_office` a cada 4 s na thread Tk, API local versionada, proteção contra CSRF/replay e comandos transacionais. Nada sensível é alterado pelo JavaScript.
+- **UI/compatibilidade:** módulos CSS/JS locais, fontes PT-BR Barlow, cards Midnight, imagens, botões legíveis e navegação adaptativa com barra rolável no painel estreito. Mantidos executável GUI sem CMD e wrapper Community v0.9.1.
+- **Testes:** novas validações de schemas, HTTPS? Não: HTTP estritamente loopback `127.0.0.1`, media allowlist, operações em solo, thumbnails, CI Windows/Linux 3.11/3.13, Playwright e PyInstaller.
+- **Limites de homologação:** é necessário testar esta Alpha no Coherent do MSFS 2020 Steam; os testes de navegador não comprovam adequação física das transações. `main` não será alterada sem aprovação.
+
+---
+
 ## v0.9.0 InGame Alpha.4 — altura do iframe e ciclo nativo MSFS2020
 
 - **Correção física pendente de confirmação:** restaura `height:100% !important` e `flex:1 1 auto` nos wrappers Coherent, reverte regras de viewport globais causadoras de área cinza na Alpha.3; viewport do iframe acompanha conteúdo do painel.

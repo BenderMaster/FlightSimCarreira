@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from playwright.sync_api import sync_playwright, expect
 from aerocarreira.ingame_bridge import PanelState, LocalPanelServer
+from aerocarreira.ingame_office import project
 OUTPUT = ROOT / 'validation' / 'ingame'
 OUTPUT.mkdir(parents=True, exist_ok=True)
 
@@ -50,6 +51,69 @@ try:
         assert 'Visão geral' in page.locator('#page-title').inner_text()
         expect(page.locator('#aircraft')).to_have_text('Cessna 152', timeout=8000)
         assert page.locator('#balance').inner_text() == 'R$ 12.345', page.locator('#balance').inner_text()
+        # Exercise every new office section against a real loopback server.
+        fixture = {
+          'pilot':{'name':'Íris Piloto','callsign':'PT-ABC','home_icao':'SBRF'},
+          'pilot_career':{'name':'Íris Piloto','level':5,'xp':550,'reputation':90,
+               'rank':{'title':'Soldado 1ª classe'},'hours':13.5,'contracts':8,
+               'licenses':[{'code':'PPA','title':'Piloto Privado','status':'available'}],
+               'medals':[{'code':'primeiro','title':'Primeiro Voo','status':'earned'}]},
+          'flight_operations':{'draft':{'mode':'contract','origin':'SBRF',
+               'destination':'SIPE','altitude_ft':2500,'waypoints':[],
+               'checks':{'runway_checked':True,'route_checked':False,
+                         'fuel_checked':False,'payload_checked':False}},
+               'ready':True,'route':{'origin':'SBRF','destination':'SIPE',
+               'distance_nm':40,'minutes':35,'fuel_required_gal':5.5}},
+          'fleet':{'active_ref':'legacy:c152','owned':[{'ref':'legacy:c152',
+               'code':'c152','title':'Cessna 152','airport':'SBRF',
+               'condition':93,'hours':20,'kind':'starter','is_active':True}]},
+          'aircraft_market':{'ready':True,'airport':'SBRF',
+               'models':[{'code':'c172','title':'Cessna 172 Skyhawk',
+                          'price':180000,'cruise_kts':118,
+                          'rental_prices':{'24':1800}}]},
+          'airline_operations':{'mode':'autonomo','investment':400000,
+               'vacancies':[{'id':'azul-01','name':'Azul','company':'azul',
+               'salary':30000,'allowed':True,'min_level':4,'min_hours':10}],
+               'type_ratings':[{'code':'a320neo','title':'Airbus A320neo',
+               'rated':False,'flights':1,'required':2,'installed':True}]},
+          'flight_history':{'count':1,'flights':[{'id':1,'aircraft':'Cessna 152',
+               'started_utc':1763000000,'hours':0.5,'direct_nm':35,
+               'touchdown_fpm':-150,'stalls':0,'note':'Bom voo!','xp':50}]},
+          'financial_center':{'balance':12345,'income':30000,'expenses':1500,
+               'debt':3000,'net_worth':145000,'loan_limit':150000,'loan_rate':.08,
+               'monthly':[{'month':'2026-11','income':8000,'expense':2000}],
+               'transactions':[{'id':1,'label':'Contrato','amount':8000,
+               'description':'Pagamento de missão','occurred_utc':1763000000}]}
+        }
+        state.update(office=project(fixture),office_updated=1)
+        page.locator('#refresh').click()
+        expect(page.locator('#planning-status')).to_have_text('Catálogo MSFS confirmado',timeout=8000)
+        for view,title in [
+            ('planning','Planejamento de voo'),
+            ('hangar','Meu hangar'),
+            ('airlines','Companhias aéreas'),
+            ('career','Íris Piloto'),
+            ('logbook','Logbook'),
+            ('finances','Finanças')
+        ]:
+            page.locator('[data-view="'+view+'"]').click()
+            assert page.locator('[data-page="'+view+'"]').is_visible(), view
+            assert title in page.locator('[data-page="'+view+'"]').inner_text(), view
+            page.screenshot(path=str(OUTPUT/('ingame-v092-'+view+'.png')),full_page=True)
+        page.locator('[data-view="planning"]').click()
+        assert page.locator('#plan-origin').input_value()=='SBRF'
+        assert page.locator('#plan-destination').input_value()=='SIPE'
+        page.locator('#wp-label').fill('FIX01')
+        page.locator('#wp-lat').fill('-8.1234')
+        page.locator('#wp-lon').fill('-34.5678')
+        page.locator('#wp-add').click()
+        assert 'FIX01' in page.locator('#waypoint-list').inner_text()
+        page.locator('#waypoint-list button').first.click()
+        assert page.locator('#wp-label').input_value()=='FIX01'
+        page.locator('[data-view="finances"]').click()
+        assert page.locator('.finance-month').count()==1
+        page.locator('[data-view="dashboard"]').click()
+
         assert 'SIMCONNECT ATIVO' in page.locator('#status').inner_text()
         assert 'SIMCONNECT • LIVE' in page.locator('#connection-badge').inner_text()
         assert 'FlightSim Windows respondendo' in page.locator('#companion-label').inner_text()

@@ -141,6 +141,7 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 .confirm-box strong{font-size:19px}.confirm-box p{font-size:14px;color:var(--muted)}
 @media (max-width:620px){.offer-row{flex-direction:column;align-items:stretch}.offer-row button{width:100%}.control-grid input{max-width:140px}#action-feedback{top:54px}}
 </style>
+<link rel="stylesheet" href="/office-ui.css">
 </head>
 <body>
 <header class="top">
@@ -156,10 +157,11 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 <div class="caption">OPERAÇÕES</div>
 <button type="button" data-view="dashboard" class="selected" aria-current="page" title="Visão geral"><svg viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z"/></svg><span>Painel</span></button>
 <button type="button" data-view="market" title="Ofertas e contratos"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM6 9h12M6 13h9M6 17h6"/></svg><span>Mercado</span></button>
+<!--OFFICE_NAV-->
 <button type="button" data-view="route" title="Rota geográfica"><svg viewBox="0 0 24 24"><path d="M2 5l7-3 7 3 6-3v17l-6 3-7-3-7 3zM9 2v17M16 5v17"/></svg><span>Mapa</span></button>
 <button type="button" data-view="aircraft" title="Dados da aeronave"><svg viewBox="0 0 24 24"><path d="M12 2L9 12 2 15v3l9-2 1 5 1-5 9 2v-3l-7-3z"/></svg><span>Aeronave</span></button>
 <button type="button" data-view="career" title="Dados da carreira"><svg viewBox="0 0 24 24"><path d="M5 21h14V6H5zM9 6V3h6v3M8 11h8M8 15h8"/></svg><span>Carreira</span></button>
-<div class="navfoot">FlightSim InGame<br>0.9.1 Alpha • Comandos</div>
+<div class="navfoot">FlightSim InGame<br>0.9.2 Alpha • Operações</div>
 </nav>
 <div class="workspace">
 <div class="pagehead"><div><div class="eyebrow">Flight Operations</div><strong id="page-title">Visão geral</strong></div><small id="companion-label">MSFS 2020 • Aguardando FlightSim Windows</small></div>
@@ -228,6 +230,7 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 <div class="card half"><h2>Operações profissionais</h2><div class="subtext">O vínculo, os trechos de companhia, as habilitações e o logbook permanecem disponíveis na janela Midnight Ops do Windows até a v0.9.1.</div></div>
 <div class="card half"><h2>Próxima etapa</h2><div class="subtext">A v0.9.1 levará mercado, planejamento e diário para dentro do simulador, com ações autenticadas pelo motor.</div></div>
 </section>
+<!--OFFICE_PAGES-->
 </div>
 </div>
 </div>
@@ -236,7 +239,7 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
   <div class="confirm-box"><strong id="confirm-title">Confirmar operação</strong><p id="confirm-detail">—</p>
   <div class="op-actions"><button id="confirm-yes">Confirmar</button><button id="confirm-no" class="warning">Voltar</button></div></div>
 </div>
-<footer><span>FLIGHTSIM INGAME • V0.9.1 ALPHA</span><span id="diagnostic">Aguardando ponte local</span></footer>
+<footer><span>FLIGHTSIM INGAME • V0.9.2 ALPHA</span><span id="diagnostic">Aguardando ponte local</span></footer>
 <script>
 (function(){
 'use strict';
@@ -264,7 +267,10 @@ function receiptPoll(id,attempt){
     return new Promise(function(resolve){setTimeout(resolve,350);}).then(function(){return receiptPoll(id,attempt+1);});
    }
    feedback(r.message||'Resposta do motor indisponível',r.status!=='accepted');
-   if(r.status==='accepted')poll();
+   if(r.status==='accepted'){
+    if(window.FlightSimOfficeUI&&window.FlightSimOfficeUI.receipt)window.FlightSimOfficeUI.receipt(r);
+    poll();
+   }
    return r;
   });
 }
@@ -331,7 +337,33 @@ function map(data){
  points.forEach(function(a){a.x=330+((a.lon-midlon)*cos/spanlon)*520;a.y=90-((a.lat-midlat)/spanlat)*132;});
  var from=points.filter(function(a){return a.kind==='origin';})[0];
  var to=points.filter(function(a){return a.kind==='destination';})[0];
- if(from&&to)group.appendChild(line('path',{d:'M'+from.x+','+from.y+' L'+to.x+','+to.y,'class':'track'}));
+ var planned=data.office&&data.office.planning&&data.office.planning.route;
+ var coords=planned&&Array.isArray(planned.route)?planned.route:[];
+ var withRoute=coords.length>=2&&coords.every(function(c){return Array.isArray(c)&&
+   typeof c[0]==='number'&&typeof c[1]==='number';});
+ if(withRoute){
+  var newPoints=coords.map(function(c,i){return {lat:c[0],lon:c[1],
+   label:i===0?(planned.origin||'ORIGEM'):i===coords.length-1?(planned.destination||'DESTINO'):'FIX'+i,
+   kind:i===0?'origin':i===coords.length-1?'destination':'waypoint'};});
+  var extLats=points.concat(newPoints).map(function(a){return a.lat;});
+  var extLons=points.concat(newPoints).map(function(a){return a.lon;});
+  var latMin=Math.min.apply(null,extLats),latMax=Math.max.apply(null,extLats);
+  var lonMin=Math.min.apply(null,extLons),lonMax=Math.max.apply(null,extLons);
+  var latMid=(latMin+latMax)/2,lonMid=(lonMin+lonMax)/2;
+  var xCos=Math.max(.18,Math.cos(latMid*Math.PI/180));
+  var latSpan=Math.max(.02,latMax-latMin),lonSpan=Math.max(.02,(lonMax-lonMin)*xCos);
+  points.concat(newPoints).forEach(function(a){a.x=330+((a.lon-lonMid)*xCos/lonSpan)*520;
+    a.y=90-((a.lat-latMid)/latSpan)*132;});
+  group.appendChild(line('path',{d:newPoints.map(function(a,i){
+   return (i?'L':'M')+a.x+','+a.y;
+  }).join(' '),'class':'track'}));
+  newPoints.filter(function(a){return a.kind==='waypoint';}).forEach(function(a){
+   group.appendChild(line('circle',{cx:a.x,cy:a.y,r:4,fill:'#62d5e5'}));
+   group.appendChild(line('text',{x:a.x+8,y:a.y-7},a.label));
+  });
+ } else if(from&&to){
+  group.appendChild(line('path',{d:'M'+from.x+','+from.y+' L'+to.x+','+to.y,'class':'track'}));
+ }
  points.forEach(function(a){
   if(a.kind==='plane'){
    var head=data.telemetry && typeof data.telemetry.heading_deg==='number'?data.telemetry.heading_deg:0;
@@ -412,6 +444,8 @@ function render(d){
  if(inventory)element('fuel-liters').max=inventory.capacity_liters;
  renderMarket(d);
  map(d);
+ if(window.FlightSimOfficeUI){try{window.FlightSimOfficeUI.render(d);}
+ catch(officeError){console.error('[FlightSim] Office render failed',officeError);}}
  var stamp=typeof d.updated==='number'?new Date(d.updated*1000).toLocaleTimeString('pt-BR'):'—';
  write('diagnostic','Bridge v2 • última leitura '+stamp+' • modo '+(d.mode||'—'));
 }
@@ -463,8 +497,9 @@ function navigate(view){
  Array.prototype.forEach.call(pages,function(p){
    p.hidden=p.getAttribute('data-page')!==view;
  });
- var titles={dashboard:'Visão geral',market:'Mercado de contratos',route:'Mapa de navegação',aircraft:'Aeronave e telemetria',career:'Carreira e contrato'};
+ var titles={dashboard:'Visão geral',market:'Mercado de contratos',planning:'Planejamento e despacho',route:'Mapa de navegação',hangar:'Hangar e aeronaves',airlines:'Companhias aéreas',aircraft:'Aeronave e telemetria',career:'Piloto e licenças',logbook:'Logbook e relatórios',finances:'Centro financeiro'};
  write('page-title',titles[view]||'FlightSim');
+ if(window.FlightSimOfficeUI)window.FlightSimOfficeUI.view(view);
 }
 Array.prototype.forEach.call(pageButtons,function(b){
  b.addEventListener('click',function(){navigate(b.getAttribute('data-view'));});
@@ -501,9 +536,14 @@ element('fuel-refuel').addEventListener('click',function(){
  askAction('fuel_refuel',target,'Confirmar abastecimento?',
    'Aplicar '+value(target,1)+' L totais no avião selecionado. Pode alterar o saldo e exige solo/MTOW válidos.');
 });
+window.FlightSimOfficeBridge={
+ element:element,money:money,value:value,feedback:feedback,
+ askAction:askAction,sendAction:sendAction
+};
 navigate('dashboard');
 element('refresh').addEventListener('click',poll);
 poll();setInterval(poll,1500);
 })();
 </script>
+<script src="/office-ui.js"></script>
 </body></html>

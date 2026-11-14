@@ -1,0 +1,102 @@
+/* FlightSim 0.9.2 — Midnight Operations. All assets local, Coherent-safe CSS. */
+:root{--office-gold:#ddb879;--office-aqua:#65d9e5;--office-border:#284a5d;--office-muted:#a4b9c9}
+nav.side{overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#31586b transparent}
+nav.side button{flex-shrink:0}
+nav.side .navfoot{margin-top:auto;flex-shrink:0}
+.office-banner{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;background:
+ linear-gradient(110deg,rgba(18,67,83,.95),rgba(13,31,51,.98));border:1px solid #306277;
+ border-radius:14px;padding:21px 24px;min-height:106px;box-shadow:inset 0 1px #83ecff18}
+.office-banner h2{font-size:25px;margin:3px 0 4px;line-height:1.15;letter-spacing:.01em}
+.office-banner p{font-size:13px;color:#b7c9d7;margin:0;line-height:1.5}
+.office-status{display:inline-flex;align-items:center;gap:6px;color:#91e6d2;background:#123b43;border:1px solid #397e7d;
+ padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.office-panel{grid-column:span 12;background:linear-gradient(145deg,#0e2335,#0e1e31);
+ border:1px solid var(--office-border);border-radius:12px;padding:17px 19px;min-width:0}
+.office-panel.full{grid-column:span 12}
+.office-panel.half{grid-column:span 6}
+.office-panel h3{font-size:14px;letter-spacing:.045em;color:#e9f5fd;margin:0 0 14px}
+.office-panel-head{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.office-panel-head h3{margin-top:7px}
+.office-panel-head .op-actions{margin:0}
+.office-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:11px;margin:10px 0 14px}
+.office-fields label,.office-note-label{display:flex;flex-direction:column;gap:6px;color:var(--office-muted);font-size:12px;font-weight:600}
+.office-fields input,.office-fields select,.office-note-label textarea{font:inherit;font-size:15px;min-height:40px;color:#ecf8ff;
+ background:#0a1b2b;border:1px solid #31586c;outline:none;border-radius:8px;padding:10px;width:100%;max-width:100%}
+.office-note-label textarea{min-height:115px;resize:vertical}
+.office-fields input:focus,.office-fields select:focus,.office-note-label textarea:focus{border-color:var(--office-aqua);box-shadow:0 0 0 2px #4cbdcc28}
+.office-help{font-size:12px;color:var(--office-muted);line-height:1.5}
+.office-wp{grid-template-columns:1fr 1fr 1fr}
+.office-checks{display:grid;gap:11px;margin:14px 0}
+.office-checks label{font-size:14px;display:flex;align-items:center;gap:10px;color:#e3f1f7}
+.office-checks input{width:18px;height:18px;accent-color:#4ac9d7}
+.office-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0 0}
+.office-metrics.full{grid-column:span 12;margin:0}
+.office-metric{min-width:0;border:1px solid #2d4b60;border-radius:10px;
+ background:linear-gradient(135deg,#142f42,#0e2132);padding:11px 13px}
+.office-metric small{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#a0b5c8}
+.office-metric strong{display:block;font-size:20px;color:#f1f9ff;line-height:1.4;margin-top:4px;overflow-wrap:anywhere}
+.office-metric strong.accent{color:var(--office-aqua)}
+.office-stack{display:grid;gap:9px;max-height:550px;overflow-y:auto;padding-right:2px}
+.office-entry{padding:13px 14px;border:1px solid #294b62;background:#142a3e;border-radius:10px;min-width:0}
+.office-entry h4{font-size:15px;color:#f1f9ff;margin:0 0 3px;line-height:1.35;overflow-wrap:anywhere}
+.office-entry p,.office-entry small{display:block;color:#a2b7c8;font-size:12px;margin:4px 0}
+.office-entry-line{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.office-entry-line strong{font-size:14px;color:var(--office-gold)}
+.office-entry .op-actions{margin-top:8px}
+.office-tag{display:inline-flex;font-size:11px;color:#a7ebd3;border:1px solid #316759;border-radius:30px;padding:3px 8px}
+.office-tag.warn{color:#efc394;border-color:#855d3b}
+.hangar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:13px}
+.hangar-card{border:1px solid #31526a;border-radius:12px;overflow:hidden;background:#10263a;min-width:0}
+.hangar-picture{height:135px;display:flex;align-items:center;justify-content:center;background:
+ linear-gradient(155deg,#132d46,#0c1623);position:relative;overflow:hidden}
+.hangar-picture img{width:100%;height:100%;display:block;object-fit:cover}
+.hangar-silhouette{font-size:36px;color:#6da7b8;letter-spacing:.06em;font-weight:700}
+.hangar-picture .office-tag{position:absolute;top:10px;left:10px;background:#0b1b2bdf}
+.hangar-info{padding:12px 13px}
+.hangar-info h4{font-size:16px;line-height:1.25;margin:0 0 6px}
+.hangar-info small{color:#a2b7c8;font-size:12px;display:block;margin:3px 0}
+.hangar-price{color:#82e6bc;font-size:18px;font-weight:750;display:block;margin-top:7px}
+.hangar-info .op-actions{margin-top:11px}
+.hangar-info .op-actions button{font-size:12px;min-height:36px;padding:6px 10px}
+.office-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.office-tabs button{min-height:36px;border:1px solid #36556a;background:#0e2335;border-radius:8px;color:#bed3e2;padding:6px 13px}
+.office-tabs button[aria-pressed=true]{background:#15516a;border-color:#4e9eb3;color:#9bedf4}
+.office-panel .op-actions button{min-height:40px}
+.office-panel .op-actions button:hover,.office-tabs button:hover{filter:brightness(1.16)}
+.finance-chart{min-height:140px;display:flex;gap:9px;align-items:flex-end;overflow-x:auto;padding:16px 2px 4px}
+.finance-month{min-width:60px;flex:1;display:flex;flex-direction:column;align-items:center;gap:7px}
+.finance-month .finance-bars{display:flex;align-items:flex-end;gap:3px;height:120px;width:100%;justify-content:center}
+.finance-bar{width:30%;max-width:23px;min-height:2px;border-radius:5px 5px 0 0}
+.finance-bar.in{background:linear-gradient(#77e5ba,#327c7f)}
+.finance-bar.out{background:linear-gradient(#e7bd7b,#986a50)}
+.finance-month small{font-size:10px;color:#afc4d1;white-space:nowrap}
+.office-placeholder{color:#a7bbcc;font-size:13px;padding:20px;background:#102638;border:1px dashed #34536a;border-radius:10px}
+.office-list-button{background:none;border:0;text-align:left;width:100%;cursor:pointer;padding:0;color:inherit}
+.office-list-button:focus-visible{outline:2px solid var(--office-aqua);border-radius:8px}
+.office-note-label{margin-top:14px}
+@media(max-width:1080px){.office-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:850px){.office-panel.half{grid-column:span 12}.office-banner{padding:16px 17px}.office-banner h2{font-size:21px}}
+@media(max-width:620px){
+ nav.side{overflow-y:hidden;overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start;scrollbar-width:thin}
+ nav.side button{flex:0 0 80px;min-width:80px}
+ .office-panel{padding:13px}
+ .office-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .office-metric strong{font-size:17px}
+ .office-wp{grid-template-columns:1fr}
+ .hangar-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+ .office-banner h2{font-size:20px}
+ .office-status{font-size:10px}
+}
+@media(max-height:520px) and (min-width:621px){nav.side button{padding:7px 10px}.navfoot{display:none}}
+
+/* Logbook analytics: compact bars drawn from the SQLite ledger, not estimates. */
+.office-analysis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.office-analysis h4{font-size:13px;color:#d1e6f2;margin:0 0 14px}
+.office-bar-list{display:grid;gap:9px}
+.office-bar-row{display:grid;grid-template-columns:minmax(65px,100px) 1fr 60px;gap:10px;align-items:center;font-size:11px;color:#b6cbd7}
+.office-bar-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.office-bar-row strong{font-size:11px;text-align:right;color:#e6f5fb}
+.office-bar-track{background:#081827;border-radius:999px;overflow:hidden;height:9px}
+.office-bar-track i{display:block;height:100%;background:linear-gradient(90deg,#2f8b97,#78e0dd);border-radius:999px}
+.office-bar-track i.rough{background:linear-gradient(90deg,#916c49,#e4b274)}
+@media(max-width:800px){.office-analysis{grid-template-columns:1fr}}
