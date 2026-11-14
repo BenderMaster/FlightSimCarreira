@@ -256,7 +256,7 @@ class LocalPanelServer:
                         return self.reply(200, json.dumps(receipt, ensure_ascii=False).encode('utf-8')) if receipt else self.reply(404)
                 if path in OFFICE_FILES:
                     name,mime=OFFICE_FILES[path]
-                    asset=self.page_path.parent/name
+                    asset=owner.page_path.parent/name
                     if not asset.is_file():return self.reply(404)
                     return self.reply(200,asset.read_bytes(),mime)
                 if path in MODEL_IMAGES:
