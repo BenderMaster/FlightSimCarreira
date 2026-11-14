@@ -23,12 +23,64 @@ PROTOCOL_VERSION = 2
 FONT_ROOT = Path(__file__).resolve().parent / 'midnight' / 'fonts'
 BRAND_ICON = FONT_ROOT.parent / 'brand-icon.png'
 ALLOWED_ACTIONS = {'offer_accept', 'mission_cancel', 'dispatch_prepare', 'market_refresh',
-                   'fuel_toggle', 'fuel_refuel'}
+                   'fuel_toggle', 'fuel_refuel',
+                   'plan_save','plan_export','plan_send','plan_clear',
+                   'fleet_select','fleet_service','fleet_buy_new','fleet_buy_used',
+                   'fleet_rent','fleet_sell',
+                   'airline_apply','airline_review','airline_resign','airline_found','airline_buy_plane',
+                   'pilot_license_claim','logbook_note',
+                   'finance_loan','finance_repay','finance_tax'}
 REQUEST_ID = re.compile(r'^[A-Za-z0-9_-]{16,64}$')
 FONT_FILES = {
     '/fonts/BarlowSemiCondensed-Regular.ttf': 'BarlowSemiCondensed-Regular.ttf',
     '/fonts/BarlowSemiCondensed-SemiBold.ttf': 'BarlowSemiCondensed-SemiBold.ttf',
 }
+
+
+def validate_command_value(action, value):
+    """Closed per-command schema: browser may express intent, never price or XP.
+
+    Final domain validation always runs later on the Tk owner thread.
+    """
+    if action in ('offer_accept','mission_cancel','dispatch_prepare',
+                  'fleet_select','fleet_service','fleet_buy_new','fleet_buy_used',
+                  'fleet_rent','fleet_sell','airline_apply','airline_found',
+                  'airline_buy_plane','pilot_license_claim'):
+        return type(value) is str and 1 <= len(value) <= 110 and all(
+            32 <= ord(c) <= 126 for c in value)
+    if action in ('fuel_toggle','finance_tax'):
+        return type(value) is bool
+    if action == 'fuel_refuel':
+        return type(value) in (float,int) and 0 <= value <= 2000 and value == value
+    if action in ('finance_loan','finance_repay'):
+        return type(value) is int and 1 <= value <= 500000
+    if action == 'logbook_note':
+        return type(value) is dict and set(value) == {'flight_id','note'} and (
+            type(value['flight_id']) is int and 1 <= value['flight_id'] <= 10000000 and
+            type(value['note']) is str and len(value['note']) <= 700)
+    if action == 'plan_save':
+        if type(value) is not dict or set(value) != {
+                'mode','origin','destination','altitude_ft','waypoints','checks'}:
+            return False
+        if (value['mode'] not in ('free','contract') or
+                type(value['origin']) is not str or type(value['destination']) is not str or
+                not all(re.fullmatch('[A-Z0-9]{4}',v or '') for v in (
+                    value['origin'], value['destination'])) or
+                type(value['altitude_ft']) is not int or not 500 <= value['altitude_ft'] <= 45000 or
+                type(value['waypoints']) is not list or len(value['waypoints']) > 8 or
+                type(value['checks']) is not dict):
+            return False
+        if set(value['checks']) != {'runway_checked','route_checked','fuel_checked','payload_checked'} or not all(
+                type(x) is bool for x in value['checks'].values()):
+            return False
+        for waypoint in value['waypoints']:
+            if (type(waypoint) is not dict or set(waypoint) != {'label','lat','lon'} or
+                    type(waypoint['label']) is not str or not re.fullmatch('[A-Z0-9_-]{1,12}',waypoint['label']) or
+                    type(waypoint['lat']) not in (int,float) or type(waypoint['lon']) not in (int,float) or
+                    not -90 <= waypoint['lat'] <= 90 or not -180 <= waypoint['lon'] <= 180):
+                return False
+        return True
+    return value is None
 
 
 class PanelState:
@@ -122,7 +174,7 @@ class LocalPanelServer:
                     return self.reply(403)
                 try:
                     length = int(self.headers.get('Content-Length', '0'))
-                    if not 0 < length <= 1024:
+                    if not 0 < length <= 4096:
                         raise ValueError('Tamanho inválido')
                     raw = self.rfile.read(length)
                     payload = json.loads(raw, parse_constant=lambda x: (_ for _ in ()).throw(ValueError(x)))
@@ -132,17 +184,8 @@ class LocalPanelServer:
                     if (type(request_id) is not str or not REQUEST_ID.fullmatch(request_id) or
                             type(action) is not str or action not in ALLOWED_ACTIONS):
                         raise ValueError('Comando desconhecido')
-                    if action in ('offer_accept', 'mission_cancel', 'dispatch_prepare'):
-                        if type(value) is not str or not 1 <= len(value) <= 100:
-                            raise ValueError('Identificador inválido')
-                    elif action == 'fuel_toggle':
-                        if type(value) is not bool:
-                            raise ValueError('Opção inválida')
-                    elif action == 'fuel_refuel':
-                        if type(value) not in (float, int) or not 0 <= value <= 2000:
-                            raise ValueError('Litros inválidos')
-                    elif value is not None:
-                        raise ValueError('Campo inesperado')
+                    if not validate_command_value(action,value):
+                        raise ValueError('Parâmetros inválidos')
                 except (ValueError, TypeError, UnicodeDecodeError):
                     owner.rejected += 1
                     return self.reply(400)
