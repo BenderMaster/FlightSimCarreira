@@ -11,7 +11,7 @@ from aerocarreira.sim_adapter import SampleReader, register_parking_simvars, PAR
 from aerocarreira.turnaround import TurnaroundGate, parking_status
 from aerocarreira.airport_facilities import (DetailCollector, parse_facility_packet,
     parse_facility_end, DATA_ID, DATA_END_ID, AIRPORT, RUNWAY, PARKING,
-    APPROACH_LIGHTS, VASI)
+    APPROACH_LIGHTS, VASI, FIELDS)
 
 
 def sample(t=1,**kwargs):
@@ -150,6 +150,15 @@ def packet(kind,uid,parent,value,req=6201):
 
 
 class FacilityTests(unittest.TestCase):
+    def test_sdk_definition_uses_only_available_fields(self):
+        self.assertNotIn('EDGE_LIGHTS',FIELDS)
+        self.assertNotIn('CENTER_LIGHTS',FIELDS)
+        self.assertIn('HAS_END_LIGHTS',FIELDS)
+        self.assertIn('PRIMARY_ILS_ICAO',FIELDS)
+        self.assertIn('SECONDARY_ILS_ICAO',FIELDS)
+        self.assertEqual(FIELDS[0],'OPEN AIRPORT')
+        self.assertEqual(FIELDS[-1],'CLOSE AIRPORT')
+
     def test_native_packet_and_details_summary(self):
         col=DetailCollector('SBRF')
         values=[

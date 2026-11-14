@@ -152,6 +152,8 @@ try:
         assert 'ILS: Sim' in page.locator('.market-services').inner_text()
         assert 'PAPI: Não' in page.locator('.market-services').inner_text()
         assert 'Luzes aprox.: Não verificado' in page.locator('.market-services').inner_text()
+        assert 'ACEITE' in page.locator('#market-ground-status').inner_text()
+        assert page.locator('#market-sensor-readings').count()==1
         page.locator('#market-service-filter').select_option('ils')
         assert page.locator('.offer-row').count()==1
         page.locator('#market-service-filter').select_option('papi')
