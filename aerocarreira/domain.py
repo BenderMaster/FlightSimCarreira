@@ -349,8 +349,15 @@ class Career:
         self.origin_confirmed = False
         self.employer_aircraft_confirmed = False
 
-    def evaluate(self, events: list[dict], aircraft_title: str | None = None) -> Optional[dict]:
-        """Crédito somente com decolagem na origem e pouso no destino."""
+    def evaluate(self, events: list[dict], aircraft_title: str | None = None,
+                 *, settle: bool = True) -> Optional[dict]:
+        """Prove landing at destination; optionally defer actual career credit.
+
+        In MSFS 2020 a verified landing becomes a pending turnaround.
+        Only the subsequent shutdown in a verified parking spot settles
+        the money/XP through the original transactional flight finalizer.
+        The Demo and legacy calls retain immediate settlement.
+        """
         if not self.mission:
             return None
         for e in events:
@@ -371,8 +378,9 @@ class Career:
                 dist = distance_nm(e["lat"], e["lon"], b_lat, b_lon)
                 if dist <= 3:
                     mission = self.mission
-                    self.balance += mission.reward
-                    self.completed_ids.append(mission.id)
-                    self.cancel()
+                    if settle:
+                        self.balance += mission.reward
+                        self.completed_ids.append(mission.id)
+                        self.cancel()
                     return {"mission": mission.id, "reward": mission.reward, "distance_nm_to_dest": round(dist,2)}
         return None
