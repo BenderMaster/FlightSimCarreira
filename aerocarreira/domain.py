@@ -97,6 +97,9 @@ class FlightSample:
     heading_true_deg: float | None = None  # proa geográfica real, graus, opcional
     heading_magnetic_deg: float | None = None  # proa magnética do cockpit
     on_any_runway: bool | None = None  # nenhum dado = None, não falsa
+    atc_on_parking_spot: bool | None = None
+    plane_in_parking_state: bool | None = None
+    parking_brake_set: bool | None = None
     # None indica dado indisponível; nunca significa opção desligada.
     assistance_landing: bool | None = None
     assistance_takeoff: bool | None = None

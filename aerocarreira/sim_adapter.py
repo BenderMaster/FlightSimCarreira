@@ -32,6 +32,9 @@ OPTIONAL = {"stall_warning": "STALL_WARNING", "fuel_gallons": "FUEL_TOTAL_QUANTI
             "heading_true_rad":"PLANE_HEADING_DEGREES_TRUE",
             "heading_magnetic_rad":"PLANE_HEADING_DEGREES_MAGNETIC",
             "on_any_runway":"ON_ANY_RUNWAY",
+            "atc_on_parking_spot":"ATC_ON_PARKING_SPOT",
+            "plane_in_parking_state":"PLANE_IN_PARKING_STATE",
+            "parking_brake_set":"BRAKE_PARKING_POSITION",
             "assistance_landing":"ASSISTANCE_LANDING_ENABLED",
             "assistance_takeoff":"ASSISTANCE_TAKEOFF_ENABLED",
             "ai_controls":"AI_CONTROLS",
@@ -133,6 +136,24 @@ class SampleReader:
         value=self._get(OPTIONAL[key])
         return None if value is None or not isfinite(value) else value>=0.5
 
+    def _engines_running(self, title):
+        """All installed engines must be verified off before payout.
+
+        If engine count is missing, use a proven fixed count for known
+        economy models; unknown models remain unverified rather than
+        treating engine #1 as all engines.
+        """
+        count=self._get('NUMBER_OF_ENGINES')
+        if count is None or not isfinite(count) or not 1<=count<=4 or int(count)!=count:
+            count={'c152':1,'c172':1,'g58':2,'kingair':2,'cj4':2}.get(aircraft_model(title))
+        if count is None:return None
+        flags=[]
+        for index in range(1,int(count)+1):
+            value=self._get('GENERAL_ENG_COMBUSTION:'+str(index))
+            if value is None or not isfinite(value):return None
+            flags.append(value>=0.5)
+        return any(flags)
+
     def read(self):
         values = {key: self._get(var) for key, var in REQUIRED.items()}
         missing = [REQUIRED[key] for key, val in values.items() if val is None]
@@ -180,10 +201,13 @@ class SampleReader:
             heading_true_deg=true_heading_degrees(self._get(OPTIONAL['heading_true_rad'])),
             heading_magnetic_deg=true_heading_degrees(self._get(OPTIONAL['heading_magnetic_rad'])),
             on_any_runway=self._optional_bool('on_any_runway'),
+            atc_on_parking_spot=self._optional_bool('atc_on_parking_spot'),
+            plane_in_parking_state=self._optional_bool('plane_in_parking_state'),
+            parking_brake_set=self._optional_bool('parking_brake_set'),
             sim_rate=self._get(OPTIONAL['sim_rate']),
             fuel_tanks=tanks, fuel_tank_capacities=cap,
             unlimited_fuel=self._optional_bool('unlimited_fuel'),
-            engine_running=self._optional_bool('engine_running'),
+            engine_running=self._engines_running(title),
             assistance_landing=self._optional_bool('assistance_landing'),
             assistance_takeoff=self._optional_bool('assistance_takeoff'),
             ai_controls=self._optional_bool('ai_controls'),
