@@ -1,0 +1,61 @@
+<section class="page" data-page="planning" aria-label="Planejamento de voo" hidden>
+ <div class="office-banner full"><div><span class="eyebrow">FLIGHT OPERATIONS</span><h2>Planejamento de voo</h2><p>Rota, waypoints, reserva de combustível e checklist. Aeroportos validados no catálogo do MSFS.</p></div><span class="office-status" id="planning-status">Aguardando catálogo</span></div>
+ <div class="office-panel full"><h3>Rota e altitude</h3><div class="office-fields">
+  <label>Modalidade<select id="plan-mode"><option value="free">Voo livre</option><option value="contract">Contrato ativo</option></select></label>
+  <label>Origem (ICAO)<input id="plan-origin" maxlength="4" placeholder="SBRF"></label>
+  <label>Destino (ICAO)<input id="plan-destination" maxlength="4" placeholder="SIPE"></label>
+  <label>Altitude de cruzeiro (ft)<input id="plan-altitude" type="number" min="500" max="45000" step="100" value="2500"></label>
+ </div><div class="office-metrics" id="plan-metrics"></div></div>
+ <div class="office-panel half"><h3>Waypoints personalizados</h3><p class="office-help">Até 8 pontos intermediários. Posições em graus decimais, verificadas pelo motor.</p>
+  <div id="waypoint-list" class="office-stack"></div><div class="office-fields office-wp">
+   <label>Nome<input id="wp-label" maxlength="12" placeholder="FIX01"></label>
+   <label>Latitude<input id="wp-lat" type="number" step="0.000001" placeholder="-8.10"></label>
+   <label>Longitude<input id="wp-lon" type="number" step="0.000001" placeholder="-34.90"></label></div>
+  <div class="op-actions"><button id="wp-add" class="btn">Adicionar ponto</button></div></div>
+ <div class="office-panel half"><h3>Checklist pré-voo</h3>
+  <div id="plan-checks" class="office-checks">
+   <label><input type="checkbox" data-plan-check="runway_checked"> Pista e iluminação revisadas</label>
+   <label><input type="checkbox" data-plan-check="route_checked"> Rota e altitude verificadas</label>
+   <label><input type="checkbox" data-plan-check="fuel_checked"> Reserva de combustível conferida</label>
+   <label><input type="checkbox" data-plan-check="payload_checked"> Peso e balanceamento conferidos</label>
+  </div><p class="office-help">As marcações são declarações do piloto e não substituem sensores do MSFS.</p></div>
+ <div class="office-panel full"><h3>Gerenciar plano</h3><div class="op-actions">
+ <button id="plan-save">Salvar planejamento</button><button id="plan-export">Exportar .PLN</button>
+ <button id="plan-send">Enviar ao MSFS</button><button id="plan-clear" class="warning">Limpar rascunho</button></div>
+ <p class="office-help" id="plan-dispatch-state">Aguardando despacho.</p></div>
+</section>
+<section class="page" data-page="hangar" aria-label="Hangar e frota" hidden>
+ <div class="office-banner full"><div><span class="eyebrow">AIRCRAFT OPERATIONS</span><h2>Meu hangar</h2><p>Aeronaves, conservação, combustível, compra, venda e aluguel.</p></div><span class="office-status" id="hangar-status">Consultando frota</span></div>
+ <div class="office-panel full"><h3>Minha frota</h3><div id="hangar-owned" class="hangar-grid"></div></div>
+ <div class="office-panel full"><div class="office-panel-head"><h3>Mercado de aeronaves</h3><div class="office-tabs"><button data-fleet-tab="new" aria-pressed="true">Novas</button><button data-fleet-tab="used" aria-pressed="false">Usadas</button><button data-fleet-tab="rent" aria-pressed="false">Aluguel</button><button data-fleet-tab="sell" aria-pressed="false">Venda</button></div></div>
+ <div id="hangar-market" class="hangar-grid"></div><p id="hangar-market-reason" class="office-help"></p></div>
+</section>
+<section class="page" data-page="airlines" aria-label="Companhias e emprego" hidden>
+ <div class="office-banner full"><div><span class="eyebrow">AIRLINE OPERATIONS</span><h2>Companhias aéreas</h2><p>Emprego, metas semanais, habilitações e administração empresarial.</p></div><span id="airline-status" class="office-status">Consultando vínculo</span></div>
+ <div id="airline-metrics" class="office-metrics full"></div>
+ <div class="office-panel full"><div class="office-panel-head"><h3>Recrutamento e vínculo</h3><div class="op-actions"><button id="airline-review">Verificar seleção</button><button id="airline-resign" class="warning">Pedir demissão</button></div></div>
+ <div id="airline-vacancies" class="office-stack"></div></div>
+ <div class="office-panel half"><h3>Habilitações de modelo</h3><div id="airline-ratings" class="office-stack"></div></div>
+ <div class="office-panel half"><h3>Empresa própria</h3><p class="office-help">Fundação e compra de aeronaves somente quando permitidas pelo motor.</p>
+ <div class="office-fields"><label>Nome da companhia<input id="company-name" maxlength="50" placeholder="Nome da companhia"></label></div>
+ <div class="op-actions"><button id="airline-found">Fundar companhia</button></div>
+ <div id="airline-business" class="office-stack"></div></div>
+</section>
+<section class="page" data-page="logbook" aria-label="Logbook e análise" hidden>
+ <div class="office-banner full"><div><span class="eyebrow">PILOT FLIGHT RECORDS</span><h2>Logbook</h2><p>Voos registrados, avaliação dos pousos e histórico operacional.</p></div><span id="logbook-total" class="office-status">— voos</span></div>
+ <div id="logbook-metrics" class="office-metrics full"></div>
+ <div class="office-panel half"><h3>Voos registrados</h3><div id="logbook-list" class="office-stack"></div></div>
+ <div class="office-panel half"><h3>Detalhes e anotações</h3><div id="logbook-details" class="office-stack"><p>Selecione um voo ao lado.</p></div>
+  <label class="office-note-label">Anotação do piloto<textarea id="logbook-note" maxlength="700" rows="5" placeholder="Observações deste voo"></textarea></label>
+  <div class="op-actions"><button id="logbook-save" disabled>Salvar anotação</button></div></div>
+</section>
+<section class="page" data-page="finances" aria-label="Centro financeiro" hidden>
+ <div class="office-banner full"><div><span class="eyebrow">FINANCE OFFICE</span><h2>Finanças</h2><p>Saldo, resultados, despesas, patrimônio e operações bancárias.</p></div><span class="office-status">Carreira atual</span></div>
+ <div id="finance-metrics" class="office-metrics full"></div>
+ <div class="office-panel full"><h3>Resultado mensal — receitas e despesas</h3><div id="finance-chart" class="finance-chart"></div></div>
+ <div class="office-panel half"><h3>Banco e empréstimos</h3><p class="office-help" id="finance-debt">—</p>
+  <div class="office-fields"><label>Valor (R$)<input id="finance-amount" type="number" min="1" step="1" value="10000"></label></div>
+  <div class="op-actions"><button id="finance-loan">Contratar empréstimo</button><button id="finance-repay">Amortizar dívida</button></div>
+  <div class="op-actions"><button id="finance-tax">Alterar imposto virtual</button></div></div>
+ <div class="office-panel half"><h3>Movimentações recentes</h3><div id="finance-transactions" class="office-stack"></div></div>
+</section>
