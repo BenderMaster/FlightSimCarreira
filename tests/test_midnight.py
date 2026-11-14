@@ -4,6 +4,7 @@ import tempfile
 import unittest
 import urllib.error
 import urllib.request
+from time import time
 from pathlib import Path
 from types import SimpleNamespace
 from queue import Empty
@@ -117,6 +118,43 @@ class PresenterTests(unittest.TestCase):
         with patch('aerocarreira.dashboard_controller.messagebox.showwarning') as warning:
             controller.dispatch({'action':'fuel'});warning.assert_called_once()
         self.assertEqual(self.db.get_setting('fuel_control_enabled'),old)
+    def test_refuel_resolves_aircraft_model_and_rejects_other_aircraft(self):
+        # Exercita o dispatch real: uma importacao local em outro ramo
+        # tornava aircraft_model indefinido ao abastecer o C152.
+        app=Mock()
+        app.storage.fleet_manager.return_value.selected.return_value={
+            'ref':'legacy:c152','code':'c152'}
+        app.storage.get_setting.return_value='900'
+        app.tracker.phase=None
+        app.career.mission=None
+        app.mode='MSFS'
+        app.connected=True
+        app.last_sample=SimpleNamespace(
+            on_ground=True,timestamp=time(),aircraft_title='Cessna 152',
+            total_weight_lbs=None,max_gross_weight_lbs=None)
+        app.fuel_manager.get.return_value=None
+        tanks={'LEFT_MAIN':10.0,'RIGHT_MAIN':10.0}
+        app.fuel_manager.change_liters.return_value={
+            'tanks':tanks,'target_liters':80.0,'cost_brl':120,'refund_brl':0}
+        controller=object.__new__(DashboardController)
+        controller.app=app
+
+        controller.dispatch({'action':'refuel','id':80.0})
+        app.fuel_manager.change_liters.assert_called_once_with('legacy:c152',80.0)
+        app.sim.request_fuel_restore.assert_called_once_with(tanks)
+        self.assertEqual(app.pending_fuel_ref,'legacy:c152')
+        self.assertEqual(app.career.balance,900)
+        app.balance_var.set.assert_called_once()
+
+        # Modelo diferente nao pode gerar debito nem comandos ao simulador.
+        app.fuel_manager.change_liters.reset_mock()
+        app.sim.request_fuel_restore.reset_mock()
+        app.last_sample.aircraft_title='Cessna 172 Skyhawk'
+        controller.dispatch({'action':'refuel','id':80.0})
+        app.fuel_manager.change_liters.assert_not_called()
+        app.sim.request_fuel_restore.assert_not_called()
+        self.assertIn('modelo selecionado',app._log.call_args.args[0])
+
     def test_offer_confirmed_in_webview_skips_invisible_tk_confirmation(self):
         self.app.mode='Demo'
         self.pilot()

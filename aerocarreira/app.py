@@ -132,7 +132,7 @@ class Application:
         self.airport_catalog = None
         self.msfs_airports_ready=False
         self.bridge_state = PanelState()
-        self.bridge = LocalPanelServer(self.bridge_state)
+        self.bridge = LocalPanelServer(self.bridge_state, allow_commands=True)
         self.bridge_error = None
         try: self.bridge.start()
         except OSError as exc: self.bridge_error = str(exc)
@@ -572,7 +572,13 @@ class Application:
             return
         self._accept_specific(m)
 
-    def _accept_specific(self, m):
+    def _accept_specific(self, m, interactive=True):
+        def warn(title, message):
+            if interactive:
+                messagebox.showwarning(title, message)
+            else:
+                self._ingame_last_error = str(message)
+                self._log('INGAME • ' + title + ': ' + str(message))
         m=mission_manifest(m)
         # Em jogo real, catálogo vivo do MSFS é a ÚNICA fonte de aeroportos.
         # Mesmo uma oferta antiga no SQLite NÃO comprova aeroporto instalado.
@@ -585,34 +591,34 @@ class Application:
             m=validated
         offline = self.mode == "Desconectado"
         if not offline and (self.mode not in ("MSFS", "Demo") or self.last_sample is None):
-            messagebox.showwarning("Contrato", "Conecte ao MSFS e aguarde telemetria em solo.")
+            warn("Contrato", "Conecte ao MSFS e aguarde telemetria em solo.")
             return False
         if offline:
             profile=self.storage.get_pilot()
             if profile is None or m.origin != profile['home_icao']:
-                messagebox.showwarning('Mercado', 'No modo offline só é possível aceitar na base cadastral do piloto.')
+                warn('Mercado', 'No modo offline só é possível aceitar na base cadastral do piloto.')
                 return False
         if self.mode == "Demo" and m.id != "REC-ITA":
-            messagebox.showwarning("Demo", "A demo fixa simula somente SBRF → SIPE.")
+            warn("Demo", "A demo fixa simula somente SBRF → SIPE.")
             return False
         if self.mode == "MSFS" and (not self.connected or not self.last_sample.on_ground
                                    or time() - self.last_sample.timestamp > 10):
-            messagebox.showwarning("Contrato", "Aceite no solo com telemetria atualizada.")
+            warn("Contrato", "Aceite no solo com telemetria atualizada.")
             return False
         if m.category != "legacy":
             if self.storage.get_pilot() is None:
-                messagebox.showwarning("Contrato", "Cadastre seu piloto primeiro.")
+                warn("Contrato", "Cadastre seu piloto primeiro.")
                 return False
             allowed, reason = eligibility(m, self.storage.pilot_stats(),
                                           self.storage.owned_qualifications(),
                                           self.storage.family_experience())
             if not allowed:
-                messagebox.showwarning("Contrato bloqueado", reason)
+                warn("Contrato bloqueado", reason)
                 return False
             if m.company_code=='OWN':
                 from .airline_operations import business_planes
                 if self.storage.employment_state()['mode']!='empresario':
-                    messagebox.showwarning('Contrato','Somente o proprietário pode aceitar rota empresarial.')
+                    warn('Contrato','Somente o proprietário pode aceitar rota empresarial.')
                     return False
                 # Só uma aeronave empresarial real, na origem, pode executar
                 # esse contrato; nenhuma aeronave particular é transferida.
@@ -621,36 +627,36 @@ class Application:
                     and p['code']==m.employer_plane and p['airport']==m.origin
                     and p['condition']>=15]
                 if not eligible_planes:
-                    messagebox.showwarning('Contrato','Aeronave empresarial não está disponível nesta origem.')
+                    warn('Contrato','Aeronave empresarial não está disponível nesta origem.')
                     return False
             elif m.company_code and (self.storage.employment_state()['mode']!='empregado' or
                                    self.storage.employment_state()['employer_code']!=m.company_code):
-                messagebox.showwarning('Contrato', 'Trecho exclusivo da companhia empregadora.')
+                warn('Contrato', 'Trecho exclusivo da companhia empregadora.')
                 return False
             if m.company_code and m.company_code!='OWN':
                 if self.mode!='MSFS' or not self.connected or not self.last_sample:
-                    messagebox.showwarning('Contrato da companhia',
+                    warn('Contrato da companhia',
                         'Conecte ao MSFS com a aeronave habilitada antes de aceitar a escala.')
                     return False
                 model=m.employer_plane
                 company=m.company_code
                 ratings=type_ratings.owned(self.storage)
                 if not type_ratings.valid_for_company(company,model,ratings):
-                    messagebox.showwarning('Contrato da companhia',
+                    warn('Contrato da companhia',
                         'Modelo não habilitado para esta empregadora. Consulte Treinamento.')
                     return False
                 if model not in self.airline_available_codes:
-                    messagebox.showwarning('Contrato da companhia',
+                    warn('Contrato da companhia',
                         'Aeronave não verificada no ambiente MSFS. Abra o modelo ou escaneie a instalação.')
                     return False
                 if (self.mode=='MSFS' and self.last_sample and
                         not matches_aircraft(self.last_sample.aircraft_title,model)):
-                    messagebox.showwarning('Contrato da companhia',
+                    warn('Contrato da companhia',
                         'Carregue no MSFS o modelo '+PLANE_BY_CODE[model].name+
                         ' antes de aceitar esta rota.')
                     return False
             if self.storage.contract_completed(m.id):
-                messagebox.showwarning("Contrato", "Este contrato já foi concluído. Aguarde nova oferta.")
+                warn("Contrato", "Este contrato já foi concluído. Aguarde nova oferta.")
                 return False
         try:
             self.career.accept(m, None if offline else self.last_sample)
@@ -675,7 +681,7 @@ class Application:
             self._checkpoint(force=True)
             return True
         except ValueError as exc:
-            messagebox.showwarning("Contrato",str(exc))
+            warn("Contrato",str(exc))
             return False
 
     def _market_window(self):
@@ -1419,24 +1425,187 @@ class Application:
         else:
             self._checkpoint()
 
+    def _execute_ingame_command(self, action, value):
+        """Run the toolbar request on the existing Tk/SQLite/SimConnect owner thread.
+
+        The browser is never trusted to supply a price, a reward or a flight
+        state. Returning True means the motor accepted the action; asynchronous
+        SimConnect writes must still be verified from subsequent samples.
+        """
+        if action == 'market_refresh':
+            if not self.dashboard:
+                return False, 'Mercado ainda não inicializado.'
+            self.dashboard.presenter.refresh_market(force=True)
+            self._ingame_offers_next = 0
+            return True, 'Ofertas atualizadas pelo motor.'
+
+        s = self.last_sample
+        if not (self.mode == 'MSFS' and self.connected and self.sim and s
+                and time() - s.timestamp < 10 and s.on_ground
+                and self.tracker.phase != Phase.AIRBORNE):
+            return False, 'Ação disponível somente com MSFS conectado e aeronave em solo.'
+
+        if action == 'offer_accept':
+            if self.career.mission:
+                return False, 'Finalize ou cancele o contrato atual antes de aceitar outro.'
+            if not self.dashboard or not self.msfs_airports_ready:
+                return False, 'Aguardando catálogo de aeroportos confirmado pelo MSFS.'
+            presenter = self.dashboard.presenter
+            presenter.refresh_market()
+            offer = presenter.offers.get(value)
+            if offer is None or self.storage.contract_completed(value):
+                return False, 'Oferta não está mais disponível. Atualize o mercado.'
+            if not self.storage.get_pilot():
+                return False, 'Cadastre um piloto no FlightSim antes de aceitar missões.'
+            allowed, reason = eligibility(offer, self.storage.pilot_stats(),
+                                          self.storage.owned_qualifications(),
+                                          self.storage.family_experience())
+            if not allowed:
+                return False, reason
+            self._ingame_last_error = None
+            ok = self._accept_specific(offer, interactive=False)
+            if ok:
+                self._ingame_offers_next = 0
+            return (True, 'Contrato aceito; despacho iniciado pelo motor.') if ok else (
+                False, self._ingame_last_error or 'Contrato recusado pelo motor; confira o registro do FlightSim.')
+
+        m = self.career.mission
+        if action in ('mission_cancel', 'dispatch_prepare'):
+            if not m or value != m.id:
+                return False, 'Missão alterada ou inexistente. Atualize o painel.'
+            if action == 'mission_cancel':
+                self._cancel()
+                self._ingame_offers_next = 0
+                return True, 'Contrato cancelado sem pagamento.'
+            plan = self._prepare_active_plan(automatic=True)
+            payload = self._queue_payload_load()
+            self._checkpoint(force=True)
+            if plan or payload:
+                return True, 'Plano/carga enviados; aguarde confirmação do SimConnect.'
+            return False, 'Despacho pendente. Confira aeronave, peso e catálogo MSFS.'
+
+        if action == 'fuel_toggle':
+            self.storage.set_setting('fuel_control_enabled', '1' if value else '0')
+            self._log('INGAME: controle de combustível ' + ('ativado.' if value else 'desativado.'))
+            return True, ('Controle de combustível ativado.' if value else
+                          'Controle desativado: -30% em dinheiro e XP nos próximos voos.')
+
+        if action == 'fuel_refuel':
+            if not self.dashboard:
+                return False, 'Controle de frota indisponível.'
+            plane = self.storage.fleet_manager().selected()
+            if not plane:
+                return False, 'Selecione uma aeronave própria no Hangar.'
+            if self.career.mission and self.career.mission.freelance:
+                return False, 'Não é possível abastecer o avião do contratante.'
+            if aircraft_model(s.aircraft_title) != plane['code']:
+                return False, 'O avião conectado não corresponde ao selecionado no Hangar.'
+            try:
+                previous = self.fuel_manager.get(plane['ref'])
+                if previous and s.total_weight_lbs is not None and s.max_gross_weight_lbs is not None:
+                    from .finance import LITERS_PER_GALLON
+                    current_liters = sum(previous['tanks'].values()) * LITERS_PER_GALLON
+                    projected = s.total_weight_lbs + (value - current_liters) * 1.58733
+                    if projected > s.max_gross_weight_lbs - 1:
+                        raise ValueError('Combustível ultrapassaria o MTOW.')
+                result = self.fuel_manager.change_liters(plane['ref'], value)
+            except (ValueError, TypeError, KeyError) as exc:
+                return False, str(exc)
+            self.pending_fuel_ref = plane['ref']
+            self.sim.request_fuel_restore(result['tanks'])
+            self.career.balance = int(self.storage.get_setting('balance') or 0)
+            self.balance_var.set(brl(self.career.balance))
+            self._log('INGAME: abastecimento de %.1f L enviado ao MSFS. Aguardando leitura.' %
+                      result['target_liters'])
+            return True, ('Solicitação enviada ao MSFS (%s). Aguardando leitura dos tanques.' %
+                          brl(result['cost_brl']))
+
+        return False, 'Comando não suportado.'
+
     def _publish_bridge(self):
-        m=self.career.mission
-        s=self.last_sample if self.connected else None
-        mission=None
+        """Publish sanitized data on the Tk thread; never expose SQLite or financial write access to JS."""
+        m = self.career.mission
+        now = time()
+        sample = self.last_sample if self.connected else None
+        s = sample if (sample and now - sample.timestamp < 10) else None
+        mission = None
+        remaining = None
         if m:
-            verified=restricted_mission(m,self.airport_catalog if self.msfs_airports_ready else None)
-            mission={'origin':m.origin,'destination':m.destination,'title':m.title,
-                     'reward':m.reward,'origin_lat':verified.origin_lat,
-                     'origin_lon':verified.origin_lon,
-                     'destination_lat':verified.destination_lat,
-                     'destination_lon':verified.destination_lon,
-                     'nav_source':verified.nav_source}
-        self.bridge_state.update(status='connected' if s else 'offline',
-            phase=self.tracker.phase.value,balance=self.career.balance,
-            aircraft=s.aircraft_title if s else None,
-            position={'lat':s.latitude,'lon':s.longitude} if s else None,
-            fuel_gallons=s.fuel_gallons if s else None,
-            mission=mission,updated=time())
+            verified = restricted_mission(
+                m, self.airport_catalog if self.msfs_airports_ready else None
+            )
+            mission = {
+                'id': m.id, 'origin': m.origin, 'destination': m.destination,
+                'title': m.title, 'reward': m.reward,
+                'origin_lat': verified.origin_lat,
+                'origin_lon': verified.origin_lon,
+                'destination_lat': verified.destination_lat,
+                'destination_lon': verified.destination_lon,
+                'nav_source': verified.nav_source,
+            }
+            if s and verified.destination_lat is not None and verified.destination_lon is not None:
+                remaining = round(distance_nm(
+                    s.latitude, s.longitude,
+                    verified.destination_lat, verified.destination_lon
+                ), 1)
+
+        # SimConnect sends optional readings that may be absent. Never substitute
+        # predicted flight data for missing actual telemetry.
+        from math import isfinite
+        def number(value, decimals=1):
+            return round(value, decimals) if (
+                isinstance(value, (float, int)) and not isinstance(value, bool)
+                and isfinite(value)
+            ) else None
+
+        telemetry = ({
+            'ias_kt': number(s.ias_kt), 'gs_kt': number(s.groundspeed_kt),
+            'altitude_ft': number(s.altitude_ft, 0),
+            'agl_ft': number(s.agl_ft, 0), 'vs_fpm': number(s.vs_fpm, 0),
+            'heading_deg': number(s.heading_true_deg),
+            'on_ground': bool(s.on_ground),
+        } if s else None)
+        status = ('connected' if s else
+                  'reconnecting' if self.mode == 'MSFS' else 'offline')
+        if now >= getattr(self, '_ingame_offers_next', 0):
+            offers = []
+            presenter = self.dashboard.presenter if self.dashboard else None
+            if presenter and self.storage.get_pilot() and self.msfs_airports_ready:
+                selected = self.storage.fleet_manager().selected()
+                stats = self.storage.pilot_stats()
+                for item in list(presenter.offers.values())[:30]:
+                    allowed, reason = eligibility(item, stats,
+                        self.storage.owned_qualifications(), self.storage.family_experience())
+                    from .dashboard import mission_data
+                    data = mission_data(item, selected['code'] if selected else None)
+                    offers.append({key: data.get(key) for key in
+                        ('id','origin','destination','title','category','reward',
+                         'distance','minutes','freelance','manifest_label','employer_plane')})
+                    offers[-1].update(allowed=bool(allowed),reason=str(reason)[:180])
+            self._ingame_offers_cache = offers
+            self._ingame_offers_next = now + 1.5
+        fuel_info = None
+        selected = self.storage.fleet_manager().selected()
+        if selected:
+            inventory = self.fuel_manager.get(selected['ref'])
+            if inventory and inventory.get('capacities'):
+                from .finance import LITERS_PER_GALLON
+                fuel_info = {'aircraft': selected['title'],
+                    'current_liters': number(sum(inventory['tanks'].values()) * LITERS_PER_GALLON),
+                    'capacity_liters': number(sum(inventory['capacities'].values()) * LITERS_PER_GALLON)}
+        self.bridge_state.update(
+            offers=getattr(self, '_ingame_offers_cache', []),
+            market_ready=bool(self.msfs_airports_ready),
+            fuel_control_enabled=self.storage.get_setting('fuel_control_enabled') == '1',
+            fuel_inventory=fuel_info,
+            dispatch=dict(self.dispatch_state),
+            status=status, mode=self.mode, phase=self.tracker.phase.value,
+            balance=int(self.career.balance), aircraft=s.aircraft_title if s else None,
+            position={'lat': number(s.latitude, 6), 'lon': number(s.longitude, 6)} if s else None,
+            fuel_gallons=number(s.fuel_gallons) if s else None,
+            mission=mission, telemetry=telemetry,
+            remaining_nm=remaining, updated=now,
+        )
 
     def _open_local_panel(self):
         import webbrowser
@@ -1512,6 +1681,16 @@ class Application:
                     self.status_var.set(item)
         except Empty:
             pass
+        # Run InGame commands on the same Tk owner thread as desktop commands.
+        for _ in range(8):
+            try: request_id, action, value = self.bridge.commands.get_nowait()
+            except Empty: break
+            try:
+                ok, message = self._execute_ingame_command(action, value)
+            except Exception as exc:
+                self._log('INGAME: falha no comando ' + action + ': ' + str(exc))
+                ok, message = False, 'Operação falhou no motor. Consulte o registro.'
+            self.bridge.finish_command(request_id, ok, message)
         self._publish_bridge()
         self.root.after(200,self._poll)
 

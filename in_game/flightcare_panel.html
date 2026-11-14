@@ -1,34 +1,509 @@
-<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FlightSim — painel experimental</title>
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="flight-panel-key" content="__FLIGHTSIM_PANEL_KEY__">
+<meta name="flight-action-key" content="__FLIGHTSIM_ACTION_KEY__">
+<meta name="flight-writable" content="__FLIGHTSIM_WRITABLE__">
+<title>FlightSim InGame • Midnight Tablet</title>
 <style>
-:root{color-scheme:dark;--bg:#08111c;--panel:#101e2d;--cyan:#54c8d5;--gold:#d4ae6e;--fg:#e4edf5;--muted:#94a8bb}
-*{box-sizing:border-box}body{font:14px 'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--fg);margin:0;padding:14px}
-header{display:flex;align-items:center;justify-content:space-between;gap:14px;border-bottom:1px solid #263f55;padding:0 0 12px}
-h1{font-size:18px;margin:0}h1 span{color:var(--cyan)}.status{font-size:12px;color:var(--cyan)}.panel{background:var(--panel);border-radius:8px;padding:14px;margin:12px 0}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}.stat{background:#172a3a;padding:10px;border-radius:6px}.stat label{display:block;font-size:11px;color:var(--muted)}.stat strong{display:block;font-size:19px;margin-top:4px}
-small{color:var(--muted)}h2{font-size:13px;color:var(--gold);margin:0 0 10px;letter-spacing:.08em}#map{width:100%;height:300px;background:#0c1b28;border-radius:8px;border:1px solid #284155}
-#map text{fill:var(--fg);font:11px Arial}#map .gridline{stroke:#203b50;stroke-width:1}#map .path{stroke:var(--cyan);stroke-width:3;stroke-dasharray:6 5;fill:none}
-#map .origin{fill:var(--gold)}#map .dest{fill:#77cba3}#map .plane{fill:#fff}#map .unknown{fill:var(--muted)}footer{color:var(--muted);font-size:11px;padding:8px 0}
-</style></head><body>
-<header><h1>FLIGHTSIM<span>CARREIRA</span> <small>LAB</small></h1><div id="connection" class="status">AGUARDANDO PONTE</div></header>
-<section class="panel"><h2>CARREIRA EM VOO</h2><div class="grid"><div class="stat"><label>CAIXA</label><strong id="balance">—</strong></div><div class="stat"><label>FASE</label><strong id="phase">—</strong></div><div class="stat"><label>AERONAVE</label><strong id="plane" style="font-size:14px">—</strong></div><div class="stat"><label>COMBUSTÍVEL</label><strong id="fuel">—</strong></div></div></section>
-<section class="panel"><h2>CONTRATO ATIVO</h2><div id="mission">Nenhum contrato reservado.</div></section>
-<section class="panel"><h2>MAPA DE TRAJETO — ESQUEMA GEOGRÁFICO</h2><svg id="map" viewBox="0 0 700 300" role="img" aria-label="Trajeto e posição do avião"><g id="chart"></g></svg><small>Este NÃO é o mapa VFR oficial: não contém cartas, obstáculos, relevo, pistas, jogadores online nem dados certificados. É somente um traçado de rota com posição.</small></section>
-<footer>Painel experimental somente leitura. Deixe o FlightSim aberto no Windows. Mapa/toolbar precisam de validação no MSFS Steam.</footer>
+/* Explicitly load PT-BR glyphs in Coherent GT: OS fonts are not always available. */
+@font-face{font-family:'FlightSimBarlow';src:url('/fonts/BarlowSemiCondensed-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'FlightSimBarlow';src:url('/fonts/BarlowSemiCondensed-SemiBold.ttf') format('truetype');font-weight:600 900;font-style:normal;font-display:swap}
+:root{color-scheme:dark;--bg:#07121f;--side:#091827;--panel:#101f31;--card:#13263a;--card2:#172f43;--line:#294258;--ink:#eaf4fb;--muted:#91a8bb;--cyan:#58d5e5;--gold:#ddb879;--green:#6fd1a5}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden}
+body{display:flex;flex-direction:column;min-width:280px;background:var(--bg);color:var(--ink);font:15px/1.45 'FlightSimBarlow',Arial,sans-serif}
+button{color:inherit;font:inherit;cursor:pointer}
+header.top{height:62px;flex-shrink:0;display:flex;align-items:center;gap:12px;background:#091827;border-bottom:1px solid var(--line);padding:0 18px}
+.mark{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.logo{width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:1px solid #337084;background:#113442;border-radius:10px;color:var(--cyan);flex-shrink:0}
+.logo svg{width:23px;height:23px}
+.logo img{display:block;width:31px;height:31px;object-fit:contain;border-radius:6px}
+.brand b{display:block;font-size:22px;line-height:1;letter-spacing:.02em}
+.brand b span{color:var(--cyan)}
+.brand small{font-size:11px;color:var(--muted);letter-spacing:.15em}
+.live{display:flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.04em;color:var(--muted);white-space:nowrap}
+.led{display:inline-block;width:8px;height:8px;background:#c98962;border-radius:50%;flex-shrink:0}
+.led.on{background:var(--green);box-shadow:0 0 9px #6fd1a57a}
+.led.wait{background:var(--gold)}
+.btn{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--card2)}
+.btn:hover,.btn:focus-visible{border-color:var(--cyan);outline:none}
+.tablet{min-height:0;flex:1;display:grid;grid-template-columns:154px minmax(0,1fr);overflow:hidden}
+nav.side{display:flex;flex-direction:column;gap:6px;padding:17px 10px;background:var(--side);border-right:1px solid var(--line);min-height:0}
+nav.side .caption{margin:0 8px 10px;color:var(--muted);letter-spacing:.12em;font-size:11px}
+nav.side button{border:1px solid transparent;border-radius:9px;background:transparent;text-align:left;display:flex;align-items:center;gap:10px;padding:12px 10px;min-width:0}
+nav.side button span{font-size:14px;white-space:nowrap}
+nav.side button svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7;flex-shrink:0}
+nav.side button:hover{background:#122a3d}
+nav.side button.selected{background:#164054;border-color:#2a6071;color:var(--cyan);font-weight:700}
+.navfoot{margin-top:auto;padding:10px 8px 0;color:var(--muted);font-size:11px;line-height:1.7;border-top:1px solid #264155}
+.workspace{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.pagehead{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:16px 20px 7px}
+.pagehead strong{font-size:22px}.pagehead .eyebrow{color:var(--gold);font-size:11px;letter-spacing:.15em}
+.pagehead small{font-size:12px;color:var(--muted)}
+.pages{min-height:0;overflow-y:auto;overflow-x:hidden;padding:10px 20px 18px;flex:1;scrollbar-color:#30556a transparent}
+.page{max-width:1250px;margin:0 auto;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px;align-content:start}
+.page[hidden]{display:none!important}
+.card{background:linear-gradient(145deg,#12273a,#0d1d2e);border:1px solid var(--line);border-radius:12px;padding:15px;min-width:0}
+.card h2{margin:0 0 10px;font-size:12px;color:var(--gold);letter-spacing:.14em;text-transform:uppercase}
+.card p{margin:6px 0;color:var(--muted);font-size:13px}
+.hero{grid-column:span 12;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;padding:19px}
+.hero .plane{font-size:25px;line-height:1.2;font-weight:750;overflow-wrap:anywhere}
+.eyebrow{font-size:12px;color:var(--gold);letter-spacing:.12em;text-transform:uppercase}
+.phase{color:var(--cyan);font-size:12px;letter-spacing:.08em}
+.badge{font-size:12px;color:var(--green);border:1px solid #2b6557;border-radius:99px;padding:5px 9px;background:#123831}
+.metrics{grid-column:span 12;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.metric{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 12px;min-width:0}
+.metric span{display:block;color:var(--muted);font-size:12px}
+.metric strong{display:block;font-size:22px;line-height:1.3;margin-top:5px;font-weight:700;overflow-wrap:anywhere}
+.metric .value{color:var(--cyan)}
+.metric small{font-size:12px;color:var(--muted);font-weight:400}
+.mission{grid-column:span 7}
+.quick{grid-column:span 5}
+.route{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.route strong{font-size:25px;letter-spacing:.06em}
+.route .arrow{color:var(--cyan);width:26px;height:26px;flex:0 0 26px;display:inline-flex;align-items:center;justify-content:center}
+.route .arrow svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pair{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #254053;padding:7px 0;font-size:13px}
+.pair:last-child{border:0}
+.pair span:first-child{color:var(--muted)}
+.pair b{text-align:right;overflow-wrap:anywhere}
+.full{grid-column:span 12}
+.half{grid-column:span 6}
+#map{display:block;width:100%;height:280px;background:radial-gradient(ellipse at 50% 50%,#17354a,#071b2b);border-radius:9px;border:1px solid #25485d}
+#map text{fill:#dceef9;font:13px 'FlightSimBarlow',Arial,sans-serif}
+#map .guide{stroke:#244156;stroke-width:1}
+#map .track{stroke:var(--cyan);fill:none;stroke-width:3;stroke-dasharray:7 5}
+#map .origin{fill:var(--gold)}
+#map .destination{fill:var(--green)}
+#map .airplane{fill:#fff;stroke:#00394e;stroke-width:1}
+.legend{margin-top:8px;color:var(--muted);font-size:12px}
+#details{grid-column:span 12;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.subtext{color:var(--muted);font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 16px;border-top:1px solid var(--line);background:#091827;color:var(--muted);font-size:11px}
+#diagnostic{text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:800px){
+ .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .mission,.quick,.half{grid-column:span 12}
+ #details{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .pagehead{padding:11px 13px 3px}
+ .pages{padding:10px 13px 15px}
+ .hero .plane{font-size:21px}
+}
+@media (max-width:620px){
+ header.top{height:50px;padding:0 9px;gap:7px}
+ .brand b{font-size:18px}.brand small{display:none}
+ .logo{height:32px;width:32px}.live{font-size:10px}
+ .tablet{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) 58px}
+ nav.side{grid-row:2;grid-column:1;flex-direction:row;justify-content:space-around;align-items:center;padding:4px 5px;border-right:0;border-top:1px solid var(--line)}
+ nav.side .caption,.navfoot{display:none}
+ nav.side button{flex:1;justify-content:center;flex-direction:column;gap:1px;text-align:center;padding:4px 2px;border-radius:7px}
+ nav.side button svg{width:17px;height:17px}
+ nav.side button span{font-size:11px}
+ .workspace{grid-row:1;grid-column:1}
+ .pagehead strong{font-size:19px}
+ .pagehead small{display:none}
+ .page{gap:8px}
+ .card{padding:11px}
+ .hero{padding:13px}
+ .metric{padding:9px}.metric strong{font-size:20px}
+ .route strong{font-size:21px}
+ footer{height:26px;padding:0 9px;font-size:10px}
+}
+@media (max-height:350px){
+ header.top{height:42px}
+ .brand small,.pagehead small{display:none}
+ .pagehead{padding:5px 12px 0}
+ .pagehead strong{font-size:17px}
+ footer{height:23px}
+}
+
+/* InGame command surfaces: touch targets remain legible at narrow widths. */
+.op-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}
+.op-actions button,.market-tools button,.offer-row button{min-height:38px;border:1px solid #37617b;border-radius:8px;padding:8px 13px;background:#164054;color:#eaf4fb;font-weight:700}
+.op-actions button:disabled,.market-tools button:disabled,.offer-row button:disabled{opacity:.45;cursor:not-allowed}
+.op-actions button.warning{background:#3c292d;border-color:#83535b}
+.offer-row{background:#12263a;border:1px solid var(--line);padding:13px;margin-bottom:9px;border-radius:10px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+.offer-row .offer-text{min-width:0;flex:1}
+.offer-row strong{font-size:16px;display:block}
+.offer-row small{display:block;color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.offer-row .offer-price{font-size:15px;color:var(--green)}
+.market-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.market-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.market-tabs button[aria-pressed="true"]{border-color:var(--cyan);background:#15506a;color:var(--cyan)}
+.control-grid{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.control-grid input{background:#0a1927;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px;min-width:100px;max-width:190px;font:inherit}
+#action-feedback{position:fixed;z-index:10;right:15px;top:67px;max-width:min(440px,calc(100% - 30px));background:#153346;border:1px solid #43899c;color:#f0f9fd;padding:12px 16px;border-radius:8px;box-shadow:0 9px 20px #0009;font-size:14px}
+#action-feedback[data-error="true"]{background:#39252b;border-color:#ae636d}
+#action-feedback[hidden],#confirm-shade[hidden]{display:none}
+#confirm-shade{position:fixed;z-index:25;inset:0;background:#02060bd9;display:flex;align-items:center;justify-content:center;padding:16px}
+.confirm-box{width:min(460px,100%);background:#102335;border:1px solid #35647e;border-radius:14px;padding:22px;box-shadow:0 14px 40px #000a}
+.confirm-box strong{font-size:19px}.confirm-box p{font-size:14px;color:var(--muted)}
+@media (max-width:620px){.offer-row{flex-direction:column;align-items:stretch}.offer-row button{width:100%}.control-grid input{max-width:140px}#action-feedback{top:54px}}
+</style>
+</head>
+<body>
+<header class="top">
+<div class="mark">
+<div class="logo" aria-hidden="true"><img src="/brand-icon.png" alt=""></div>
+<div class="brand"><b>Flight<span>Sim</span></b><small>MIDNIGHT OPS • INGAME</small></div>
+</div>
+<div class="live" role="status"><i id="led" class="led"></i><span id="status">AGUARDANDO MOTOR</span></div>
+<button id="refresh" class="btn" type="button" title="Atualizar os dados do motor">Atualizar</button>
+</header>
+<div class="tablet">
+<nav class="side" aria-label="Navegação FlightSim">
+<div class="caption">OPERAÇÕES</div>
+<button type="button" data-view="dashboard" class="selected" aria-current="page" title="Visão geral"><svg viewBox="0 0 24 24"><path d="M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z"/></svg><span>Painel</span></button>
+<button type="button" data-view="market" title="Ofertas e contratos"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM6 9h12M6 13h9M6 17h6"/></svg><span>Mercado</span></button>
+<button type="button" data-view="route" title="Rota geográfica"><svg viewBox="0 0 24 24"><path d="M2 5l7-3 7 3 6-3v17l-6 3-7-3-7 3zM9 2v17M16 5v17"/></svg><span>Mapa</span></button>
+<button type="button" data-view="aircraft" title="Dados da aeronave"><svg viewBox="0 0 24 24"><path d="M12 2L9 12 2 15v3l9-2 1 5 1-5 9 2v-3l-7-3z"/></svg><span>Aeronave</span></button>
+<button type="button" data-view="career" title="Dados da carreira"><svg viewBox="0 0 24 24"><path d="M5 21h14V6H5zM9 6V3h6v3M8 11h8M8 15h8"/></svg><span>Carreira</span></button>
+<div class="navfoot">FlightSim InGame<br>0.9.1 Alpha • Comandos</div>
+</nav>
+<div class="workspace">
+<div class="pagehead"><div><div class="eyebrow">Flight Operations</div><strong id="page-title">Visão geral</strong></div><small id="companion-label">MSFS 2020 • Aguardando FlightSim Windows</small></div>
+<div class="pages">
+<section class="page" data-page="dashboard" aria-label="Visão geral do voo">
+<div class="card hero">
+<div><div class="eyebrow">VOO ATUAL <span class="phase" id="phase">—</span></div><div class="plane" id="aircraft">Aguardando telemetria</div><p class="subtext">Monitor de operação em tempo real</p></div>
+<div class="badge" id="connection-badge">AGUARDANDO SIMCONNECT</div></div>
+<div class="metrics">
+<div class="metric"><span>VELOCIDADE INDICADA</span><strong class="value" id="ias">—</strong></div>
+<div class="metric"><span>VELOCIDADE SOLO</span><strong id="gs">—</strong></div>
+<div class="metric"><span>ALTITUDE MSL</span><strong id="alt">—</strong></div>
+<div class="metric"><span>COMBUSTÍVEL</span><strong id="fuel">—</strong></div>
+</div>
+<div class="card mission"><h2>Missão em andamento</h2>
+<div class="route"><strong id="origin">—</strong><span class="arrow" aria-label="para"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h16m-7-7 7 7-7 7"/></svg></span><strong id="destination">—</strong></div>
+<p id="mission">Nenhum contrato ativo.</p>
+<div class="pair"><span>Recompensa prevista</span><b id="reward">—</b></div>
+<div class="pair"><span>Distância restante</span><b id="remaining">—</b></div>
+<div class="op-actions"><button id="mission-prepare" disabled>Preparar voo e carga</button><button id="mission-cancel" class="warning" disabled>Cancelar contrato</button></div>
+</div>
+<div class="card quick"><h2>Resumo da carreira</h2>
+<div class="pair"><span>Saldo disponível</span><b id="balance">—</b></div>
+<div class="pair"><span>Motor</span><b>FlightSim Windows</b></div>
+<div class="pair"><span>Operação</span><b>Somente leitura</b></div>
+<p>Utilize as outras páginas para acompanhar a rota e consultar os instrumentos sem sair do simulador.</p>
+</div>
+</section>
+<section class="page" data-page="market" aria-label="Mercado de contratos" hidden>
+ <div class="card full">
+  <h2>Mercado de contratos • aeroportos do MSFS</h2>
+  <div class="market-tools">
+   <div class="market-tabs"><button class="btn" data-market-mode="regional" aria-pressed="true">Regional</button><button class="btn" data-market-mode="freelance" aria-pressed="false">Freelancer</button></div>
+   <button class="btn" id="market-refresh">Atualizar ofertas</button>
+  </div>
+  <div id="market-list" aria-live="polite"></div>
+  <p>Requisitos e aeroportos são revalidados no momento do aceite; nenhuma oferta é garantida.</p>
+ </div>
+</section>
+<section class="page" data-page="route" aria-label="Mapa do voo" hidden>
+<div class="card full"><h2>Mapa de rota • posições confirmadas</h2>
+<svg id="map" viewBox="0 0 660 180" role="img" aria-label="Origem, destino e posição da aeronave"><g id="map-content"></g></svg>
+<div class="legend">Esquema geográfico SVG; não é o mapa VFR oficial e não contém pistas ou obstáculos.</div>
+</div>
+<div class="card full"><h2>Navegação</h2><p>O traçado mostra origem, destino e posição conforme os dados disponíveis no motor. A seta acompanha a proa verdadeira recebida do SimConnect.</p></div>
+</section>
+<section class="page" data-page="aircraft" aria-label="Telemetria da aeronave" hidden>
+<div class="card full"><h2>Dados de voo</h2><p>Leituras reais do SimConnect. Informações indisponíveis aparecem como travessão, sem valores inventados.</p></div>
+<div id="details">
+<div class="metric"><span>PROA VERDADEIRA</span><strong id="hdg">—</strong></div>
+<div class="metric"><span>RAZÃO VERTICAL</span><strong id="vs">—</strong></div>
+<div class="metric"><span>ALTURA AGL</span><strong id="agl">—</strong></div>
+<div class="metric"><span>LATITUDE</span><strong id="lat">—</strong></div>
+<div class="metric"><span>LONGITUDE</span><strong id="lon">—</strong></div>
+</div>
+<div class="card full"><h2>Combustível • operações em solo</h2>
+ <div class="pair"><span>Aeronave do hangar</span><b id="fuel-aircraft">—</b></div>
+ <div class="pair"><span>Inventário</span><b id="fuel-inventory">—</b></div>
+ <div class="op-actions"><button id="fuel-toggle" disabled>Controle de combustível</button></div>
+ <div class="control-grid" style="margin-top:12px"><label for="fuel-liters">Quantidade total (litros):</label><input id="fuel-liters" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Ex.: 60"><button id="fuel-refuel" class="btn" disabled>Aplicar abastecimento</button></div>
+ <p>Requer MSFS conectado, aeronave correta em solo e confirmação posterior dos tanques. Abastecer altera o saldo da carreira.</p>
+</div>
+</section>
+<section class="page" data-page="career" aria-label="Informações da carreira" hidden>
+<div class="card full"><h2>Carreira FlightSim</h2><p>Os dados financeiros e os contratos continuam sendo administrados exclusivamente pelo motor Python. Esta versão InGame é somente leitura.</p></div>
+<div class="card half"><h2>Operações profissionais</h2><div class="subtext">O vínculo, os trechos de companhia, as habilitações e o logbook permanecem disponíveis na janela Midnight Ops do Windows até a v0.9.1.</div></div>
+<div class="card half"><h2>Próxima etapa</h2><div class="subtext">A v0.9.1 levará mercado, planejamento e diário para dentro do simulador, com ações autenticadas pelo motor.</div></div>
+</section>
+</div>
+</div>
+</div>
+<div id="action-feedback" role="status" aria-live="polite" hidden></div>
+<div id="confirm-shade" hidden role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="confirm-box"><strong id="confirm-title">Confirmar operação</strong><p id="confirm-detail">—</p>
+  <div class="op-actions"><button id="confirm-yes">Confirmar</button><button id="confirm-no" class="warning">Voltar</button></div></div>
+</div>
+<footer><span>FLIGHTSIM INGAME • V0.9.1 ALPHA</span><span id="diagnostic">Aguardando ponte local</span></footer>
 <script>
+(function(){
 'use strict';
-const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
-const fmt=(x,d=1)=>typeof x==='number' && Number.isFinite(x)?x.toFixed(d):'—';
-function el(tag,attrs={},text=''){const n=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>n.setAttribute(k,String(v)));if(text)n.textContent=text;return n}
-function draw(data){const root=$('chart');root.replaceChildren();for(let x=70;x<700;x+=70)root.append(el('line',{x1:x,y1:0,x2:x,y2:300,class:'gridline'}));for(let y=30;y<300;y+=30)root.append(el('line',{x1:0,y1:y,x2:700,y2:y,class:'gridline'}));
- const places=[];const m=data.mission;if(m){if(Number.isFinite(m.origin_lat)&&Number.isFinite(m.origin_lon))places.push([m.origin_lat,m.origin_lon,'origin',m.origin]);if(Number.isFinite(m.destination_lat)&&Number.isFinite(m.destination_lon))places.push([m.destination_lat,m.destination_lon,'dest',m.destination]);}
- const p=data.position;if(p && Number.isFinite(p.lat) && Number.isFinite(p.lon))places.push([p.lat,p.lon,'plane','AVIÃO']);
- if(!places.length){root.append(el('text',{x:240,y:156,class:'unknown'},'Sem coordenadas disponíveis'));return}
- let lats=places.map(a=>a[0]),lons=places.map(a=>a[1]);let minLat=Math.min(...lats),maxLat=Math.max(...lats),minLon=Math.min(...lons),maxLon=Math.max(...lons);
- let centerLat=(minLat+maxLat)/2,latScale=Math.max((maxLat-minLat)*1.3,0.08),lonScale=Math.max((maxLon-minLon)*1.3,0.08),cos=Math.max(.2,Math.cos(centerLat*Math.PI/180));
- let points=places.map(a=>({x:350+(a[1]-(minLon+maxLon)/2)*cos/lonScale*520,y:150-(a[0]-centerLat)/latScale*240,kind:a[2],label:a[3]}));
- if(m && points.length>=2 && points[0].kind==='origin'&&points[1].kind==='dest')root.append(el('path',{d:`M${points[0].x},${points[0].y} L${points[1].x},${points[1].y}`,class:'path'}));
- points.forEach(q=>{root.append(el('circle',{cx:q.x,cy:q.y,r:q.kind==='plane'?8:6,class:q.kind}));root.append(el('text',{x:q.x+11,y:q.y-10},q.label))});}
-async function refresh(){try{const r=await fetch('/api/status',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();$('connection').textContent=d.status==='connected'?'SIMCONNECT ATIVO':'PONTE ATIVA · SIM OFFLINE';$('balance').textContent='R$ '+(d.balance||0).toLocaleString('pt-BR');$('phase').textContent=d.phase||'—';$('plane').textContent=d.aircraft||'—';$('fuel').textContent=Number.isFinite(d.fuel_gallons)?fmt(d.fuel_gallons)+' gal':'—';$('mission').textContent=d.mission?`${d.mission.origin} → ${d.mission.destination} • ${d.mission.title} • R$ ${d.mission.reward.toLocaleString('pt-BR')}`:'Nenhum contrato ativo';draw(d);}catch(e){$('connection').textContent='SEM CONEXÃO COM O SERVIÇO LOCAL'}}
-refresh();setInterval(refresh,1500);
-</script></body></html>
+var key=document.querySelector('meta[name="flight-panel-key"]').content;
+var element=function(id){return document.getElementById(id);};
+var actionKey=document.querySelector('meta[name="flight-action-key"]').content;
+var writable=document.querySelector('meta[name="flight-writable"]').content==='true';
+var lastState={},marketMode='regional',commandBusy=false,confirmation=null,feedbackHandle=null;
+function feedback(message,error){
+ var el=element('action-feedback');el.textContent=message;el.dataset.error=error?'true':'false';el.hidden=false;
+ if(feedbackHandle)clearTimeout(feedbackHandle);
+ feedbackHandle=setTimeout(function(){el.hidden=true;},6500);
+}
+function requestId(){
+ var uuid=(window.crypto&&window.crypto.randomUUID)?window.crypto.randomUUID():null;
+ return uuid||('flight-'+Date.now()+'-'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2));
+}
+function receiptPoll(id,attempt){
+ return fetch('/api/v2/commands/'+encodeURIComponent(id),
+  {headers:{'X-Flight-Action-Key':actionKey},cache:'no-store'})
+  .then(function(r){if(!r.ok)throw Error('Consulta de confirmação indisponível');return r.json();})
+  .then(function(r){
+   if(r.status==='pending'){
+    if(attempt>30)throw Error('Ação ainda pendente: consulte o estado antes de repetir.');
+    return new Promise(function(resolve){setTimeout(resolve,350);}).then(function(){return receiptPoll(id,attempt+1);});
+   }
+   feedback(r.message||'Resposta do motor indisponível',r.status!=='accepted');
+   if(r.status==='accepted')poll();
+   return r;
+  });
+}
+function sendAction(action,value){
+ if(!writable){feedback('Este companion está em modo somente leitura.',true);return;}
+ if(commandBusy){feedback('Há uma operação pendente. Aguarde sua confirmação.',true);return;}
+ commandBusy=true;
+ var id=requestId();
+ feedback('Enviando comando ao motor FlightSim...',false);
+ fetch('/api/v2/commands',{method:'POST',
+  headers:{'Content-Type':'application/json','X-Flight-Action-Key':actionKey},
+  body:JSON.stringify({request_id:id,action:action,value:value})})
+ .then(function(r){if(!r.ok)throw Error('Comando recusado pela ponte (HTTP '+r.status+')');return r.json();})
+ .then(function(){return receiptPoll(id,0);})
+ .catch(function(e){feedback(String(e.message||e),true);})
+ .then(function(){commandBusy=false;});
+}
+function askAction(action,value,title,detail){
+ if(!writable)return feedback('Controle InGame indisponível nesta sessão.',true);
+ confirmation={action:action,value:value};
+ write('confirm-title',title);write('confirm-detail',detail);
+ element('confirm-shade').hidden=false;
+ element('confirm-yes').focus();
+}
+element('confirm-no').addEventListener('click',function(){element('confirm-shade').hidden=true;confirmation=null;});
+element('confirm-yes').addEventListener('click',function(){
+ var cmd=confirmation;element('confirm-shade').hidden=true;confirmation=null;
+ if(cmd)sendAction(cmd.action,cmd.value);
+});
+
+var failures=0, active=false, fetching=false;
+var ns='http://www.w3.org/2000/svg', started=Date.now();
+var money=function(v){return typeof v==='number' && isFinite(v)?'R$ '+v.toLocaleString('pt-BR'):'—';};
+var value=function(v,d){return typeof v==='number' && isFinite(v)?v.toFixed(d===undefined?0:d):'—';};
+var write=function(id,text){element(id).textContent=text;};
+function line(tag,attrs,text){
+ var o=document.createElementNS(ns,tag),k;
+ for(k in attrs){if(Object.prototype.hasOwnProperty.call(attrs,k))o.setAttribute(k,String(attrs[k]));}
+ if(text!==undefined)o.textContent=text;
+ return o;
+}
+function map(data){
+ var group=element('map-content');
+ while(group.firstChild)group.removeChild(group.firstChild);
+ var m=data.mission,p=data.position,points=[],x,y;
+ for(x=0;x<=660;x+=66)group.appendChild(line('line',{x1:x,y1:0,x2:x,y2:180,'class':'guide'}));
+ for(y=0;y<=180;y+=45)group.appendChild(line('line',{x1:0,y1:y,x2:660,y2:y,'class':'guide'}));
+ if(m && typeof m.origin_lat==='number' && typeof m.origin_lon==='number')
+  points.push({lat:m.origin_lat,lon:m.origin_lon,kind:'origin',label:m.origin});
+ if(m && typeof m.destination_lat==='number' && typeof m.destination_lon==='number')
+  points.push({lat:m.destination_lat,lon:m.destination_lon,kind:'destination',label:m.destination});
+ if(p && typeof p.lat==='number' && typeof p.lon==='number')
+  points.push({lat:p.lat,lon:p.lon,kind:'plane',label:'AVIÃO'});
+ if(!points.length){
+  group.appendChild(line('text',{x:188,y:96},'Aguardando coordenadas verificadas'));
+  return;
+ }
+ var lats=points.map(function(a){return a.lat;}),lons=points.map(function(a){return a.lon;});
+ var minlat=Math.min.apply(null,lats),maxlat=Math.max.apply(null,lats);
+ var minlon=Math.min.apply(null,lons),maxlon=Math.max.apply(null,lons);
+ var midlat=(minlat+maxlat)/2,midlon=(minlon+maxlon)/2;
+ var cos=Math.max(.18,Math.cos(midlat*Math.PI/180));
+ var spanlat=Math.max(.02,maxlat-minlat),spanlon=Math.max(.02,(maxlon-minlon)*cos);
+ points.forEach(function(a){a.x=330+((a.lon-midlon)*cos/spanlon)*520;a.y=90-((a.lat-midlat)/spanlat)*132;});
+ var from=points.filter(function(a){return a.kind==='origin';})[0];
+ var to=points.filter(function(a){return a.kind==='destination';})[0];
+ if(from&&to)group.appendChild(line('path',{d:'M'+from.x+','+from.y+' L'+to.x+','+to.y,'class':'track'}));
+ points.forEach(function(a){
+  if(a.kind==='plane'){
+   var head=data.telemetry && typeof data.telemetry.heading_deg==='number'?data.telemetry.heading_deg:0;
+   group.appendChild(line('path',{d:'M0,-13 L8,10 L0,6 L-8,10 Z',
+    transform:'translate('+a.x+','+a.y+') rotate('+head+')','class':'airplane'}));
+  }else{
+   group.appendChild(line('circle',{cx:a.x,cy:a.y,r:6,'class':a.kind}));
+  }
+  group.appendChild(line('text',{x:a.x+12,y:a.y-8},a.label));
+ });
+}
+function renderMarket(d){
+ var list=element('market-list');
+ // MSFS 2020 Coherent GT may not implement modern ParentNode.replaceChildren.
+ // Explicit removal works on Chromium and older Coherent versions.
+ while(list.firstChild)list.removeChild(list.firstChild);
+ var offers=Array.isArray(d.offers)?d.offers:[];
+ offers=offers.filter(function(x){return (!!x.freelance)===(marketMode==='freelance');});
+ if(!offers.length){
+  var empty=document.createElement('p');
+  empty.textContent=!d.market_ready?'Aguardando catálogo oficial de aeroportos do MSFS.':
+   'Nenhum contrato disponível nesta modalidade. Confira a região, habilitações e atualize.';
+  list.appendChild(empty);return;
+ }
+ offers.slice(0,20).forEach(function(o){
+  var row=document.createElement('div');row.className='offer-row';
+  var text=document.createElement('div');text.className='offer-text';
+  var title=document.createElement('strong');title.textContent=(o.category||o.title||'Contrato')+' • '+(o.origin||'—')+' → '+(o.destination||'—');
+  var detail=document.createElement('small');
+  detail.textContent=(o.manifest_label||'')+' • '+(typeof o.distance==='number'?value(o.distance,1)+' NM':'Distância indisponível')+
+   ' • '+(o.allowed?'Elegível':(o.reason||'Requisitos não atendidos'));
+  var price=document.createElement('div');price.className='offer-price';price.textContent=money(o.reward);
+  text.appendChild(title);text.appendChild(detail);text.appendChild(price);
+  var button=document.createElement('button');button.textContent='Aceitar missão';
+  var active=d.mission&&d.mission.id;
+  button.disabled=!writable||!o.allowed||!!active||d.status!=='connected'||!(d.telemetry&&d.telemetry.on_ground);
+  button.addEventListener('click',function(){
+   askAction('offer_accept',o.id,'Aceitar contrato?',
+     (o.origin||'—')+' → '+(o.destination||'—')+
+     ' • Pagamento bruto '+money(o.reward)+'. O motor verificará aeroporto, requisitos, modelo e solo.');
+  });
+  row.appendChild(text);row.appendChild(button);list.appendChild(row);
+ });
+}
+function render(d){
+ if(!d||d.version!==2)throw new Error('Protocolo incompatível: esperado 2');
+ failures=0;active=true;
+ var connected=d.status==='connected',waiting=d.status==='reconnecting';
+ element('led').className='led'+(connected?' on':waiting?' wait':'');
+ write('status',connected?'SIMCONNECT ATIVO':waiting?'RECONECTANDO':'SIM DESCONECTADO');
+ write('connection-badge',connected?'SIMCONNECT • LIVE':waiting?'RECONECTANDO':'SIM DESCONECTADO');
+ write('companion-label','MSFS 2020 • FlightSim Windows respondendo');
+ write('aircraft',d.aircraft||'Aguardando aeronave');
+ write('phase',(d.phase||'aguardando').toUpperCase());
+ write('balance',money(d.balance));
+ write('fuel',value(d.fuel_gallons,1)+(typeof d.fuel_gallons==='number'?' gal':''));
+ write('remaining',value(d.remaining_nm,1)+(typeof d.remaining_nm==='number'?' NM':''));
+ var t=d.telemetry||{},pos=d.position||{},m=d.mission||{};
+ write('ias',value(t.ias_kt)+' kt');write('gs',value(t.gs_kt)+' kt');
+ write('alt',value(t.altitude_ft)+' ft');write('agl',value(t.agl_ft)+' ft');
+ write('hdg',value(t.heading_deg,1)+'°');write('vs',value(t.vs_fpm)+' ft/min');
+ write('lat',value(pos.lat,5));write('lon',value(pos.lon,5));
+ write('origin',m.origin||'—');write('destination',m.destination||'—');
+ write('mission',m.title||'Nenhum contrato ativo.');
+ write('reward',m.title?money(m.reward):'—');
+ lastState=d;
+ var grounded=writable&&connected&&t.on_ground===true;
+ element('mission-prepare').disabled=!grounded||!m.id;
+ element('mission-cancel').disabled=!grounded||!m.id;
+ element('market-refresh').disabled=!writable;
+ var inventory=d.fuel_inventory||null;
+ write('fuel-aircraft',inventory?inventory.aircraft:'Nenhuma aeronave selecionada');
+ write('fuel-inventory',inventory?value(inventory.current_liters,1)+' / '+value(inventory.capacity_liters,1)+' L':'Aguardando calibração dos tanques');
+ var canFuel=grounded&&!!inventory;
+ element('fuel-toggle').disabled=!grounded;
+ write('fuel-toggle',d.fuel_control_enabled?'Desativar controle (-30% R$/XP)':'Ativar controle de combustível');
+ element('fuel-refuel').disabled=!canFuel||!d.fuel_control_enabled;
+ if(inventory)element('fuel-liters').max=inventory.capacity_liters;
+ renderMarket(d);
+ map(d);
+ var stamp=typeof d.updated==='number'?new Date(d.updated*1000).toLocaleTimeString('pt-BR'):'—';
+ write('diagnostic','Bridge v2 • última leitura '+stamp+' • modo '+(d.mode||'—'));
+}
+function panelError(err){
+ // A good HTTP response followed by a JS error is NOT a network outage.
+ // Never tell the pilot to restart the companion for a rendering regression.
+ active=false;
+ console.error('[FlightSim-InGame] falha ao atualizar tablet',err);
+ element('led').className='led wait';
+ write('status','ERRO NA INTERFACE');
+ write('connection-badge','DADOS RECEBIDOS');
+ write('companion-label','MSFS 2020 • Falha ao exibir dados');
+ write('diagnostic','A ponte respondeu, mas o tablet não terminou de desenhar. Consulte log Coherent.');
+}
+function offline(err){
+ active=false;failures++;
+ element('led').className='led';
+ write('status','MOTOR INDISPONÍVEL');
+ write('connection-badge','SEM COMUNICAÇÃO');
+ write('companion-label','MSFS 2020 • Ponte local indisponível');
+ console.warn('[FlightSim-InGame] leitura da ponte indisponível',err);
+ write('diagnostic','Sem resposta do FlightSim Windows • tentativa '+failures+
+  ' • confira o executável e a porta 8769');
+ if(failures>=2){
+  write('aircraft','Aguardando conexão com o motor');
+  write('balance','—');write('fuel','—');write('remaining','—');
+ }
+}
+function poll(){
+ if(fetching)return;
+ fetching=true;
+ fetch('/api/v1/status',{headers:{'X-Flight-Panel-Key':key},cache:'no-store'})
+ .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+ .then(function(d){
+  try {render(d);}
+  catch(err){panelError(err);}
+ })
+ .catch(function(err){offline(err);})
+ .then(function(){fetching=false;});
+}
+var pageButtons=document.querySelectorAll('[data-view]');
+var pages=document.querySelectorAll('.page');
+function navigate(view){
+ Array.prototype.forEach.call(pageButtons,function(b){
+   var selected=b.getAttribute('data-view')===view;
+   b.classList.toggle('selected',selected);
+   b.setAttribute('aria-current',selected?'page':'false');
+ });
+ Array.prototype.forEach.call(pages,function(p){
+   p.hidden=p.getAttribute('data-page')!==view;
+ });
+ var titles={dashboard:'Visão geral',market:'Mercado de contratos',route:'Mapa de navegação',aircraft:'Aeronave e telemetria',career:'Carreira e contrato'};
+ write('page-title',titles[view]||'FlightSim');
+}
+Array.prototype.forEach.call(pageButtons,function(b){
+ b.addEventListener('click',function(){navigate(b.getAttribute('data-view'));});
+});
+Array.prototype.forEach.call(document.querySelectorAll('[data-market-mode]'),function(button){
+ button.addEventListener('click',function(){
+  marketMode=button.getAttribute('data-market-mode');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-market-mode]'),function(x){
+   x.setAttribute('aria-pressed',x===button?'true':'false');
+  });
+  renderMarket(lastState);
+ });
+});
+element('market-refresh').addEventListener('click',function(){sendAction('market_refresh',null);});
+element('mission-prepare').addEventListener('click',function(){
+ var m=lastState.mission;if(m&&m.id)askAction('dispatch_prepare',m.id,'Preparar voo?',
+  'O FlightSim vai exportar/enviar o plano e solicitar a carga, apenas se as validações do MSFS permitirem.');
+});
+element('mission-cancel').addEventListener('click',function(){
+ var m=lastState.mission;if(m&&m.id)askAction('mission_cancel',m.id,'Cancelar contrato?',
+  'A missão atual será cancelada sem pagamento. Esta ação exige aeronave em solo.');
+});
+element('fuel-toggle').addEventListener('click',function(){
+ var enabling=!lastState.fuel_control_enabled;
+ askAction('fuel_toggle',enabling,enabling?'Ativar controle?':'Desativar controle?',
+   enabling?'O FlightSim voltará a controlar o combustível.':
+   'Desativar aplica penalidade de 30% em dinheiro e XP nos próximos voos.');
+});
+element('fuel-refuel').addEventListener('click',function(){
+ var raw=element('fuel-liters').value.trim(),target=Number(raw);
+ if(!raw||!isFinite(target)||target<0)return feedback('Informe uma quantidade válida em litros.',true);
+ var inventory=lastState.fuel_inventory;
+ if(!inventory||target>inventory.capacity_liters)return feedback('Quantidade acima da capacidade do avião.',true);
+ askAction('fuel_refuel',target,'Confirmar abastecimento?',
+   'Aplicar '+value(target,1)+' L totais no avião selecionado. Pode alterar o saldo e exige solo/MTOW válidos.');
+});
+navigate('dashboard');
+element('refresh').addEventListener('click',poll);
+poll();setInterval(poll,1500);
+})();
+</script>
+</body></html>

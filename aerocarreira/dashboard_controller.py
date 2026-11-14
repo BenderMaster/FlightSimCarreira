@@ -199,7 +199,6 @@ class DashboardController:
                         message='Preferência '+key+' salva.'
                 elif action=='settings_scan':
                     from .aircraft_catalog import detect_package_roots, scan_installed_aircraft
-                    from .contracts import aircraft_model
                     roots=detect_package_roots()
                     if not roots:
                         folder=filedialog.askdirectory(parent=app.root,

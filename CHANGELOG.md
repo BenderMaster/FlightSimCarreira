@@ -1,3 +1,45 @@
+## v0.9.0 InGame Alpha.4 — altura do iframe e ciclo nativo MSFS2020
+
+- **Correção física pendente de confirmação:** restaura `height:100% !important` e `flex:1 1 auto` nos wrappers Coherent, reverte regras de viewport globais causadoras de área cinza na Alpha.3; viewport do iframe acompanha conteúdo do painel.
+- **Barra nativa:** remove adição manual de `draggable`/remoção de `panelInvisible` no MSFS 2020; mantém o comportamento controlado pelo SDK e instrumenta eventos `panelActive`, `panelReady` e `onResizeElement` para diagnosticar o arraste.
+- Preserva fontes Barlow/UTF-8 da Alpha.3 e Windows PyInstaller GUI sem CMD. `main` v0.8.7 permanece homologada; PR #23 ainda em draft.
+- CI simula `.ingameUiContent`/`.ingameUiWrapper` com layout vertical e mede altura real do iframe no Chromium, além de manter 6 jobs de regressão.
+
+---
+
+## v0.9.0 InGame Alpha.3 — executável sem CMD, fonte PT-BR e arraste nativo
+
+- **Windows GUI:** PyInstaller `--windowed` para iniciar o FlightSim sem a janela CMD; validação do subsistema PE GUI no CI e smoke tests preservados.
+- **Unicode:** fontes Barlow Regular/SemiBold já existentes no projeto são servidas com MIME `font/ttf` e `font-src 'self'` no CSP da ponte InGame, com `@font-face` e UTF-8 explícito. Acentos são preservados; validação dos glifos deve ser feita no Coherent real.
+- **Toolbar:** sincronização com eventos `panelActive` e `panelReady`; tenta restaurar `draggable` do `ingame-ui` somente em painel ativo, sem interceptar mouse no iframe e sem substituir a barra de título nativa.
+- **Distribuição:** executável Windows e source SDK Alpha.3 separados, reteste físico necessário para confirmar arraste e glifos no MSFS.
+- `main` permanece na v0.8.7 homologada até aprovação.
+
+---
+
+## v0.9.0 InGame Alpha.2 — Midnight Tablet e painel ajustado
+
+- Corrige o wrapper do SDK após o primeiro teste físico: remove `content-fit`, melhora preenchimento e dimensões iniciais, mantém o movimento sob responsabilidade do MSFS.
+- Substitui os cards estreitos por um tablet Midnight de quatro páginas reais de leitura, menu lateral adaptativo e visual responsivo. O modo InGame continua sem ações financeiras.
+- Testes de browser passam a verificar navegação, atualização, mapa, conexão e diversas resoluções. Build Windows e SDK source distribuídos separados.
+
+## v0.9.0 InGame Alpha.1 — Foundation, toolbar e telemetria read-only
+
+- **Ajuste após primeiro teste físico:** usuário confirmou painel visível na toolbar, conexão real com SimConnect e dados carregados. Movimento/redimensionamento do wrapper exigiu patch (ainda pendente de reteste no MSFS).
+- **Tablet Midnight:** layout EFB horizontal com navegação lateral Painel, Mapa, Aeronave e Carreira (inferior em janela estreita); interface unificada e responsiva. Sem habilitar comandos de carreira nesta Alpha.
+- **Wrapper SDK:** removido `content-fit`, iframe com dimensões internas flexíveis, mínimo SPB aumentado e tamanho inicial mais adequado. Movimentação e bordas seguem sob controle do MSFS 2020, recomendando Reset Panels quando a geometria fica travada.
+
+
+- **FlightSim InGame:** painel Midnight compacto/completo com contrato, saldo, aeronave, instrumentos, combustível, rumo e mapa SVG leve baseado em coordenadas verificadas.
+- **Ponte:** evolução da `LocalPanelServer` em `127.0.0.1:8769`, sem POST ou ações financeiras. Protocolo 2, estado real publicado do motor Tk/SimConnect, endpoint v1 autenticado por chave de leitura efêmera injetada em página local e health/diagnostics.
+- **SDK:** package-fonte para MSFS 2020 com SPB + Copy, wrapper da toolbar, icon SVG próprio em ambas localizações compatíveis e iframe para a aplicação local; compilação real depende de SDK e MSFS físico.
+- **Resiliência:** dados indisponíveis não são inventados; estado offline/reconectando, atualização manual, atualização periódica 1,5 s, reconexão sem gravar no SQLite.
+- **Validação:** testes unitários de host, token, endpoints, somente leitura, assets e XML; Playwright em bridge real com resolução variada e reconexão. CI segue compilação Windows, unit Linux/Windows 3.11/3.13 e dashboard.
+- **Distribuição:** Windows 0.9.0 e artifact de código-fonte InGame separado; manual do Project Editor, Community Steam e diagnóstico em `docs/INGAME_V090_BUILD.md`.
+- A primeira Alpha **não comprova** que o SPB funciona no MSFS real, nem habilita comandos no jogo: homologação física pendente na branch. A `main` permanece v0.8.7.
+
+---
+
 ## v0.8.7 Midnight Ops Alpha.1 — Configurações, companhias e conquistas com foco
 
 - **Configurações:** última tela Midnight Ops nativa com seis seções (Simulador, Carreira, Interface, Dados e backups, Diagnóstico e Sobre), mantendo navegação lateral. Preferências persistentes e autenticação do backend, sem operações de SQLite no JavaScript.

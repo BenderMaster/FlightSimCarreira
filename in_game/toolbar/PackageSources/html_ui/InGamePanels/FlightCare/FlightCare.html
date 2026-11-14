@@ -1,20 +1,62 @@
-<!DOCTYPE html><html><head><meta charset="utf-8"/>
-<link rel="stylesheet" href="/SCSS/common.css"/>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" href="/SCSS/common.css">
 <script src="/JS/coherent.js"></script>
 <script src="/JS/common.js"></script>
+<script src="/JS/dataStorage.js"></script>
+<script src="/JS/buttons.js"></script>
 <script src="/JS/Services/ToolBarPanels.js"></script>
 <script src="/Pages/VCockpit/Instruments/Shared/BaseInstrument.js"></script>
-<link rel="import" href="/templates/ingameUi/ingameUi.html"/>
-<link rel="import" href="/templates/ingameUiHeader/ingameUiHeader.html"/>
+<link rel="import" href="/templates/ingameUi/ingameUi.html">
+<link rel="import" href="/templates/ingameUiHeader/ingameUiHeader.html">
+<link rel="import" href="/templates/NewPushButton/NewPushButton.html">
+<style>
+/* MSFS 2020 InGame UI: retain ownership of the native titlebar, move/resize.
+   The Coherent framework inserts .ingameUiContent and .ingameUiWrapper.
+   They MUST fill the host, or the external iframe collapses to a short strip. */
+ingame-ui#FlightSimCarreira {
+  display:flex !important; flex-direction:column !important;
+  align-items:stretch !important; justify-content:stretch !important;
+  width:100% !important; height:100% !important; min-width:0;
+  min-height:0; overflow:hidden;
+}
+ingame-ui#FlightSimCarreira .ingameUiWrapper,
+ingame-ui#FlightSimCarreira .ingameUiContent {
+  display:flex !important; flex-direction:column !important;
+  flex:1 1 auto !important; width:100% !important; height:100% !important;
+  min-width:0 !important; min-height:0 !important;
+  overflow:hidden !important; align-items:stretch !important;
+}
+ingame-ui#FlightSimCarreira #flightSimContent {
+  display:flex !important; flex-direction:column !important;
+  flex:1 1 auto !important; width:100% !important; height:100% !important;
+  min-width:0 !important; min-height:0 !important;
+  overflow:hidden !important; background:#07111c;
+}
+ingame-ui#FlightSimCarreira #flightSimFrame {
+  display:block !important; flex:1 1 auto !important;
+  width:100% !important; height:100% !important;
+  min-width:0 !important; min-height:0 !important;
+  border:0 !important; background:#07111c;
+}
+/* Do NOT apply viewport-height rules to html/body/outer custom tag:
+   they can create a huge grey host canvas and break native pointer regions.
+   Also do NOT manually set .draggable or remove .panelInvisible on MSFS 2020. */
+</style>
 <script src="FlightCare.js"></script>
-</head><body class="border-box">
+</head>
+<body class="border-box">
 <ingamepanel-flightcare>
-  <ingame-ui id="FlightSimCarreira" panel-id="PANEL_FLIGHTSIMCARREIRA" title="FlightSim"
-    class="ingameUiFrame panelInvisible" content-fit="true" min-width="200" min-height="180">
-    <div style="height:100%;width:100%;background:#08111c">
-      <iframe src="http://127.0.0.1:8769/" title="FlightSim"
-        style="width:100%;height:100%;border:0;background:#08111c"></iframe>
+  <ingame-ui id="FlightSimCarreira" panel-id="PANEL_FLIGHTSIMCARREIRA"
+             title="FlightSim • InGame" class="ingameUiFrame panelInvisible"
+             min-width="480" min-height="360">
+    <div id="flightSimContent">
+      <iframe id="flightSimFrame" title="FlightSim InGame • somente leitura"
+              src="http://127.0.0.1:8769/"></iframe>
     </div>
   </ingame-ui>
 </ingamepanel-flightcare>
-</body></html>
+</body>
+</html>
