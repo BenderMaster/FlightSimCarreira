@@ -1,4 +1,4 @@
-# FlightSim v0.9.3 InGame Alpha.1 — aeroportos, mapa e turnaround
+# FlightSim v0.9.3 InGame Alpha.2 — sensores e consultas MSFS corrigidos
 
 Branch de teste `feature/v0.9.3-airport-services-gate-turnaround-map`, derivada da
 `main` v0.9.2 homologada. Introduz instalações aeroportuárias do MSFS,

@@ -1,3 +1,14 @@
+## v0.9.3 InGame Alpha.2 — correções após homologação física Alpha.1
+
+- **Aceite no portão:** diagnóstico das SimVars `ON ANY RUNWAY`, `PLANE IN PARKING STATE` e `ATC ON PARKING SPOT`: as três estavam ausentes da lista de registros do Python-SimConnect, apesar de existirem no SDK. Agora são acrescentadas somente à instância de leitura ativa, sem alterar pacotes instalados.
+- **Aeroportos:** removidos os campos não documentados `EDGE_LIGHTS` e `CENTER_LIGHTS` que impediam a definição de dados. O relatório de luzes agora distingue sistemas de aproximação, luzes de extremidade/REIL/TDZ e iluminação de pista não verificável por essa API.
+- **Duas interfaces:** Mercado Regional e Freelancer do desktop Windows agora exibem e filtram instalações do MSFS, assim como o tablet; o cache atualiza com as respostas válidas.
+- **Diagnóstico:** falha de consulta e timeout de 18 s aparecem como erros verificáveis, sem transformar desconhecido em “não tem”. Atualizar ofertas força nova consulta por sessão. Estado de estacionamento exibe cada sensor e a causa precisa da recusa.
+- **Testes:** regressões Python para registro das SimVars, validação dos nomes do SDK e composição de pacotes; Playwright verifica cartões/filtros nas interfaces Windows e InGame.
+- **Limite:** consulta de instalações e posição de estacionamento ainda exigem teste físico MSFS 2020, mas a `main` permanece na v0.9.2 homologada.
+
+---
+
 ## v0.9.3 InGame Alpha.1 — aeroportos reais, mapa e operação portão-a-portão
 
 - **Base homologada:** `main` v0.9.2 (PR #23 e #24), branch independente `feature/v0.9.3-airport-services-gate-turnaround-map`.

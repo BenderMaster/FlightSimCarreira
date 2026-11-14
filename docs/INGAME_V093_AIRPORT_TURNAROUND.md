@@ -1,4 +1,4 @@
-# FlightSim v0.9.3 InGame Alpha.1 — aeroportos, mapa e turnaround
+# FlightSim v0.9.3 InGame Alpha.2 — aeroportos, mapa e turnaround
 
 **Base:** main v0.9.2 homologada; branch \`feature/v0.9.3-airport-services-gate-turnaround-map\`.  
 **Estado:** build de testes, não aprovada nem mesclada. Nunca copiar fonte SDK como se fosse pacote compilado.
@@ -61,3 +61,12 @@ Usar **perfil de testes ou backup antes de voar**. O addon persiste os mesmos ar
 \`turnaround.py\`, \`app.py\`, \`domain.py\`, \`ingame_bridge.py\`,
 \`in_game/flightcare_panel.html\`, \`in_game/ingame-map.js\`,
 \`tests/test_v093_turnaround_airports.py\` e \`scripts/verify_ingame.py\`.
+
+
+## Diagnóstico da Alpha.2 (após testes físicos da Alpha.1)
+
+Se o tablet ainda bloquear o contrato no portão, abra **Mercado > Diagnóstico da posição de estacionamento**. O relatório mostra, separadamente, os valores de ON ANY RUNWAY, PLANE IN PARKING STATE, ATC ON PARKING SPOT, BRAKE PARKING POSITION e estado de motores. Um campo "Indisponível" indica ausência da variável na biblioteca/SDK, não que a aeronave esteja na pista. O backend continua sem permitir aceite enquanto não comprovar que a aeronave saiu da pista.
+
+No Mercado Windows, a área "Instalações no destino" foi acrescentada a esta versão. A v0.9.3 Alpha.1 exibia dados somente no InGame. Dados não retornados em 18 segundos são anotados no log, e **Atualizar ofertas** tenta consultar novamente.
+
+A API FacilityData do MSFS 2020 **não fornece EDGE_LIGHTS nem CENTER_LIGHTS para RUNWAY** (essas definições foram retiradas). "Luzes de cabeceira" corresponde a campos `HAS_END_LIGHTS`, `HAS_REIL_LIGHTS` ou `HAS_TOUCHDOWN_LIGHTS` do tipo APPROACHLIGHTS, quando confirmados. Não deve ser confundido com iluminação contínua da pista. Para "iluminação de pista", o estado permanece "Não verificado" até uma fonte verificável específica.

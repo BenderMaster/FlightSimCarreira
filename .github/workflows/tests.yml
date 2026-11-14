@@ -61,12 +61,12 @@ jobs:
         run: .\\dist\\FlightSim\\FlightSim.exe --verify-native-webview
       - uses: actions/upload-artifact@v4
         with:
-          name: FlightSim-0.9.3-ingame-alpha1-Windows
+          name: FlightSim-0.9.3-ingame-alpha2-Windows
           path: dist/FlightSim/
 
       - name: Upload InGame SDK source (uncompiled)
         uses: actions/upload-artifact@v4
         with:
-          name: FlightSim-InGame-0.9.3-SDK-Source
+          name: FlightSim-InGame-0.9.3-alpha2-SDK-Source
           path: in_game/toolbar/
           if-no-files-found: error
