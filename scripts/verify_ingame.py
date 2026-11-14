@@ -143,9 +143,31 @@ try:
             'reason':'','manifest_label':'Carga leve'}],
             market_ready=True, mission=None,
             telemetry={'ias_kt':0,'gs_kt':0,'altitude_ft':31,'on_ground':True})
+        state.update(airport_services={'SIPE':{'ils':True,'papi':False,
+            'runway_lights':True,'approach_lights':None,'fuel_spot':True}})
         page.locator('#refresh').click()
         page.locator('[data-view="market"]').click()
         expect(page.locator('.offer-row')).to_have_count(1,timeout=8000)
+        assert page.locator('.offer-route-arrow').count()==1,'Expected SVG arrow, not missing text glyph'
+        assert 'ILS: Sim' in page.locator('.market-services').inner_text()
+        assert 'PAPI: Não' in page.locator('.market-services').inner_text()
+        assert 'Luzes aprox.: Não verificado' in page.locator('.market-services').inner_text()
+        page.locator('#market-service-filter').select_option('ils')
+        assert page.locator('.offer-row').count()==1
+        page.locator('#market-service-filter').select_option('papi')
+        assert page.locator('.offer-row').count()==0
+        page.locator('#market-service-filter').select_option('all')
+        expect(page.locator('.offer-row')).to_have_count(1)
+        state.update(ground_operations={'offer_allowed':False,
+            'reason':'Pista ainda ocupada','awaiting_turnaround':False})
+        page.locator('#refresh').click()
+        expect(page.locator('.offer-row button')).to_be_disabled()
+        assert 'ACEITE BLOQUEADO' in page.locator('#market-ground-status').inner_text()
+        state.update(ground_operations={'offer_allowed':True,
+            'reason':'Estacionamento confirmado','awaiting_turnaround':False})
+        page.locator('#refresh').click()
+        expect(page.locator('.offer-row button')).to_be_enabled()
+        page.screenshot(path=str(OUTPUT/'ingame-v093-market-facilities.png'),full_page=True)
         page.locator('.offer-row button').click()
         expect(page.locator('#confirm-shade')).to_be_visible()
         page.locator('#confirm-yes').click()
