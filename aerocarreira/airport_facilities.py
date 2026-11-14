@@ -19,13 +19,13 @@ MAX_PACKET=65536
 # The definition is shared across all requests in one SimConnect connection.
 FIELDS=(
  'OPEN AIRPORT','N_RUNWAYS','N_TAXI_PARKINGS',
- 'OPEN RUNWAY','PRIMARY_ILS_ICAO','SECONDARY_ILS_ICAO','EDGE_LIGHTS','CENTER_LIGHTS',
+ 'OPEN RUNWAY','PRIMARY_ILS_ICAO','SECONDARY_ILS_ICAO',
  'OPEN PRIMARY_LEFT_VASI','TYPE','CLOSE PRIMARY_LEFT_VASI',
  'OPEN PRIMARY_RIGHT_VASI','TYPE','CLOSE PRIMARY_RIGHT_VASI',
  'OPEN SECONDARY_LEFT_VASI','TYPE','CLOSE SECONDARY_LEFT_VASI',
  'OPEN SECONDARY_RIGHT_VASI','TYPE','CLOSE SECONDARY_RIGHT_VASI',
- 'OPEN PRIMARY_APPROACH_LIGHTS','SYSTEM','CLOSE PRIMARY_APPROACH_LIGHTS',
- 'OPEN SECONDARY_APPROACH_LIGHTS','SYSTEM','CLOSE SECONDARY_APPROACH_LIGHTS',
+ 'OPEN PRIMARY_APPROACH_LIGHTS','SYSTEM','HAS_END_LIGHTS','HAS_REIL_LIGHTS','HAS_TOUCHDOWN_LIGHTS','ENABLE','CLOSE PRIMARY_APPROACH_LIGHTS',
+ 'OPEN SECONDARY_APPROACH_LIGHTS','SYSTEM','HAS_END_LIGHTS','HAS_REIL_LIGHTS','HAS_TOUCHDOWN_LIGHTS','ENABLE','CLOSE SECONDARY_APPROACH_LIGHTS',
  'CLOSE RUNWAY',
  'OPEN TAXI_PARKING','TYPE','CLOSE TAXI_PARKING',
  'CLOSE AIRPORT'
@@ -71,11 +71,16 @@ def parse_facility_packet(raw, expected_request):
             value=raw.split(b'\0',1)[0].decode('ascii','ignore').strip().upper()
             return value if value.isalnum() and len(value)<=8 else ''
         parsed['ils']=bool(text8(payload[:8]) or text8(payload[8:16]))
-        # Native INT8 fields follow the two CHAR[8] identifiers. Unknown
-        # packing or unexpected enumerations remain unverified.
-        parsed['runway_lights']=(bool(payload[16] or payload[17])
-             if len(payload)>=18 and payload[16] in (0,1,2,3)
-             and payload[17] in (0,1,2,3) else None)
+        # RUNWAY itself does not expose EDGE_LIGHTS/CENTER_LIGHTS through
+        # the official 2020 FacilityData fields. Never infer them from bytes.
+        parsed['runway_lights']=None
+    elif ty==APPROACH_LIGHTS:
+        if len(payload)<20:raise ValueError('Dados de iluminação de cabeceira incompletos.')
+        system,end,reil,touch,enabled=struct.unpack_from('<5i',payload)
+        if not 0<=system<=14 or any(x not in (0,1) for x in (end,reil,touch,enabled)):
+            raise ValueError('Sistema de aproximação inválido.')
+        parsed['number']=system if enabled else 0
+        parsed['end_lights']=bool(enabled and (end or reil or touch))
     else:
         if len(payload)<4:raise ValueError('Campo da instalação incompleto.')
         number=struct.unpack_from('<i',payload)[0]
@@ -117,6 +122,7 @@ class DetailCollector:
             self.papis[packet['unique_id']]=packet['number'] in PAPI_TYPES
         elif ty==APPROACH_LIGHTS:
             self.lights[packet['unique_id']]=packet['number']>0
+            self.runway_lights[packet['unique_id']]=packet['end_lights']
 
     def finish(self):
         header=self.header
@@ -126,11 +132,14 @@ class DetailCollector:
              len(self.runways)>=nrun and nrun>0 else None)
         fuel_spot=(any(self.parkings.values()) if npark is not None and
                    len(self.parkings)>=npark and npark>0 else None)
+        # End/REIL/touchdown lights are not the runway edge-light system.
+        # A positive is confirmed; absence cannot prove no runway lighting.
         valid_lights=[v for v in self.runway_lights.values() if v is not None]
-        lights_known=nrun is not None and nrun>0 and len(valid_lights)>=nrun
+        lights_known=bool(valid_lights) and any(valid_lights)
         return {'icao':self.icao,'source':'MSFS2020_SIMCONNECT_FACILITY',
                 'runways':nrun,'parkings':npark,
-                'runway_lights':any(valid_lights) if lights_known else None,
+                'runway_lights':None,
+                'runway_end_lights':True if lights_known else None,
                 'ils':ils,
                 'papi':any(self.papis.values()) if self.papis else None,
                 'approach_lights':any(self.lights.values()) if self.lights else None,

@@ -63,6 +63,35 @@ def true_heading_degrees(radians):
     return degrees(value)%360.0 if isfinite(value) else None
 
 
+# The upstream Python-SimConnect RequestList is older than the 2020 SDK:
+# AircraftRequests.get() returns None for variables absent from its registry.
+# Register only known SDK Bool SimVars, on this instance, before sampling.
+PARKING_SIMVARS = {
+    'ON_ANY_RUNWAY': (b'ON ANY RUNWAY', b'Bool'),
+    'PLANE_IN_PARKING_STATE': (b'PLANE IN PARKING STATE', b'Bool'),
+    'ATC_ON_PARKING_SPOT': (b'ATC ON PARKING SPOT', b'Bool'),
+}
+
+
+def register_parking_simvars(requests):
+    """Expand Python-SimConnect without editing site-packages or changing its classes."""
+    groups=getattr(requests,'list',None)
+    if not isinstance(groups,list) or not groups:
+        return False
+    group=next((g for g in groups if getattr(g,'list',None) is not None
+                and isinstance(g.list,dict)),None)
+    if group is None:return False
+    # Do not mutate class-wide RequestList, shared by future connections.
+    existing={key for g in groups if isinstance(getattr(g,'list',None),dict)
+                    for key in g.list}
+    missing={key:vars for key,vars in PARKING_SIMVARS.items() if key not in existing}
+    if missing:
+        group.list=dict(group.list)
+        for key,(name,unit) in missing.items():
+            group.list[key]=['FlightSim v0.9.3 parking verification',name,unit,'N']
+    return True
+
+
 class SampleReader:
     """Pura lógica testável; lê somente SimVars, sem persistir/forçar estado do MSFS."""
     def __init__(self, requests, clock=time):
@@ -308,6 +337,8 @@ class SimConnectWorker:
                         lambda icao,values:self._send('airport_detail',(icao,values)),
                         lambda icao,error:self._send('airport_detail_error',(icao,error)))
                 aq = AircraftRequests(sm, _time=200)
+                if not register_parking_simvars(aq):
+                    self._send('warning','SimConnect: extensão de SimVars de estacionamento não registrada; o aceite poderá ser bloqueado.')
                 reader = SampleReader(aq)
                 self._send("connected", "SimConnect conectado")
                 # Consulta mundial de aeroportos é potencialmente custosa.
