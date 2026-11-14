@@ -37,6 +37,10 @@ FONT_FILES = {
 }
 # Existing showcase photographs, packaged with the Windows app. Never accept
 # filesystem paths from the iframe or fetch remote content.
+OFFICE_FILES = {
+ '/office-ui.js':('office-ui.js','application/javascript; charset=utf-8'),
+ '/office-ui.css':('office-ui.css','text/css; charset=utf-8')
+}
 MODEL_IMAGES = {
     '/media/c172.jpg': 'market-c172.jpg',
     '/media/g58.jpg': 'market-g58.jpg',
@@ -142,6 +146,8 @@ class LocalPanelServer:
                 .replace('__FLIGHTSIM_PANEL_KEY__', self.read_key)
                 .replace('__FLIGHTSIM_ACTION_KEY__', self.action_key)
                 .replace('__FLIGHTSIM_WRITABLE__', 'true' if self.allow_commands else 'false')
+                .replace('<!--OFFICE_NAV-->',(self.page_path.parent/'office-nav.html').read_text(encoding='utf-8') if (self.page_path.parent/'office-nav.html').is_file() else '')
+                .replace('<!--OFFICE_PAGES-->',(self.page_path.parent/'office-pages.html').read_text(encoding='utf-8') if (self.page_path.parent/'office-pages.html').is_file() else '')
                 ).encode('utf-8')
         owner = self
 
@@ -245,6 +251,11 @@ class LocalPanelServer:
                     with owner.command_lock:
                         receipt = owner.receipts.get(request_id)
                         return self.reply(200, json.dumps(receipt, ensure_ascii=False).encode('utf-8')) if receipt else self.reply(404)
+                if path in OFFICE_FILES:
+                    name,mime=OFFICE_FILES[path]
+                    asset=self.page_path.parent/name
+                    if not asset.is_file():return self.reply(404)
+                    return self.reply(200,asset.read_bytes(),mime)
                 if path in MODEL_IMAGES:
                     image = FONT_ROOT.parent / MODEL_IMAGES[path]
                     if not image.is_file():
