@@ -46,7 +46,7 @@ class ParkingTests(unittest.TestCase):
         self.assertFalse(gate.observe(sample(13),'REG-ABC'))
         self.assertFalse(gate.observe(sample(17),'REG-ABC'))  # stale gap resets
         self.assertFalse(gate.observe(sample(18),'REG-ABC'))
-        self.assertTrue(gate.observe(sample(23),'REG-ABC')) if False else self.assertFalse(gate.observe(sample(23),'REG-ABC'))  # gap>4, reset again
+        self.assertFalse(gate.observe(sample(23),'REG-ABC'))  # gap>4, reset again
         self.assertFalse(gate.observe(sample(24),'REG-ABC'))
         self.assertFalse(gate.observe(sample(27),'REG-ABC'))
         self.assertTrue(gate.observe(sample(30),'REG-ABC'))

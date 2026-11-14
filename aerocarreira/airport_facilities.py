@@ -51,8 +51,8 @@ def parse_facility_packet(raw, expected_request):
     if size!=len(raw) or kind!=DATA_ID or rid!=expected_request:
         raise ValueError('Pacote ou solicitação de aeroporto inesperado.')
     item_flag=raw[28]
-    if item_flag not in (0,1) or raw[29:32]!=b'\0\0\0':
-        raise ValueError('Formato de alinhamento do pacote inválido.')
+    if item_flag not in (0,1):
+        raise ValueError('Flag de instalação inválida.')
     index,count=struct.unpack_from('<2I',raw,32)
     if count>10000 or index>count or ty not in (AIRPORT,RUNWAY,PARKING,APPROACH_LIGHTS,VASI):
         raise ValueError('Tipo ou índice de instalação inválido.')

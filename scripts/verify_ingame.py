@@ -136,7 +136,8 @@ try:
         assert page.locator('[data-page="dashboard"]').is_visible()
         # Exercise a real button-to-HTTP-to-Tk-queue flow without changing any
         # career database, then verify the pending receipt updates in the tablet.
-        state.update(offers=[{'id':'QA-OFFER','origin':'SBRF','destination':'SIPE',
+        state.update(ground_operations={'offer_allowed':True,'reason':'Estacionamento confirmado',
+            'awaiting_turnaround':False},offers=[{'id':'QA-OFFER','origin':'SBRF','destination':'SIPE',
             'title':'Voo de teste','category':'Regional','reward':1200,
             'freelance':False,'distance':42,'minutes':27,'allowed':True,
             'reason':'','manifest_label':'Carga leve'}],
