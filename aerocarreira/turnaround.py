@@ -15,8 +15,11 @@ def parking_status(sample, *, shutdown=False):
     """Return (eligible, user-facing reason). No shortcuts on missing sensors."""
     if sample is None or not sample.on_ground:
         return False, 'A aeronave precisa estar no solo.'
-    if getattr(sample,'on_any_runway',None) is not False:
-        return False, 'Saia da pista de decolagem/pouso (pista ainda ocupada ou sensor indisponível).'
+    runway=getattr(sample,'on_any_runway',None)
+    if runway is True:
+        return False, 'A aeronave está na pista. Taxie até um portão ou estacionamento.'
+    if runway is None:
+        return False, 'O SimConnect não retornou ON ANY RUNWAY. Sem confirmação de saída da pista, o aceite permanece bloqueado.'
     spot=(getattr(sample,'atc_on_parking_spot',None) is True or
           getattr(sample,'plane_in_parking_state',None) is True)
     if not spot:

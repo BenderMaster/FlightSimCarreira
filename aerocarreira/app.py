@@ -138,6 +138,7 @@ class Application:
         self.msfs_airports_ready=False
         self.airport_details={}
         self.airport_details_requested=set()
+        self.airport_detail_started={}
         self.airport_details_next=0.0
         self.bridge_state = PanelState()
         self.bridge = LocalPanelServer(self.bridge_state, allow_commands=True)
@@ -931,6 +932,10 @@ class Application:
             self._log('AEROPORTOS MSFS: dados recusados: '+str(exc))
             return
         self.airport_catalog=catalog
+        self.airport_details.clear()
+        self.airport_details_requested.clear()
+        self.airport_detail_started.clear()
+        self.airport_details_next=0.0
         self.msfs_airports_ready=True
         self._log(f'AEROPORTOS MSFS: {len(catalog.locations)} aeródromos confirmados pelo simulador. Catálogos externos ignorados.')
         if self.dashboard:
@@ -1533,6 +1538,10 @@ class Application:
         SimConnect writes must still be verified from subsequent samples.
         """
         if action == 'market_refresh':
+            self.airport_details.clear()
+            self.airport_details_requested.clear()
+            self.airport_detail_started.clear()
+            self.airport_details_next=0.0
             if not self.dashboard:
                 return False, 'Mercado ainda não inicializado.'
             self.dashboard.presenter.refresh_market(force=True)
@@ -1830,6 +1839,19 @@ class Application:
                     offers[-1].update(allowed=bool(allowed),reason=str(reason)[:180])
             self._ingame_offers_cache = offers
             self._ingame_offers_next = now + 1.5
+        # Query timeouts must never masquerade as "this airport has no ILS".
+        # A missing SDK callback becomes an explicit unknown result with a
+        # diagnostic so users can distinguish a slow MSFS from a small field.
+        for code,started in list(self.airport_detail_started.items()):
+            if code not in self.airport_details and now-started>18:
+                self.airport_details[code]={
+                    'icao':code,'source':'NAO_VERIFICADO',
+                    'ils':None,'papi':None,'runway_lights':None,
+                    'runway_end_lights':None,'approach_lights':None,
+                    'fuel_spot':None,'fuel_service':None,
+                    'reason':'O MSFS não respondeu à consulta de instalações em 18 s. Atualize ofertas para tentar novamente.'}
+                self._log('INSTALAÇÕES MSFS '+code+': sem resposta em 18 s.')
+                self.airport_detail_started.pop(code,None)
         # Airport facilities are never sourced from a third-party database.
         # Queue at most one live MSFS facility query every 0.8s; no bulk BGL
         # extraction and no changes to the official airport catalogue.
@@ -1846,10 +1868,15 @@ class Application:
                         code not in self.airport_details_requested and
                         len(self.airport_details_requested)<50):
                     self.airport_details_requested.add(code)
+                    self.airport_detail_started[code]=now
                     self.airport_details_next=now+0.8
                     self.sim.request_airport_detail(code)
                     break
         services={}
+        for code,started in self.airport_detail_started.items():
+            if code not in self.airport_details:
+                services[code]={'icao':code,'source':'PENDENTE','status':'consultando',
+                    'reason':'Consultando instalações aeroportuárias do MSFS…'}
         for offer in getattr(self,'_ingame_offers_cache',[])[:30]:
             code=offer.get('destination')
             if code and code in self.airport_details:
@@ -1975,10 +2002,12 @@ class Application:
                     self._apply_msfs_catalog(item)
                 elif kind=='airport_detail':
                     icao,info=item
+                    self.airport_detail_started.pop(icao,None)
                     if self.msfs_airports_ready and self.airport_catalog and icao in self.airport_catalog.locations:
                         self.airport_details[icao]=info
                 elif kind=='airport_detail_error':
                     icao,reason=item
+                    self.airport_detail_started.pop(icao,None)
                     self._log('INSTALAÇÕES MSFS '+str(icao)+': '+str(reason)[:150])
                     self.airport_details[icao]={'icao':icao,'source':'NAO_VERIFICADO',
                         'ils':None,'papi':None,'runway_lights':None,'approach_lights':None,
@@ -1986,6 +2015,7 @@ class Application:
                 elif kind=='airport_catalog_error':
                     self.airport_details.clear()
                     self.airport_details_requested.clear()
+                    self.airport_detail_started.clear()
                     self.msfs_airports_ready=False
                     self.airport_catalog=None
                     if self.dashboard:
@@ -1999,6 +2029,7 @@ class Application:
                 elif kind=="disconnected":
                     self.airport_details.clear()
                     self.airport_details_requested.clear()
+                    self.airport_detail_started.clear()
                     self.connected=False
                     self.msfs_airports_ready=False
                     self.airport_catalog=None
