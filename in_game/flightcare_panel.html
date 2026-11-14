@@ -153,6 +153,7 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
 @media (max-width:620px){.offer-row{flex-direction:column;align-items:stretch}.offer-row button{width:100%}.control-grid input{max-width:140px}#action-feedback{top:54px}}
 </style>
 <link rel="stylesheet" href="/office-ui.css">
+<link rel="stylesheet" href="/maplibre-gl.css">
 </head>
 <body>
 <header class="top">
@@ -224,7 +225,11 @@ footer{height:31px;flex-shrink:0;display:flex;align-items:center;justify-content
  </div>
 </section>
 <section class="page" data-page="route" aria-label="Mapa do voo" hidden>
-<div class="card full"><h2>Mapa de rota • posições confirmadas</h2>
+<div class="card full"><div class="market-tools"><h2>Mapa de rota • posições confirmadas</h2>
+<div class="market-tabs"><button type="button" class="btn" id="map-street" aria-pressed="true">Mapa OpenFreeMap</button>
+<button type="button" class="btn" id="map-satellite" aria-pressed="false">Satélite EOX</button></div></div>
+<div id="ingame-real-map" style="display:none;width:100%;height:330px;border:1px solid #2d546a;border-radius:10px;overflow:hidden"></div>
+<div id="map-status" class="legend">Tentando visualização geográfica ao abrir esta página. Se WebGL não estiver disponível, o esquema SVG permanece.</div>
 <svg id="map" viewBox="0 0 660 180" role="img" aria-label="Origem, destino e posição da aeronave"><g id="map-content"></g></svg>
 <div class="legend">Esquema geográfico SVG; não é o mapa VFR oficial e não contém pistas ou obstáculos.</div>
 </div>
@@ -494,6 +499,7 @@ function render(d){
  if(inventory)element('fuel-liters').max=inventory.capacity_liters;
  renderMarket(d);
  map(d);
+ if(window.FlightSimGeographicMap)window.FlightSimGeographicMap.render(d);
  if(window.FlightSimOfficeUI){try{window.FlightSimOfficeUI.render(d);}
  catch(officeError){console.error('[FlightSim] Office render failed',officeError);}}
  var stamp=typeof d.updated==='number'?new Date(d.updated*1000).toLocaleTimeString('pt-BR'):'—';
@@ -550,6 +556,7 @@ function navigate(view){
  var titles={dashboard:'Visão geral',market:'Mercado de contratos',planning:'Planejamento e despacho',route:'Mapa de navegação',hangar:'Hangar e aeronaves',airlines:'Companhias aéreas',aircraft:'Aeronave e telemetria',career:'Piloto e licenças',logbook:'Logbook e relatórios',finances:'Centro financeiro'};
  write('page-title',titles[view]||'FlightSim');
  if(window.FlightSimOfficeUI)window.FlightSimOfficeUI.view(view);
+ if(window.FlightSimGeographicMap)window.FlightSimGeographicMap.view(view);
 }
 Array.prototype.forEach.call(pageButtons,function(b){
  b.addEventListener('click',function(){navigate(b.getAttribute('data-view'));});
@@ -599,4 +606,5 @@ poll();setInterval(poll,1500);
 })();
 </script>
 <script src="/office-ui.js"></script>
+<script src="/ingame-map.js"></script>
 </body></html>
