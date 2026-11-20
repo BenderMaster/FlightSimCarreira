@@ -1,3 +1,12 @@
+## v0.9.3 InGame Alpha.4 — seleção da DLL SimConnect com FacilityData
+
+- Corrigida a origem de `SimConnect_AddToFacilityDefinition not found`: o pacote Python-SimConnect pode carregar uma DLL cliente legada que não exporta a API FacilityData do MSFS 2020.
+- O FlightSim agora procura a DLL do SDK Core (prioridade: `FLIGHTSIM_SIMCONNECT_DLL`, `SIMCONNECT_DLL`, `MSFS_SDK`, `MSFS2020_SDK` e caminhos padrão), valida os exports de `SimConnect_AddToFacilityDefinition` e `SimConnect_RequestFacilityData` e usa essa mesma DLL para abrir a conexão inteira.
+- Evita misturar um handle criado por uma DLL com chamadas feitas por outra. Se não houver DLL compatível, o log explica a versão mínima do SDK e como apontar para ela; dados não confirmados continuam como “Não verificado”.
+- Testes cobrem seleção por caminho, rejeição de DLL legada, conexão usando a DLL do SDK e diagnóstico quando a API não está disponível.
+
+---
+
 ## v0.9.3 InGame Alpha.3 — remuneração de companhias e equilíbrio do mercado
 
 - **Salários semanais quadruplicados:** AeroNordeste R$ 36.000, LATAM R$ 68.000, GOL R$ 92.000 e Azul R$ 120.000 de base. Nível, reputação, patente e compromisso de 10%/20% continuam aplicados.
