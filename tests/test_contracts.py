@@ -8,7 +8,7 @@ from aerocarreira.contracts import (AirportCatalog, TYPE_BY_CODE, EMPLOYER_FLEET
     FREELANCER_FLEET, pilot_level, next_level_xp, eligibility, generate_offers,
     matches_aircraft, aircraft_family)
 from aerocarreira.finance import AIRCRAFT_ECONOMY, market_reward
-from aerocarreira.domain import Airport, AIRPORTS, Career, FlightTracker, FlightSample, Mission, Phase
+from aerocarreira.domain import Airport, AIRPORTS, Career, FlightTracker, FlightSample, Mission, Phase, distance_nm
 from aerocarreira.storage import Storage
 from aerocarreira.sim_adapter import SampleReader
 
