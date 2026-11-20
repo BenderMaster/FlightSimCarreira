@@ -30,8 +30,8 @@ REQUIREMENTS={
     'nordeste':(10,5),'azul':(12,6),
     'gol':(14,7),'latam':(16,8),
 }
-# Base de emprego nos quatro níveis, antes dos multiplicadores reais.
-BASE_SALARY={'nordeste':9000,'azul':30000,'gol':23000,'latam':17000}
+# O valor semanal publicado nas vagas é a fonte única para a folha.
+BASE_SALARY={code:employer.weekly_salary for code,employer in EMPLOYER_BY_CODE.items()}
 PRESTIGE={'nordeste':1.00,'azul':1.50,'gol':1.33,'latam':1.18}
 
 def company_grade(flights,hours):
