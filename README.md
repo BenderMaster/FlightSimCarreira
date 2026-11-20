@@ -1,11 +1,11 @@
-# FlightSim v0.9.3 InGame Alpha.2 — sensores e consultas MSFS corrigidos
+# FlightSim v0.9.3 InGame Alpha.3 — economia e operações no MSFS
 
 Branch de teste `feature/v0.9.3-airport-services-gate-turnaround-map`, derivada da
-`main` v0.9.2 homologada. Introduz instalações aeroportuárias do MSFS,
-filtros de Mercado, mapas OpenFreeMap/EOX e contratos com desembarque
-e pagamento somente no estacionamento após desligamento dos motores.
-**A main permanece na v0.9.2 aprovada.**
-[Escopo, limitações e roteiro de teste da v0.9.3](docs/INGAME_V093_AIRPORT_TURNAROUND.md).
+`main` v0.9.2 homologada. Inclui instalações aeroportuárias do MSFS, mapas,
+contratos portão-a-portão e rebalanceamento da remuneração das companhias.
+**A main permanece na v0.9.2 aprovada; esta branch continua em homologação.**
+[Escopo e roteiro de teste da v0.9.3](docs/INGAME_V093_AIRPORT_TURNAROUND.md) •
+[Rebalanceamento econômico Alpha.3](docs/ECONOMY_REBALANCE_V093.md).
 
 ---
 
