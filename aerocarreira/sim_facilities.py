@@ -8,13 +8,79 @@ from __future__ import annotations
 
 import ctypes
 import math
+import os
 import re
 import struct
+from pathlib import Path
 from . import airport_facilities as detail
 
 ICAO = re.compile(r"^[A-Z0-9]{4}$")
 AIRPORT_LIST_ID = 18   # SIMCONNECT_RECV_ID_AIRPORT_LIST, MSFS2020
 REQUEST_ID = 6001
+FACILITY_API_EXPORTS = (
+    "SimConnect_AddToFacilityDefinition",
+    "SimConnect_RequestFacilityData",
+)
+
+
+def resolve_facility_simconnect_dll(environ=None, is_file=None, library_loader=None):
+    """Find an MSFS 2020 SDK SimConnect.dll with the FacilityData exports.
+
+    Python-SimConnect bundles a legacy client DLL. The airport-list API exists
+    in that DLL, but FacilityData was added later (MSFS 2020 SimConnect 0.19.0).
+    Prefer the SDK client DLL so the same modern library opens the handle and
+    performs every SimConnect call. Never mix handles between DLL instances.
+    """
+    env = os.environ if environ is None else environ
+    is_file = is_file or (lambda value: Path(value).is_file())
+    if library_loader is None:
+        library_loader = getattr(ctypes, "WinDLL", None)
+
+    candidates = []
+    explicit = env.get("FLIGHTSIM_SIMCONNECT_DLL") or env.get("SIMCONNECT_DLL")
+    if explicit:
+        candidates.append(Path(explicit).expanduser())
+
+    roots = []
+    for key in ("MSFS_SDK", "MSFS2020_SDK"):
+        value = env.get(key)
+        if value:
+            roots.append(Path(value).expanduser())
+    roots.extend((Path(r"C:\\MSFS SDK"), Path(r"C:\\MSFS 2020 SDK")))
+    for root in roots:
+        candidates.append(root / "SimConnect SDK" / "lib" / "SimConnect.dll")
+        candidates.append(root / "lib" / "SimConnect.dll")
+
+    seen = set()
+    for candidate in candidates:
+        path = str(candidate)
+        marker = os.path.normcase(os.path.abspath(path))
+        if marker in seen:
+            continue
+        seen.add(marker)
+        if not is_file(path):
+            continue
+        if library_loader is not None:
+            try:
+                library = library_loader(path)
+                for symbol in FACILITY_API_EXPORTS:
+                    getattr(library, symbol)
+            except (OSError, AttributeError):
+                continue
+        return path
+    return None
+
+
+def _facility_api_unavailable_message(library_path, error):
+    loaded = library_path or "DLL padrão embutida no pacote Python-SimConnect"
+    return (
+        "FacilityData indisponível: a DLL SimConnect carregada não exporta "
+        "SimConnect_AddToFacilityDefinition e/ou SimConnect_RequestFacilityData. "
+        "Essas funções exigem o SimConnect SDK do MSFS 2020 versão 0.19.0 ou superior. "
+        "Instale/atualize o SDK Core pelo Developer Mode > Help > SDK Installer (Core), "
+        "ou defina MSFS_SDK / FLIGHTSIM_SIMCONNECT_DLL para apontar à DLL correta. "
+        f"DLL selecionada: {loaded}. Detalhe: {error}"
+    )
 
 
 def decode_airport_list_packet(raw: bytes, request_id: int = REQUEST_ID):
@@ -124,7 +190,16 @@ def connection_class():
             self._detail_requests={}
             self._detail_next=detail.REQUEST_START
             self.detail_callbacks=(lambda icao,values:None,lambda icao,error:None)
-            super().__init__()
+            # Use the SDK DLL for the whole connection, not a second DLL for
+            # FacilityData calls: SimConnect handles must never cross DLL instances.
+            self._facility_library_path=resolve_facility_simconnect_dll()
+            if self._facility_library_path:
+                super().__init__(library_path=self._facility_library_path)
+            else:
+                super().__init__()
+            self._facility_add_function=None
+            self._facility_request_function=None
+            self._facility_api_error=None
             try:
                 func=self.dll.SimConnect.SimConnect_RequestFacilitiesList
                 func.restype=ctypes.c_long
@@ -133,18 +208,32 @@ def connection_class():
             except (AttributeError,OSError) as exc:
                 self._airport_list_function=None
                 self._report_airport_error("DLL SimConnect sem listagem de aeroportos: "+str(exc))
+            try:
+                self._facility_add_function=self.dll.SimConnect.SimConnect_AddToFacilityDefinition
+                self._facility_request_function=self.dll.SimConnect.SimConnect_RequestFacilityData
+                self._facility_add_function.restype=ctypes.c_long
+                self._facility_add_function.argtypes=[
+                    ctypes.c_void_p,ctypes.c_uint32,ctypes.c_char_p]
+                self._facility_request_function.restype=ctypes.c_long
+                self._facility_request_function.argtypes=[
+                    ctypes.c_void_p,ctypes.c_uint32,ctypes.c_uint32,
+                    ctypes.c_char_p,ctypes.c_char_p]
+            except (AttributeError,OSError) as exc:
+                self._facility_add_function=None
+                self._facility_request_function=None
+                self._facility_api_error=_facility_api_unavailable_message(
+                    self._facility_library_path,exc)
 
         def request_airport_detail(self,icao):
             """One trusted ICAO from the live MSFS catalog, never arbitrary URL."""
             if not isinstance(icao,str) or not detail.ICAO.fullmatch(icao):
                 return False
+            if self._facility_api_error:
+                self.detail_callbacks[1](icao,self._facility_api_error)
+                return False
             try:
-                add=self.dll.SimConnect.SimConnect_AddToFacilityDefinition
-                request=self.dll.SimConnect.SimConnect_RequestFacilityData
-                add.restype=request.restype=ctypes.c_long
-                add.argtypes=[ctypes.c_void_p,ctypes.c_uint32,ctypes.c_char_p]
-                request.argtypes=[ctypes.c_void_p,ctypes.c_uint32,
-                                 ctypes.c_uint32,ctypes.c_char_p,ctypes.c_char_p]
+                add=self._facility_add_function
+                request=self._facility_request_function
                 if not self._detail_defined:
                     for field in detail.FIELDS:
                         hr=add(self.hSimConnect,detail.DEFINE_ID,field.encode('ascii'))
