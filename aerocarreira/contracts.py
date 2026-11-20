@@ -14,6 +14,16 @@ from .finance import market_reward, mission_radius_by_level, AIRCRAFT_ECONOMY
 from .manifest import mission_manifest
 
 
+PRIVATE_CONTRACT_PAYOUT_FACTOR=0.90
+
+
+def private_contract_reward(distance_nm: float, multiplier: float = 1.0, **kwargs) -> int:
+    """Autonomous-market fee; employee and company routes keep their own rates."""
+    amount=market_reward(distance_nm,multiplier,**kwargs)
+    # Round half-up to the same R$10 granularity as the underlying market.
+    return int((amount*PRIVATE_CONTRACT_PAYOUT_FACTOR+5)//10*10)
+
+
 @dataclass(frozen=True)
 class ContractType:
     code: str
@@ -251,7 +261,7 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
             continue
         target, dist = found
         seen.add((kind.code,target.icao,False))
-        reward = market_reward(dist, kind.pay_factor, level=reward_level, reputation=reward_rep)
+        reward = private_contract_reward(dist, kind.pay_factor, level=reward_level, reputation=reward_rep)
         offers.append(Mission(f"REG-{origin.icao}-{period}-{slot:02}",origin.icao,target.icao,
             f"{kind.title} • {target.name[:24]}",reward,category=kind.code,
             origin_lat=origin.latitude,origin_lon=origin.longitude,
@@ -279,7 +289,7 @@ def generate_offers(origin: Airport, catalog: AirportCatalog, stats: dict,
         lo=bucket*len(choices_for_type)//3
         hi=max(lo+1,(bucket+1)*len(choices_for_type)//3)
         target,dist=rng.choice(choices_for_type[lo:hi])
-        salary=market_reward(dist,1+kind.min_level*.09,freelance=True,
+        salary=private_contract_reward(dist,1+kind.min_level*.09,freelance=True,
                              cruise_kts=AIRCRAFT_ECONOMY[plane.code].cruise_kts,
                              level=reward_level, reputation=reward_rep)
         offers.append(Mission(f"FREE-{origin.icao}-{period}-{slot:02}",origin.icao,target.icao,
