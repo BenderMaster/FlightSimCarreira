@@ -10,7 +10,8 @@ from aerocarreira.domain import AIRPORTS
 class AirlineOperationsTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory()
-        self.db=Storage(Path(self.tmp.name)/"carreira.db")
+        self.path=Path(self.tmp.name)/"carreira.db"
+        self.db=Storage(self.path)
         self.db.create_pilot('Teste','TESTE','SIPE')
         self.start=1800000000.0
         self.db.set_setting('balance','500000')
@@ -51,6 +52,40 @@ class AirlineOperationsTests(unittest.TestCase):
         self.assertEqual(self.db.airline_payroll(self.start+ops.WEEK_SECONDS+100),[])
         self.assertEqual(int(self.db.get_setting('balance')),
                          500000+settled[0]['salary'])
+
+    def test_company_weekly_salary_base_is_quadruped_and_consistent(self):
+        expected={'nordeste':36000,'azul':120000,'gol':92000,'latam':68000}
+        self.assertEqual(ops.BASE_SALARY,expected)
+        for company,salary in expected.items():
+            employer=ops.EMPLOYER_BY_CODE[company]
+            self.assertEqual(employer.weekly_salary,salary)
+            self.assertEqual(ops.rate(company,employer.min_level,50,0)[0],salary)
+
+    def test_economy_migration_scales_only_unsettled_payroll_once(self):
+        agreement=self.hired()
+        aid=agreement['id']
+        with self.db.conn:
+            self.db.conn.execute("INSERT INTO airline_week_rates VALUES(?,?,?,?,?)",
+                                 (aid,0,9000,150,0))
+            self.db.conn.execute("INSERT INTO airline_week_rates VALUES(?,?,?,?,?)",
+                                 (aid,1,17000,150,0))
+            self.db.conn.execute("INSERT INTO airline_payroll VALUES(?,?,?,?,?,?,?,?,?)",
+                (aid,1,5,36000,0,17000,150,'cumprido',self.start+ops.WEEK_SECONDS+1))
+            self.db.conn.execute("INSERT INTO contract_offers VALUES(?,?,?,?,?)",
+                ('OLD-OFFER','SIPE','{}',self.start,self.start+86400))
+            self.db.conn.execute("DELETE FROM settings WHERE key='economy_rebalance_v093_alpha3'")
+        self.db.close()
+        self.db=Storage(self.path)
+        rows=dict(self.db.conn.execute(
+            "SELECT week,base_salary FROM airline_week_rates WHERE agreement_id=?",(aid,)).fetchall())
+        self.assertEqual(rows[0],36000)
+        self.assertEqual(rows[1],17000)  # payroll already settled: historical amount unchanged
+        self.assertEqual(self.db.conn.execute("SELECT COUNT(*) FROM contract_offers").fetchone()[0],0)
+        self.db.close()
+        self.db=Storage(self.path)
+        rows=dict(self.db.conn.execute(
+            "SELECT week,base_salary FROM airline_week_rates WHERE agreement_id=?",(aid,)).fetchall())
+        self.assertEqual(rows[0],36000)  # reopening does not multiply it again
 
     def test_ten_percent_commitment_penalizes_when_only_basic_met(self):
         self.hired(10);self.work(5)
