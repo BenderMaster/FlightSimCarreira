@@ -154,6 +154,20 @@ class Storage:
                 self.conn.execute('DELETE FROM contract_offers')
                 self.conn.execute("INSERT INTO settings(key,value) VALUES('market_pricing_v05','1') "
                                   "ON CONFLICT(key) DO UPDATE SET value='1'")
+        # v0.9.3 Alpha.3: apply the new salary scale to pending weeks only.
+        # Settled payroll and accepted missions are historical records and stay intact.
+        if self.get_setting('economy_rebalance_v093_alpha3') != '1':
+            with self.conn:
+                self.conn.execute("""UPDATE airline_week_rates
+                    SET base_salary=base_salary*4
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM airline_payroll p
+                        WHERE p.agreement_id=airline_week_rates.agreement_id
+                          AND p.week=airline_week_rates.week
+                    )""")
+                self.conn.execute('DELETE FROM contract_offers')
+                self.conn.execute("INSERT INTO settings(key,value) VALUES('economy_rebalance_v093_alpha3','1') "
+                                  "ON CONFLICT(key) DO UPDATE SET value='1'")
         if self.get_setting('income_tax_enabled') is None:
             self.set_setting('income_tax_enabled','0')
         if self.get_setting('simulated_failures_enabled') is None:
