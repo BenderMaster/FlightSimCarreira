@@ -1,3 +1,12 @@
+## v0.9.3 InGame Alpha.3 — remuneração de companhias e equilíbrio do mercado
+
+- **Salários semanais quadruplicados:** AeroNordeste R$ 36.000, LATAM R$ 68.000, GOL R$ 92.000 e Azul R$ 120.000 de base. Nível, reputação, patente e compromisso de 10%/20% continuam aplicados.
+- **Mercado autônomo:** redução de 10% nos contratos Regional e Freelancer, sem alterar a remuneração dos contratos de funcionário nem a receita das rotas da companhia própria.
+- **Compatibilidade dos saves:** uma migração única atualiza salários congelados de semanas ainda não pagas e invalida somente ofertas ainda não aceitas. Folhas já pagas e contratos ativos preservam seus valores.
+- **Integridade:** meta semanal, pagamento ao encerrar a semana, XP, transações idempotentes e regras de contratação permanecem inalterados. CI cobre os novos valores, desconto e migração.
+
+---
+
 ## v0.9.3 InGame Alpha.2 — correções após homologação física Alpha.1
 
 - **Aceite no portão:** diagnóstico das SimVars `ON ANY RUNWAY`, `PLANE IN PARKING STATE` e `ATC ON PARKING SPOT`: as três estavam ausentes da lista de registros do Python-SimConnect, apesar de existirem no SDK. Agora são acrescentadas somente à instância de leitura ativa, sem alterar pacotes instalados.
