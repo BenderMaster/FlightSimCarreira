@@ -10,8 +10,8 @@ from aerocarreira.app import Application
 from aerocarreira.sim_adapter import SampleReader, register_parking_simvars, PARKING_SIMVARS
 from aerocarreira.turnaround import TurnaroundGate, parking_status
 from aerocarreira.airport_facilities import (DetailCollector, parse_facility_packet,
-    parse_facility_end, DATA_ID, DATA_END_ID, AIRPORT, RUNWAY, PARKING,
-    APPROACH_LIGHTS, VASI, FIELDS)
+    parse_facility_end, classify_facility_message, DATA_ID, DATA_END_ID,
+    AIRPORT, RUNWAY, PARKING, APPROACH_LIGHTS, VASI, FIELDS)
 
 
 def sample(t=1,**kwargs):
@@ -143,10 +143,10 @@ class ParkingTests(unittest.TestCase):
         self.assertEqual(end['touchdown_fpm_est'],-155)
 
 
-def packet(kind,uid,parent,value,req=6201):
+def packet(kind,uid,parent,value,req=6201,recv_id=DATA_ID):
     body=value
     size=40+len(body)
-    return struct.pack('<7I',size,0,DATA_ID,req,uid,parent,kind)+b'\x01\x00\x00\x00'+struct.pack('<2I',0,1)+body
+    return struct.pack('<7I',size,0,recv_id,req,uid,parent,kind)+b'\x01\x00\x00\x00'+struct.pack('<2I',0,1)+body
 
 
 class FacilityTests(unittest.TestCase):
@@ -158,6 +158,26 @@ class FacilityTests(unittest.TestCase):
         self.assertIn('SECONDARY_ILS_ICAO',FIELDS)
         self.assertEqual(FIELDS[0],'OPEN AIRPORT')
         self.assertEqual(FIELDS[-1],'CLOSE AIRPORT')
+
+    def test_accepts_both_msfs_2020_receive_id_layouts(self):
+        # PICK is optional in some SDK headers. Without it, FacilityData IDs
+        # are 28/29; with it, they are 29/30. DATA vs END is size-distinguished.
+        self.assertEqual(classify_facility_message(28,44),'data')
+        self.assertEqual(classify_facility_message(29,44),'data')
+        self.assertEqual(classify_facility_message(29,16),'end')
+        self.assertEqual(classify_facility_message(30,16),'end')
+        self.assertIsNone(classify_facility_message(28,16))
+        self.assertIsNone(classify_facility_message(30,44))
+
+        # A real data record with the unshifted ID 28 must decode normally.
+        raw=packet(PARKING,2,1,struct.pack('<i',12),recv_id=28)
+        parsed=parse_facility_packet(raw,6201)
+        self.assertEqual(parsed['type'],PARKING)
+        self.assertEqual(parsed['number'],12)
+
+        # In the unshifted layout ID 29 is the 16-byte end marker.
+        end=struct.pack('<4I',16,0,29,6201)
+        self.assertTrue(parse_facility_end(end,6201))
 
     def test_native_packet_and_details_summary(self):
         col=DetailCollector('SBRF')
