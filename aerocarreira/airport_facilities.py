@@ -11,8 +11,23 @@ import re
 import struct
 
 ICAO=re.compile(r'[A-Z0-9]{4}\Z')
+# MSFS 2020 SDK headers optionally insert SIMCONNECT_RECV_ID_PICK
+# (ENABLE_SIMCONNECT_EXPERIMENTAL) before EVENT_EX1. That shifts every
+# subsequent receive ID by one. Accept both documented wire layouts and
+# distinguish DATA from DATA_END by their native packet sizes.
 DATA_ID=29
 DATA_END_ID=30
+DATA_IDS=frozenset((28,29))
+DATA_END_IDS=frozenset((29,30))
+
+
+def classify_facility_message(receive_id, packet_size):
+    """Classify FacilityData packets across SDK builds with/without PICK."""
+    if receive_id in DATA_IDS and packet_size >= 44:
+        return "data"
+    if receive_id in DATA_END_IDS and packet_size == 16:
+        return "end"
+    return None
 DEFINE_ID=6051
 REQUEST_START=6200
 MAX_PACKET=65536
@@ -48,9 +63,9 @@ def parse_facility_packet(raw, expected_request):
     if not isinstance(raw,bytes) or not 44<=len(raw)<=MAX_PACKET:
         raise ValueError('Tamanho inválido da resposta de instalação.')
     size,version,kind,rid,uid,parent,ty=struct.unpack_from('<7I',raw)
-    if size!=len(raw) or kind!=DATA_ID or rid!=expected_request:
+    if size!=len(raw) or kind not in DATA_IDS or rid!=expected_request:
         raise ValueError('Pacote ou solicitação de aeroporto inesperado.')
-    item_flag=raw[28]
+    item_flag=struct.unpack_from('<I',raw,28)[0]
     if item_flag not in (0,1):
         raise ValueError('Flag de instalação inválida.')
     index,count=struct.unpack_from('<2I',raw,32)
@@ -90,9 +105,9 @@ def parse_facility_packet(raw, expected_request):
 
 
 def parse_facility_end(raw, expected_request):
-    if len(raw)<16:raise ValueError('Fim de instalações incompleto.')
+    if not isinstance(raw,bytes) or len(raw)!=16:raise ValueError('Fim de instalações incompleto.')
     size,version,kind,request=struct.unpack_from('<4I',raw)
-    if size>len(raw) or kind!=DATA_END_ID or request!=expected_request:
+    if size!=len(raw) or kind not in DATA_END_IDS or request!=expected_request:
         raise ValueError('Fim da lista de instalações inconsistente.')
     return True
 
