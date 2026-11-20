@@ -41,9 +41,14 @@ FONT_FILES = {
 }
 # Existing showcase photographs, packaged with the Windows app. Never accept
 # filesystem paths from the iframe or fetch remote content.
+MAP_FILES = {
+ '/maplibre-gl.js':('vendor/maplibre-gl.js','application/javascript; charset=utf-8'),
+ '/maplibre-gl.css':('vendor/maplibre-gl.css','text/css; charset=utf-8')
+}
 OFFICE_FILES = {
  '/office-ui.js':('office-ui.js','application/javascript; charset=utf-8'),
- '/office-ui.css':('office-ui.css','text/css; charset=utf-8')
+ '/office-ui.css':('office-ui.css','text/css; charset=utf-8'),
+ '/ingame-map.js':('ingame-map.js','application/javascript; charset=utf-8')
 }
 MODEL_IMAGES = {
     '/media/c172.jpg': 'market-c172.jpg',
@@ -202,8 +207,8 @@ class LocalPanelServer:
                 # embed this loopback page. Never allow cross-origin CORS reads.
                 self.send_header('Content-Security-Policy',
                                  "default-src 'none'; script-src 'self' 'unsafe-inline'; "
-                                 "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-                                 "connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'")
+                                 "style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tiles.openfreemap.org https://tiles.maps.eox.at; "
+                                 "connect-src 'self' https://tiles.openfreemap.org https://tiles.maps.eox.at; worker-src 'self' blob:; font-src 'self' https://tiles.openfreemap.org; base-uri 'none'; form-action 'none'")
                 self.send_header('Content-Length', str(len(body)))
                 self.end_headers()
                 if self.command != 'HEAD':
@@ -290,6 +295,11 @@ class LocalPanelServer:
                     with owner.photo_lock:
                         thumbnail=owner.photo_cache.get(path)
                     return self.reply(200,thumbnail,'image/jpeg') if thumbnail else self.reply(404)
+                if path in MAP_FILES:
+                    name,mime=MAP_FILES[path]
+                    asset=FONT_ROOT.parent/name
+                    if not asset.is_file():return self.reply(404)
+                    return self.reply(200,asset.read_bytes(),mime)
                 if path in OFFICE_FILES:
                     name,mime=OFFICE_FILES[path]
                     asset=owner.page_path.parent/name

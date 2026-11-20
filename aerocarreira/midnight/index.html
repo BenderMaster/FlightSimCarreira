@@ -57,6 +57,17 @@
   <header class="page-head"><div><small class="eyebrow">OPERAÇÕES • OFERTAS DISPONÍVEIS</small><h1 id="market-view-title">MERCADO REGIONAL</h1><p id="market-dialog-base">Contratos da região vinculados à base do piloto</p></div><button id="market-refresh" class="button" title="Atualizar ofertas">↻ Atualizar ofertas</button></header>
   <nav class="market-view-tabs" aria-label="Modalidade de trabalho"><button data-market-view="regional" class="selected" aria-pressed="true"><svg><use href="#i-hangar"/></svg>Aeronave particular</button><button data-market-view="freelance" aria-pressed="false"><svg><use href="#i-plane"/></svg>Serviços freelancer</button></nav>
   <div class="market-toolbar"><label for="market-search">Buscar contratos</label><input id="market-search" type="search" autocomplete="off" placeholder="Destino, ICAO ou tipo de serviço..." aria-label="Buscar contratos"><span id="market-count" aria-live="polite"></span></div>
+  <div class="airport-service-toolbar">
+   <label for="market-facility-filter">Instalações no destino</label>
+   <select id="market-facility-filter" aria-label="Filtrar contratos por instalações confirmadas">
+    <option value="all">Todas as ofertas</option>
+    <option value="ils">ILS</option><option value="papi">PAPI</option>
+    <option value="approach_lights">Luzes de aproximação</option>
+    <option value="runway_end_lights">Luzes de cabeceira</option>
+    <option value="fuel_spot">Posição de combustível</option>
+   </select>
+   <span class="airport-service-help">Informações do MSFS • “Não verificado” não significa ausência.</span>
+  </div>
   <div id="market-list" class="market-list" role="list" aria-live="polite"></div>
   <footer class="page-foot"><small id="market-view-hint">As ofertas são geradas localmente e verificadas novamente no aceite.</small><button class="button" data-action="dashboard">Voltar ao Dashboard</button></footer>
  </section>

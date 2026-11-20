@@ -1,3 +1,47 @@
+## v0.9.3 InGame Alpha.4 — seleção da DLL SimConnect com FacilityData
+
+- Corrigida a origem de `SimConnect_AddToFacilityDefinition not found`: o pacote Python-SimConnect pode carregar uma DLL cliente legada que não exporta a API FacilityData do MSFS 2020.
+- O FlightSim agora procura a DLL do SDK Core (prioridade: `FLIGHTSIM_SIMCONNECT_DLL`, `SIMCONNECT_DLL`, `MSFS_SDK`, `MSFS2020_SDK` e caminhos padrão), valida os exports de `SimConnect_AddToFacilityDefinition` e `SimConnect_RequestFacilityData` e usa essa mesma DLL para abrir a conexão inteira.
+- Evita misturar um handle criado por uma DLL com chamadas feitas por outra. Se não houver DLL compatível, o log explica a versão mínima do SDK e como apontar para ela; dados não confirmados continuam como “Não verificado”.
+- Testes cobrem seleção por caminho, rejeição de DLL legada, conexão usando a DLL do SDK e diagnóstico quando a API não está disponível.
+
+---
+
+## v0.9.3 InGame Alpha.3 — remuneração de companhias e equilíbrio do mercado
+
+- **Salários semanais quadruplicados:** AeroNordeste R$ 36.000, LATAM R$ 68.000, GOL R$ 92.000 e Azul R$ 120.000 de base. Nível, reputação, patente e compromisso de 10%/20% continuam aplicados.
+- **Mercado autônomo:** redução de 10% nos contratos Regional e Freelancer, sem alterar a remuneração dos contratos de funcionário nem a receita das rotas da companhia própria.
+- **Compatibilidade dos saves:** uma migração única atualiza salários congelados de semanas ainda não pagas e invalida somente ofertas ainda não aceitas. Folhas já pagas e contratos ativos preservam seus valores.
+- **Integridade:** meta semanal, pagamento ao encerrar a semana, XP, transações idempotentes e regras de contratação permanecem inalterados. CI cobre os novos valores, desconto e migração.
+
+---
+
+## v0.9.3 InGame Alpha.2 — correções após homologação física Alpha.1
+
+- **Aceite no portão:** diagnóstico das SimVars `ON ANY RUNWAY`, `PLANE IN PARKING STATE` e `ATC ON PARKING SPOT`: as três estavam ausentes da lista de registros do Python-SimConnect, apesar de existirem no SDK. Agora são acrescentadas somente à instância de leitura ativa, sem alterar pacotes instalados.
+- **Aeroportos:** removidos os campos não documentados `EDGE_LIGHTS` e `CENTER_LIGHTS` que impediam a definição de dados. O relatório de luzes agora distingue sistemas de aproximação, luzes de extremidade/REIL/TDZ e iluminação de pista não verificável por essa API.
+- **Duas interfaces:** Mercado Regional e Freelancer do desktop Windows agora exibem e filtram instalações do MSFS, assim como o tablet; o cache atualiza com as respostas válidas.
+- **Diagnóstico:** falha de consulta e timeout de 18 s aparecem como erros verificáveis, sem transformar desconhecido em “não tem”. Atualizar ofertas força nova consulta por sessão. Estado de estacionamento exibe cada sensor e a causa precisa da recusa.
+- **Testes:** regressões Python para registro das SimVars, validação dos nomes do SDK e composição de pacotes; Playwright verifica cartões/filtros nas interfaces Windows e InGame.
+- **Limite:** consulta de instalações e posição de estacionamento ainda exigem teste físico MSFS 2020, mas a `main` permanece na v0.9.2 homologada.
+
+---
+
+## v0.9.3 InGame Alpha.1 — aeroportos reais, mapa e operação portão-a-portão
+
+- **Base homologada:** `main` v0.9.2 (PR #23 e #24), branch independente `feature/v0.9.3-airport-services-gate-turnaround-map`.
+- **Mercado:** cartões mostram ILS, PAPI, luzes da pista, luzes de aproximação e ponto de combustível no aeroporto de destino, com filtro por instalação confirmada. “Não verificado” substitui supostas ausências quando a API do MSFS não devolveu dados. Ponto FUEL não significa posto/serviço ativo.
+- **SimConnect:** integra, por aeroporto efetivamente listado na sessão, `SimConnect_AddToFacilityDefinition`/`SimConnect_RequestFacilityData` de forma incremental, com parser de pacote nativo rigoroso e respostas desconhecidas separadas de negativas. Consultas limitadas e derivadas exclusivamente do inventário MSFS (sem web ou aeroportos externos).
+- **Aceite na posição correta:** somente em solo, fora de pista, num estacionamento identificado por `PLANE IN PARKING STATE` ou `ATC ON PARKING SPOT`, velocidade real abaixo de 1,5 kt e freio de estacionamento acionado. Sinal ausente bloqueia aceite e informa a causa.
+- **Pós-voo obrigatório:** no MSFS o pouso no aeroporto de destino cria um turnaround pendente. Contrato, dinheiro, XP e logbook só são finalizados após permanecer estacionado, com freio acionado, todos os motores desligados e estado estável por 6 s. Transação e ID de voo únicos continuam no mecanismo idempotente SQLite.
+- **Checkpoint confiável:** guarda pouso pendente, telemetria de toque, bônus, combustível e penalidade de táxi; reiniciar o companion não gera pagamento e reinicia o tempo de confirmação.
+- **Mapa:** opção OpenFreeMap com MapLibre local e satélite EOX (mesmas fontes do Windows), rota/waypoints/avião em mapa; se o navegador Coherent não suportar WebGL/rede, retorna automaticamente ao mapa SVG que já funcionava.
+- **Visual e encoding:** substitui a seta de caracteres entre ICAOs por SVG, corrigindo o quadrado/interrogação relatado.
+- **Compatibilidade:** a toolbar Community não mudou. Apenas o companion Windows precisa ser atualizado; não inclui MSFS VFR nativo, que não dispõe de embed oficial para painel de terceiros.
+- **Validação:** testes Python Windows/Linux 3.11/3.13, Chromium/Playwright e PyInstaller Windows. Validação de SimConnect instalações, parkings e MapLibre **no MSFS real continua obrigatória**, pois o CI não abre o simulador.
+
+---
+
 ## v0.9.2 InGame Alpha.1 — escritório completo do piloto no Midnight Tablet
 
 - **Branch independente:** `feature/v0.9.2-ingame-complete-operations`, baseada no último commit da v0.9.1, sem modificar a `main` homologada.

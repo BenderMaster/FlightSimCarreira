@@ -186,6 +186,32 @@ with tempfile.TemporaryDirectory() as temp:
             assert not page.locator('.left-column').is_visible()
             assert page.locator('[data-market-view="regional"]').get_attribute('aria-pressed')=='true'
             assert page.locator('#market-list .market-option').count()>0
+            # The same MSFS facility metadata must be visible on desktop,
+            # including distinguishing an unknown response from "no ILS".
+            facility_view=page.evaluate("""() => {
+              const original=state;
+              const icao=state.offers.find(x=>!x.freelance).destination;
+              state={...state,airport_services:{[icao]:{
+                icao:icao,source:'MSFS2020_SIMCONNECT_FACILITY',
+                ils:true,papi:false,runway_end_lights:true,
+                approach_lights:null,fuel_spot:true}}};
+              renderMarketView(state,true);
+              const seen=document.querySelector('#market-list .airport-facility-pills').innerText;
+              document.getElementById('market-facility-filter').value='ils';
+              renderMarketView(state,true);
+              const yes=document.querySelectorAll('#market-list .market-option').length;
+              document.getElementById('market-facility-filter').value='papi';
+              renderMarketView(state,true);
+              const no=document.querySelectorAll('#market-list .market-option').length;
+              document.getElementById('market-facility-filter').value='all';
+              state=original;renderMarketView(state,true);
+              return {seen,yes,no};
+            }""")
+            assert 'ILS: Sim' in facility_view['seen'],facility_view
+            assert 'PAPI: Não' in facility_view['seen'],facility_view
+            assert 'Não verificado' in facility_view['seen'],facility_view
+            assert facility_view['yes']>0 and facility_view['no']==0,facility_view
+            page.screenshot(path=str(OUTPUT/'desktop-v093-airport-services.png'),full_page=True)
             page.locator('#market-list .market-option').first.click()
             assert page.locator('#details').is_visible()
             assert page.locator('#details-content').is_visible()

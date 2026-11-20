@@ -5,8 +5,10 @@ import sqlite3
 import tempfile
 import unittest
 from aerocarreira.contracts import (AirportCatalog, TYPE_BY_CODE, EMPLOYER_FLEET,
-    pilot_level, next_level_xp, eligibility, generate_offers, matches_aircraft, aircraft_family)
-from aerocarreira.domain import Airport, AIRPORTS, Career, FlightTracker, FlightSample, Mission, Phase
+    FREELANCER_FLEET, pilot_level, next_level_xp, eligibility, generate_offers,
+    matches_aircraft, aircraft_family)
+from aerocarreira.finance import AIRCRAFT_ECONOMY, market_reward
+from aerocarreira.domain import Airport, AIRPORTS, Career, FlightTracker, FlightSample, Mission, Phase, distance_nm
 from aerocarreira.storage import Storage
 from aerocarreira.sim_adapter import SampleReader
 
@@ -64,6 +66,28 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(offers,self.generated())
         self.assertTrue(any(m.freelance and m.employer_plane=='c152' for m in offers))
         self.assertTrue(all(m.category=='cargo' for m in offers))
+
+    def test_private_market_offers_apply_ten_percent_discount(self):
+        stats={'xp':0,'level':1,'hours':0,'reputation':50}
+        offers=generate_offers(self.origin,self.catalog,stats,{'PPA'},{},21490)
+        self.assertTrue(any(not m.freelance for m in offers))
+        self.assertTrue(any(m.freelance for m in offers))
+        for mission in offers:
+            destination=self.catalog.locations[mission.destination]
+            distance=distance_nm(self.origin.latitude,self.origin.longitude,
+                                 destination.latitude,destination.longitude)
+            kind=TYPE_BY_CODE[mission.category]
+            if mission.freelance:
+                plane=next(p for p in FREELANCER_FLEET if p.code==mission.employer_plane)
+                multiplier=1+kind.min_level*.09
+                original=market_reward(distance,multiplier,freelance=True,
+                    cruise_kts=AIRCRAFT_ECONOMY[plane.code].cruise_kts,
+                    level=stats['level'],reputation=stats['reputation'])
+            else:
+                original=market_reward(distance,kind.pay_factor,
+                    level=stats['level'],reputation=stats['reputation'])
+            expected=int((original*.90+5)//10*10)
+            self.assertEqual(mission.reward,expected)
 
     def test_freelance_expertise_and_model_guards(self):
         m=Mission('FREE','SIPE','SIFC','',150,category='cargo',freelance=True,employer_plane='c172')

@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 from aerocarreira.ingame_bridge import LocalPanelServer, PanelState
 from aerocarreira.app import Application
 from aerocarreira.domain import Phase
+from aerocarreira.turnaround import TurnaroundGate
 
 
 class CommandBridgeTests(unittest.TestCase):
@@ -120,7 +121,11 @@ class ApplicationCommandTests(unittest.TestCase):
         self.app.sim=Mock()
         self.app.tracker=SimpleNamespace(phase=None)
         self.app.last_sample=SimpleNamespace(on_ground=True,timestamp=time(),
-            aircraft_title='Cessna 152',total_weight_lbs=None,max_gross_weight_lbs=None)
+            aircraft_title='Cessna 152',total_weight_lbs=None,max_gross_weight_lbs=None,
+            on_any_runway=False,atc_on_parking_spot=True,
+            plane_in_parking_state=True,parking_brake_set=True,
+            groundspeed_estimated=False,groundspeed_kt=0.0)
+        self.app.turnaround=TurnaroundGate()
         self.app.dashboard=Mock()
         self.app.storage=Mock()
         self.app.career=SimpleNamespace(mission=None,balance=10000)

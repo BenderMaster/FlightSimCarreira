@@ -911,3 +911,14 @@
 /* Waypoints sempre visíveis: painel rola verticalmente, nunca esmaga a lista. */
 .flightops-waypoints{flex:0 0 auto;min-height:2em}
 .flightops-plan-row,.flightops-waypoint-hint{flex-shrink:0}
+
+/* MSFS 2020 source-verified destination facilities, shared with InGame tablet */
+.airport-service-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 14px;color:#9fcede;font-size:12px}
+.airport-service-toolbar select{min-height:36px;background:#071a2a;border:1px solid #3f687b;border-radius:7px;padding:7px 10px;color:#c7eaf5;min-width:170px}
+.airport-service-help{font-size:11px;color:#819da9}
+.airport-facility-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;max-width:100%}
+.airport-facility-pill{font-size:11px;padding:3px 6px;border-radius:5px;border:1px solid #385367;background:#092335;color:#adbdc8;white-space:nowrap}
+.airport-facility-pill.confirmed{color:#72ddb7;border-color:#3a796c;background:#073533}
+.airport-facility-pill.absent{color:#b9c5d1}
+.airport-facility-pill.unverified{color:#849da9;border-style:dashed}
+.airport-service-error{color:#e8be89!important}

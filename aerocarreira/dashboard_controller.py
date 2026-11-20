@@ -445,7 +445,12 @@ class DashboardController:
             app._prepare_active_plan(automatic=True)
             app._queue_payload_load()
             app._checkpoint(force=True)
-        elif action=='refresh':self.presenter.refresh_market(True)
+        elif action=='refresh':
+            app.airport_details.clear()
+            app.airport_details_requested.clear()
+            app.airport_detail_started.clear()
+            app.airport_details_next=0.0
+            self.presenter.refresh_market(True)
         elif action=='history':self.show_text('Diário de bordo',app.history_text.get('1.0','end'))
         elif action=='reports':self.show_text('Análise e relatórios','Módulo de análise avançada em desenvolvimento.\n\nREGISTRO DA SESSÃO\n\n'+app.log_text.get('1.0','end'))
         elif action=='offer':

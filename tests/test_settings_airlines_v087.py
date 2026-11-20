@@ -98,7 +98,7 @@ class AirlineTypeTests(unittest.TestCase):
 
     def test_salary_hierarchy(self):
         self.assertEqual(airline_operations.BASE_SALARY,
-            {'nordeste':9000,'azul':30000,'gol':23000,'latam':17000})
+            {'nordeste':36000,'azul':120000,'gol':92000,'latam':68000})
         self.assertEqual(airline_operations.rate('azul',50,50)[0] >
                          airline_operations.rate('gol',50,50)[0],True)
         self.assertGreater(airline_operations.rate('gol',50,50)[0],

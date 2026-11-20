@@ -1,10 +1,11 @@
-# FlightSim v0.9.2 InGame Alpha.1 — operações completas no tablet
+# FlightSim v0.9.3 InGame Alpha.4 — FacilityData e operações no MSFS
 
-Branch de homologação `feature/v0.9.2-ingame-complete-operations`, derivada da v0.9.1 Alpha.1,
-com Planejamento, Hangar/Frota, Companhias, Piloto/Carreira, Logbook e Finanças.
-O motor Windows/SQLite/SimConnect permanece o único responsável por pagamentos e estado do voo.
-**A main continua na v0.8.7 aprovada.**
-Documentação de build e teste: [FlightSim InGame v0.9.2](docs/INGAME_V092_OPERATIONS.md).
+Branch de teste `feature/v0.9.3-airport-services-gate-turnaround-map`, derivada da
+`main` v0.9.2 homologada. Inclui instalações aeroportuárias do MSFS, mapas,
+contratos portão-a-portão, rebalanceamento da remuneração das companhias e seleção da DLL SimConnect compatível com FacilityData.
+**A main permanece na v0.9.2 aprovada; esta branch continua em homologação.**
+[Escopo e roteiro de teste da v0.9.3](docs/INGAME_V093_AIRPORT_TURNAROUND.md) •
+[Rebalanceamento econômico Alpha.3](docs/ECONOMY_REBALANCE_V093.md) • [Correção FacilityData Alpha.4](docs/SIMCONNECT_FACILITY_DLL_ALPHA4.md).
 
 ---
 
