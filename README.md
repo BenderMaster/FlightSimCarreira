@@ -1,11 +1,11 @@
-# FlightSim v0.9.3 InGame Alpha.3 — economia e operações no MSFS
+# FlightSim v0.9.3 InGame Alpha.4 — FacilityData e operações no MSFS
 
 Branch de teste `feature/v0.9.3-airport-services-gate-turnaround-map`, derivada da
 `main` v0.9.2 homologada. Inclui instalações aeroportuárias do MSFS, mapas,
-contratos portão-a-portão e rebalanceamento da remuneração das companhias.
+contratos portão-a-portão, rebalanceamento da remuneração das companhias e seleção da DLL SimConnect compatível com FacilityData.
 **A main permanece na v0.9.2 aprovada; esta branch continua em homologação.**
 [Escopo e roteiro de teste da v0.9.3](docs/INGAME_V093_AIRPORT_TURNAROUND.md) •
-[Rebalanceamento econômico Alpha.3](docs/ECONOMY_REBALANCE_V093.md).
+[Rebalanceamento econômico Alpha.3](docs/ECONOMY_REBALANCE_V093.md) • [Correção FacilityData Alpha.4](docs/SIMCONNECT_FACILITY_DLL_ALPHA4.md).
 
 ---
 
