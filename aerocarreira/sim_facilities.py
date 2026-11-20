@@ -274,24 +274,33 @@ def connection_class():
 
         def my_dispatch_proc(self,pData,cbData,pContext):
             kind=pData.contents.dwID
-            if kind in (detail.DATA_ID,detail.DATA_END_ID):
+            if kind in (detail.DATA_IDS | detail.DATA_END_IDS):
+                collector=None
+                rid=None
                 try:
                     size=int(pData.contents.dwSize)
                     if not (16<=size<=detail.MAX_PACKET and size<=int(cbData)):
-                        raise ValueError('Pacote de instalações grande ou incompleto.')
+                        raise ValueError(
+                            f'Pacote de instalações grande ou incompleto: '
+                            f'dwID={kind}, dwSize={size}, cbData={int(cbData)}.')
                     raw=ctypes.string_at(pData,size)
                     rid=struct.unpack_from('<I',raw,12)[0]
                     collector=self._detail_requests.get(rid)
                     if not collector:
                         return super().my_dispatch_proc(pData,cbData,pContext)
-                    if kind==detail.DATA_ID:
+                    message_type=detail.classify_facility_message(kind,size)
+                    if message_type=='data':
                         collector.feed(raw,rid)
-                    else:
+                    elif message_type=='end':
                         detail.parse_facility_end(raw,rid)
                         self._detail_requests.pop(rid,None)
                         self.detail_callbacks[0](collector.icao,collector.finish())
+                    else:
+                        raise ValueError(
+                            f'Formato de resposta de instalações não reconhecido: '
+                            f'dwID={kind}, dwSize={size}, cbData={int(cbData)}.')
                 except (ValueError,TypeError,struct.error,ctypes.ArgumentError) as exc:
-                    if 'collector' in locals() and collector is not None:
+                    if collector is not None:
                         self._detail_requests.pop(rid,None)
                         self.detail_callbacks[1](collector.icao,str(exc))
                 return
