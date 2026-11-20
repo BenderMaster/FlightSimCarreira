@@ -1,7 +1,15 @@
-# FlightSim v0.9.3 InGame Alpha.2 — aeroportos, mapa e turnaround
+# FlightSim v0.9.3 InGame Alpha.4 — aeroportos, mapa e turnaround
 
 **Base:** main v0.9.2 homologada; branch \`feature/v0.9.3-airport-services-gate-turnaround-map\`.  
 **Estado:** build de testes, não aprovada nem mesclada. Nunca copiar fonte SDK como se fosse pacote compilado.
+
+## Correção Alpha.4 — DLL SimConnect e FacilityData
+
+A mensagem `SimConnect_AddToFacilityDefinition not found` não significa que o aeroporto não possua ILS/PAPI/luzes. Ela indica que a DLL cliente carregada não exporta a função. O pacote Python-SimConnect inclui uma DLL própria; APIs FacilityData foram adicionadas ao SimConnect do MSFS 2020 na versão 0.19.0.
+
+A conexão agora seleciona, antes de abrir o handle, uma DLL compatível do SDK Core. Ordem: `FLIGHTSIM_SIMCONNECT_DLL` (caminho completo), `SIMCONNECT_DLL`, `MSFS_SDK\SimConnect SDK\lib\SimConnect.dll`, `MSFS2020_SDK\SimConnect SDK\lib\SimConnect.dll` e caminhos padrão `C:\\MSFS SDK` / `C:\\MSFS 2020 SDK`. A DLL precisa exportar tanto `SimConnect_AddToFacilityDefinition` quanto `SimConnect_RequestFacilityData`.
+
+Importante: o FlightSim usa a DLL selecionada para abrir a conexão e para todas as chamadas subsequentes; não mistura handles entre versões diferentes. Se não encontrar uma DLL compatível, o log agora orienta a instalar/atualizar o SDK Core pelo Developer Mode → Help → SDK Installer (Core), ou configurar `FLIGHTSIM_SIMCONNECT_DLL`. O mercado mantém os campos como “Não verificado” até receber dados reais do MSFS.
 
 ## Recursos implementados
 
