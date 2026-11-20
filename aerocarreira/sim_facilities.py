@@ -46,7 +46,7 @@ def resolve_facility_simconnect_dll(environ=None, is_file=None, library_loader=N
         value = env.get(key)
         if value:
             roots.append(Path(value).expanduser())
-    roots.extend((Path(r"C:\\MSFS SDK"), Path(r"C:\\MSFS 2020 SDK")))
+    roots.extend((Path("C:/MSFS SDK"), Path("C:/MSFS 2020 SDK")))
     for root in roots:
         candidates.append(root / "SimConnect SDK" / "lib" / "SimConnect.dll")
         candidates.append(root / "lib" / "SimConnect.dll")
